@@ -11,7 +11,7 @@
  * @license   EUPL-1.2
  * @link      https://github.com/ConductionNL/hermiq
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
  */
 
 declare(strict_types=1);
@@ -46,7 +46,7 @@ use Throwable;
  * An `expired` handoff runs no turn: it posts one system note in the
  * conversation, so the user is not left waiting.
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
  */
 class HandoffDelivery {
 
@@ -81,7 +81,7 @@ class HandoffDelivery {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -101,7 +101,7 @@ class HandoffDelivery {
 	 *                (missing, still waiting, or a research run), or the gate that kept the result
 	 *                (`skipped_agent_off`, `skipped_killswitch`, `skipped_budget`).
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
 	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-the-report-is-saved-in-the-users-files-and-marked-as-agent-authored-req-research-004
 	 */
 	public function deliver(string $handoffId): string {
@@ -158,7 +158,7 @@ class HandoffDelivery {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
 	 */
 	public function prompt(array $handoff): string {
 		$label   = (string) ($handoff['label'] ?? '');
@@ -181,7 +181,7 @@ class HandoffDelivery {
 	 *
 	 * @return string `noted_expired`, or `failed` when the note could not be stored.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	private function noteExpiry(array $handoff): string {
 		$conversationId = (string) ($handoff['conversationId'] ?? '');
@@ -306,7 +306,7 @@ class HandoffDelivery {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
 	 */
 	private function handoff(string $handoffId): array {
 		if ($handoffId === '') {

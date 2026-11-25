@@ -176,7 +176,7 @@ export function sampleArguments(inputs, samples) {
  *
  * @param {object} form The editable form.
  * @return {object}
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
  */
 export function integriqTargetFrom(form) {
 	const target = {

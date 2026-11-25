@@ -11,7 +11,7 @@
  * @license   EUPL-1.2
  * @link      https://github.com/ConductionNL/hermiq
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use Throwable;
  * OpenRegister has no such event, no handoff is opened and the model is told
  * the result will not come back; the flow still runs.
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
  */
 class FlowHandoffs {
 
@@ -83,7 +83,7 @@ class FlowHandoffs {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
 	 */
 	public function __construct(
 		private readonly HandoffService $handoffs,
@@ -107,7 +107,7 @@ class FlowHandoffs {
 	 *
 	 * @return mixed The result, with `handoff` and `note` when it was a queued run.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
 	 */
 	public function afterRunFlow(array $arguments, mixed $result, FlowTurn $turn): mixed {
 		$runUuid = self::runUuidOf(result: $result);
@@ -151,7 +151,7 @@ class FlowHandoffs {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
 	 */
 	private static function runUuidOf(mixed $result): string {
 		if (is_array($result) === false) {
@@ -172,7 +172,7 @@ class FlowHandoffs {
 	 *
 	 * @return bool True when this call closed a handoff.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
 	 */
 	public function closeForRun(string $runUuid, string $status): bool {
 		$handoffId = $this->handoffs->waitingFor(kind: 'flow', externalRef: $runUuid);
@@ -213,7 +213,7 @@ class FlowHandoffs {
 	 *
 	 * @return bool True when the stop is not in the log yet.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
 	 */
 	private static function stopIsUnsettled(array $run): bool {
 		if ($run === [] || is_array($run['log'] ?? null) === false) {

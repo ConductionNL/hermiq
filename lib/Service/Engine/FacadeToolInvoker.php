@@ -949,7 +949,7 @@ class FacadeToolInvoker {
 	 *                              custom tool also the run's agent and conversation.
 	 *
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-an-agent-queued-flow-run-names-the-acting-owner
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
 	 * helper or named constructor) with no state to inject.
@@ -1606,8 +1606,8 @@ class FacadeToolInvoker {
 	 *
 	 * @return mixed The result, with `handoff` and `note` when a handoff was opened.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
 	 */
 	private function withHandoff(string $name, array $arguments, array $envelope): mixed {
 		if ($this->handoffs === null || ($envelope['isError'] ?? false) === true) {

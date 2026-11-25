@@ -1673,7 +1673,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-asking-a-remote-agent-is-a-default-denied-external-tool-req-a2a-002
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-asking-a-remote-agent-is-a-default-denied-external-tool-req-a2a-002
 	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
 	private function askRemoteAgent(string $remoteAgent, string $task): array {

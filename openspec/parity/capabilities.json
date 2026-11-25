@@ -7649,9 +7649,9 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "openspec/app-config.json:6 states the architectural goal that hermiq 'delegates ... heavy visual workflows to n8n' (ADR-001), but grep -rin 'n8n' across lib/Mcp, lib/Service/Engine and src/ found only one hit: src/widgets/AgentRunOperationsWidget.vue:221, which names n8n merely as an EXAMPLE external system that could call hermiq's INBOUND agent-webhook-trigger, not a tool or node an agent uses to hand work TO n8n. Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/flows-hand-off-and-wait",
-				"requirement": "openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs :: A webhook workflow returns its result to a one-time address (REQ-HANDOFF-004)"
+				"evidence": "openspec/app-config.json:6 states the architectural goal that hermiq 'delegates ... heavy visual workflows to n8n' (ADR-001), but grep -rin 'n8n' across lib/Mcp, lib/Service/Engine and src/ found only one hit: src/widgets/AgentRunOperationsWidget.vue:221, which names n8n merely as an EXAMPLE external system that could call hermiq's INBOUND agent-webhook-trigger, not a tool or node an agent uses to hand work TO n8n. Specified in openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/archive/2026-11-25-flows-hand-off-and-wait",
+				"requirement": "openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs :: A webhook workflow returns its result to a one-time address (REQ-HANDOFF-004)"
 			},
 			"reachedOn": "nothing",
 			"note": "The n8n delegation described in ADR-001/app-config.json is architectural intent, not implemented code; only the reverse direction (an outside system, for-instance n8n, triggering hermiq) exists.",
@@ -9204,11 +9204,11 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "searched 'a2a|agent2agent|remote.?agent|peer' in lib/Service/DelegationService.php and lib/Mcp at 5277c0d: delegation targets only agents in the same organisation on this instance (DelegationService.php:6-12 same-organisation check); OutsideAgentController is inbound only Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/flows-hand-off-and-wait",
+				"evidence": "searched 'a2a|agent2agent|remote.?agent|peer' in lib/Service/DelegationService.php and lib/Mcp at 5277c0d: delegation targets only agents in the same organisation on this instance (DelegationService.php:6-12 same-organisation check); OutsideAgentController is inbound only Specified in openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/archive/2026-11-25-flows-hand-off-and-wait",
 				"requirement": [
-					"openspec/changes/flows-hand-off-and-wait/specs/remote-agents :: An admin registers a remote agent through an integriq source (REQ-A2A-001)",
-					"openspec/changes/flows-hand-off-and-wait/specs/remote-agents :: A remote task travels through integriq and may finish later (REQ-A2A-003)"
+					"openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents :: An admin registers a remote agent through an integriq source (REQ-A2A-001)",
+					"openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents :: A remote task travels through integriq and may finish later (REQ-A2A-003)"
 				]
 			},
 			"feature": "multi-agent",
@@ -10927,11 +10927,11 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/manifest.json:1271 Flows page authors OpenRegister flows; lib/Flow/HermiqFlowNodeListener.php:74-75 registers hermiq.workload-step and its collect node; lib/Flow/HermiqWorkloadCollectNode.php:3-20 an async step starts a minutes-long stage, the flow suspends on openregister.wait and collects the result on a later pass via lib/Service/AsyncStageDispatchService.php:44 Specified in openspec/changes/flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/flows-hand-off-and-wait",
+				"evidence": "src/manifest.json:1271 Flows page authors OpenRegister flows; lib/Flow/HermiqFlowNodeListener.php:74-75 registers hermiq.workload-step and its collect node; lib/Flow/HermiqWorkloadCollectNode.php:3-20 an async step starts a minutes-long stage, the flow suspends on openregister.wait and collects the result on a later pass via lib/Service/AsyncStageDispatchService.php:44 Specified in openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/archive/2026-11-25-flows-hand-off-and-wait",
 				"requirement": [
-					"openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs :: A flow started by an agent closes its handoff when the flow run ends (REQ-HANDOFF-003)",
-					"openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs :: A finished handoff returns its result as a new turn in the same conversation (REQ-HANDOFF-002)"
+					"openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs :: A flow started by an agent closes its handoff when the flow run ends (REQ-HANDOFF-003)",
+					"openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs :: A finished handoff returns its result as a new turn in the same conversation (REQ-HANDOFF-002)"
 				]
 			},
 			"feature": "flows",

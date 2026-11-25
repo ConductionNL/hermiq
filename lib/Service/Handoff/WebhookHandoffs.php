@@ -11,7 +11,7 @@
  * @license   EUPL-1.2
  * @link      https://github.com/ConductionNL/hermiq
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
  */
 
 declare(strict_types=1);
@@ -31,7 +31,7 @@ use OCP\IURLGenerator;
  * calls the workflow's host itself. A result is accepted once, with that
  * token, while the handoff is waiting; everything else is refused the same way.
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
  */
 class WebhookHandoffs {
 
@@ -53,7 +53,7 @@ class WebhookHandoffs {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	public function __construct(
 		private readonly HandoffService $handoffs,
@@ -71,7 +71,7 @@ class WebhookHandoffs {
 	 *
 	 * @return array{handoffId: string, hermiqResultUrl: string, hermiqResultToken: string}
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	public function open(FlowTurn $turn, string $label, string $target, ?int $deadlineHours = null): array {
 		$token   = bin2hex(random_bytes(self::TOKEN_BYTES));
@@ -105,7 +105,7 @@ class WebhookHandoffs {
 	 *
 	 * @return bool True when this call closed the handoff.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	public function abandon(string $handoffId, string $reason): bool {
 		return $this->handoffs->close(handoffId: $handoffId, status: 'failed', result: ['error' => $reason]);
@@ -120,7 +120,7 @@ class WebhookHandoffs {
 	 *
 	 * @return bool True when the result closed the handoff; false for every refusal alike.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	public function acceptResult(string $handoffId, string $token, mixed $result): bool {
 		if ($token === '') {
@@ -143,7 +143,7 @@ class WebhookHandoffs {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	private static function waitsWithToken(array $handoff, string $token): bool {
 		if (($handoff['kind'] ?? null) !== 'webhook' || ($handoff['status'] ?? null) !== HandoffService::WAITING) {

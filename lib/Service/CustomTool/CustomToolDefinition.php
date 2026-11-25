@@ -271,7 +271,7 @@ final class CustomToolDefinition {
 	 *
 	 * @throws InvalidArgumentException When it is incomplete.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	private static function integriqTarget(array $raw): array {
 		$source = self::text(payload: $raw, field: 'source');
@@ -312,7 +312,7 @@ final class CustomToolDefinition {
 	 *
 	 * @throws InvalidArgumentException When a waiting tool uses a method without a body.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	private static function callback(array $raw, string $method): array {
 		if (($raw['waitForCallback'] ?? false) !== true) {
