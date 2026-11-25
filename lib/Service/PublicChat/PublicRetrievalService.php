@@ -74,13 +74,19 @@ class PublicRetrievalService {
 	private const URL_FIELDS = ['url', 'link', 'href'];
 
 	/**
+	 * Splits a visitor's question into search words; holds no state.
+	 *
+	 * @var QuestionTerms
+	 */
+	private readonly QuestionTerms $terms;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService       $objectService OpenRegister objects, read as anonymous only.
 	 * @param IURLGenerator       $urls          Builds a source's link when it carries none.
 	 * @param LoggerInterface     $logger        Records why nothing was read.
 	 * @param ScopeSchemas|null   $scopeSchemas  Lists a register's schemas for a whole-register scope.
-	 * @param QuestionTerms       $terms         Splits a question into search words.
 	 *
 	 * @return void
 	 *
@@ -91,8 +97,8 @@ class PublicRetrievalService {
 		private readonly IURLGenerator $urls,
 		private readonly LoggerInterface $logger,
 		private readonly ?ScopeSchemas $scopeSchemas=null,
-		private readonly QuestionTerms $terms=new QuestionTerms(),
 	) {
+		$this->terms = new QuestionTerms();
 	}//end __construct()
 
 	/**
