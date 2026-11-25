@@ -681,7 +681,7 @@ class MemoryServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
 	 */
 	public function testAnEntryMatchesWhenEveryWordOfTheQueryIsInIt(): void {
 		$text = 'De sleutelkast van project Alpha heeft code KIWI-7731.';

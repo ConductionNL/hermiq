@@ -951,7 +951,7 @@ class FacadeToolInvokerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function testTheProjectKeyIsInjectedForMemoryTools(): void {
 		$facade = $this->createMock(ToolRegistryFacade::class);
@@ -976,7 +976,7 @@ class FacadeToolInvokerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function testAModelSuppliedProjectKeyIsNeverTrusted(): void {
 		$seen = [];
@@ -1003,7 +1003,7 @@ class FacadeToolInvokerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function testTheProjectKeyIsNotInjectedForOtherTools(): void {
 		$facade = $this->createMock(ToolRegistryFacade::class);

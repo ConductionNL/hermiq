@@ -1829,7 +1829,7 @@ export default {
 		 * The readable name of the active session's project, or '' outside one.
 		 *
 		 * @return {string}
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		sessionProjectName() {
 			return projectNameOf(this.activeSession?.projectKey || '', this.sessionProjects)
@@ -2567,7 +2567,7 @@ export default {
 		 *
 		 * @param {object} session The session.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		async loadSessionProjects(session) {
 			this.sessionProjects = []
@@ -2586,7 +2586,7 @@ export default {
 		 *
 		 * @param {string} agentUuid The agent.
 		 * @return {Promise<Array<object>>}
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		async projectsOf(agentUuid) {
 			try {
@@ -2601,7 +2601,7 @@ export default {
 		 *
 		 * @param {{projectKey?: string, projectName?: string}|null} project The project, or null for none.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		async onProjectChosen(project) {
 			const picker = this.projectPicker
@@ -2619,7 +2619,7 @@ export default {
 		 * @param {object} agent The agent to start with.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		async startWithAgent(agent) {
 			const agentUuid = agent.uuid || agent.id
@@ -2644,7 +2644,7 @@ export default {
 		 * @param {Array<object>} projects The agent's known projects, for the header.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		async startSession(agent, project, projects) {
 			const agentUuid = agent.uuid || agent.id

@@ -104,7 +104,7 @@ class MemoryController extends Controller {
 	 * @NoCSRFRequired
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	public function memory(string $agentId): JSONResponse {
 		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
@@ -255,8 +255,8 @@ class MemoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	public function projects(string $agentId): JSONResponse {
 		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
@@ -285,7 +285,7 @@ class MemoryController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	public function moveEntry(string $agentId, string $entryId): JSONResponse {
 		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);
@@ -321,7 +321,7 @@ class MemoryController extends Controller {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	private function namesAnUnknownProject(string $agentId, array $keys): bool {
 		$known = array_column($this->memoryService->listProjects(agentId: $agentId), 'projectKey');
@@ -341,7 +341,7 @@ class MemoryController extends Controller {
 	 *
 	 * @return JSONResponse
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	private function entryResponse(?ObjectEntity $memory): JSONResponse {
 		if ($memory === null) {
@@ -356,7 +356,7 @@ class MemoryController extends Controller {
 	 *
 	 * @return JSONResponse
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	private static function projectNotFound(): JSONResponse {
 		return new JSONResponse(['error' => 'Project not found'], Http::STATUS_NOT_FOUND);
@@ -371,7 +371,7 @@ class MemoryController extends Controller {
 	 *
 	 * @return string|false|null
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	private function requestedProject(string $agentId): string|false|null {
 		$key = trim((string)$this->request->getParam('project', ''));

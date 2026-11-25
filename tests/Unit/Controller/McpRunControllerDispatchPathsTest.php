@@ -501,7 +501,7 @@ final class McpRunControllerDispatchPathsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function testTheTokensProjectKeyReachesTheInvoker(): void {
 		$this->toolLoop->expects(self::once())
@@ -517,7 +517,7 @@ final class McpRunControllerDispatchPathsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function testATokenWithoutAProjectBuildsNoProjectKey(): void {
 		$this->toolLoop->expects(self::once())

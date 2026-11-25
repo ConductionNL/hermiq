@@ -387,7 +387,7 @@ export default {
 		/**
 		 * Reload the entries when the shown layer (shared or a project) changes.
 		 *
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 		 */
 		project() {
 			this.load()
@@ -539,7 +539,7 @@ export default {
 		 * shared memory, so those calls stay exactly as they were.
 		 *
 		 * @return {Array<string>} `[]` or `[project]`.
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 		 */
 		layerArgs() {
 			return this.project ? [this.project] : []
@@ -552,7 +552,7 @@ export default {
 		 * @param {object} entry The entry to move.
 		 * @param {string} to The target project key, or '' for the shared memory.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 		 */
 		async moveEntry(entry, to) {
 			if (!entry?.id || !this.agentId || (to || '') === this.project) {
