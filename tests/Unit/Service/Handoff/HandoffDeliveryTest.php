@@ -288,7 +288,7 @@ class HandoffDeliveryTest extends TestCase {
 		$this->assertSame('skipped', $this->delivery->deliver(handoffId: 'h-2'));
 		$this->assertSame('skipped', $this->delivery->deliver(handoffId: ''));
 		// Deleted after its result job was queued (seen live: the job failed with "not found").
-		$this->assertSame('skipped', $this->delivery->deliver(handoffId: 'deleted'));
+		$this->assertSame(expected: 'skipped', actual: $this->delivery->deliver(handoffId: 'deleted'));
 	}//end testAMissingOrWaitingHandoffIsSkipped()
 
 	/**

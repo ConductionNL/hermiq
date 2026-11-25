@@ -208,7 +208,7 @@ class FlowHandoffsTest extends TestCase {
 			->with('h-1', 'done', ['items' => [['json' => ['uitkomst' => 'vergunning verleend']]]])
 			->willReturn(true);
 
-		$this->assertTrue($this->flows()->closeForRun(runUuid: 'run-42', status: 'stopped'));
+		$this->assertTrue(condition: $this->flows()->closeForRun(runUuid: 'run-42', status: 'stopped'));
 	}//end testARunThatEndedAtAnEndStepClosesAsDone()
 
 	/**
@@ -230,7 +230,7 @@ class FlowHandoffsTest extends TestCase {
 		]);
 		$this->handoffs->expects($this->never())->method('close');
 
-		$this->assertFalse($this->flows()->closeForRun(runUuid: 'run-42', status: 'stopped'));
+		$this->assertFalse(condition: $this->flows()->closeForRun(runUuid: 'run-42', status: 'stopped'));
 	}//end testAStopNotYetInTheLogKeepsTheHandoffWaiting()
 
 	/**
@@ -253,7 +253,7 @@ class FlowHandoffsTest extends TestCase {
 			->with('h-1', 'failed', ['status' => 'stopped', 'outcome' => 'stopped'])
 			->willReturn(true);
 
-		$this->assertTrue($this->flows()->closeForRun(runUuid: 'run-42', status: 'stopped'));
+		$this->assertTrue(condition: $this->flows()->closeForRun(runUuid: 'run-42', status: 'stopped'));
 	}//end testAnOversightStopClosesAsFailed()
 
 	/**
