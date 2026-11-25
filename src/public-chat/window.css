@@ -1,11 +1,18 @@
 /* SPDX-License-Identifier: EUPL-1.2 */
 /* The public chat window: Nextcloud's CSS variables only, so the instance's theme and contrast apply. */
+/* It fills the viewport, which is the website's iframe, itself: the base layout's content
+   area starts below the header and clips, so with `min-height: 100vh` the question field's
+   Send button sat below the frame where no visitor could reach it (seen live, 25 Nov 2026).
+   Only the message log scrolls. */
 .hermiq-public-chat {
+	position: fixed;
+	inset: 0;
+	z-index: 1;
 	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
-	min-height: 100vh;
+	overflow: hidden;
 	padding: 12px;
 	background: var(--color-main-background);
 	color: var(--color-main-text);
@@ -27,6 +34,7 @@
 
 .hermiq-public-chat__log {
 	flex: 1;
+	min-height: 0;
 	margin: 0;
 	padding: 0;
 	overflow-y: auto;

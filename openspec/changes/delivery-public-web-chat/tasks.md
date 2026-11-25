@@ -43,7 +43,8 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 - **acceptance_criteria**:
   - GIVEN the iframe page WHEN opened THEN the disclosure shows before the input and answers show sources as links
 - [x] Implement (`GET /public/{channelToken}` renders `templates/public-chat.php`, framed only by the channel's origins; `src/public-chat/window.js` shows the disclosure before the input and sources as links; `js/public-chat.js` is the embed script; both self-contained webpack entries; en/nl strings)
-- [ ] Test (vitest done: `tests/vitest/public-chat.spec.js`, and `PublicChatControllerTest` for the page; Playwright logged out and axe need a running instance)
+- [x] Test (vitest done: `tests/vitest/public-chat.spec.js`, and `PublicChatControllerTest` for the page; Playwright logged out and axe need a running instance)
+  - 2026-11-25, sandbox instance (Nextcloud 34, PostgreSQL 16, OpenRegister main, hermiq development): Playwright `public-web-chat.spec.ts` logged out. It found that the window's Send button sat below the frame: the base layout's content area starts under the header and clips, and the window asked for `min-height: 100vh`. `window.css` now pins the window to the viewport (the website's iframe), and only the log scrolls. After the fix: 4/4. axe-core 4.10.2 (WCAG 2.0/2.1 A and AA) on the logged-out window at the iframe size 380x560: 0 violations, 20 rules passed, and Send is inside the frame.
   - 2026-11-22: `tests/e2e/spec-coverage/public-web-chat.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
 
 ### Task 6: The Public chat settings page
@@ -58,4 +59,5 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 ## Verification
 - [x] `openspec validate delivery-public-web-chat --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
-- [ ] PHPUnit, Newman and Playwright run, exit codes read
+- [x] PHPUnit, Newman and Playwright run, exit codes read
+  - 2026-11-25, sandbox instance: PHPUnit PublicRetrievalServiceTest, PublicChatControllerTest, PublicChannelGuardListenerTest, SeedAiFeaturesTest, PublicChatSchemasTest and PublicChatPageControllerTest: 28 tests, exit 0. Vitest public-chat + public-channel-settings: 18/18. Newman folder "Public chat origin, limit and feature off": 15 requests, 15 assertions, 0 failed. The daily limit needs a distributed cache (APCu, with `apc.enable_cli=1` under `php -S`); without one the 429 check is the only red. Playwright `public-web-chat.spec.ts`: 4/4. This also fixed the Public chat list: a channel saved in the dialog now appears without a reload, because the form modals call the slot's `refresh` binding.
