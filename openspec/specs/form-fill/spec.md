@@ -2,6 +2,8 @@
 
 ## Purpose
 Hermiq turns pasted text into proposed values for a form's fields, for forms that offer smart paste (buildiq's handler over nextcloud-vue's `form-smart-paste` renderer). Hermiq is the only side that talks to a model; the feature stays off until an administrator acknowledges it, and every proposal is fitted to the allowed fields. Created by archiving change `forms-smart-paste-fill` (2026-11-24).
+
+The consumer side is buildiq `ai-smart-paste-into-forms`: REQ-BQSP-003 there (the authored behaviour fixed for the renderer: signed-in users only, the pasted text and the allowed fields only, fill only empty visible allowed fields, values marked as suggestions, never submitted on its own) is what this feature serves, and its D4 request and response shape is the one under REQ-FFILL-002. Hand-over: `openspec/changes/archive/2026-11-24-forms-smart-paste-fill/handover-buildiq.md`.
 ## Requirements
 ### Requirement: Form fill is off until an admin acknowledges it (REQ-FFILL-001)
 
