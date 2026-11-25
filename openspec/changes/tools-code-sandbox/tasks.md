@@ -13,8 +13,9 @@ Kind: code. Size L. Rows `hermiq:tl-code-exec`, `hermiq:fl-code-step`, `hermiq:d
   - GIVEN any run WHEN it ends THEN its work directory is gone
 - [x] Implement
   - `exapp/code-sandbox/`: `POST /run` behind the AppAPI shared secret, a fresh work directory per run in the `/work` tmpfs removed afterwards, a separate runner uid, `prlimit` caps (address space for Python, heap for Node, 64 processes, 10 MB files), the process group killed at the wall time, 64 KB per output stream, no server environment passed on; Dockerfile with pinned numpy/pandas/python-dateutil, `deploy/docker-compose.yml` with only an internal network, no volumes, read-only root and dropped capabilities.
-- [ ] Test (the ExApp's own test suite, including the network and limit cases)
+- [x] Test (the ExApp's own test suite, including the network and limit cases)
   - `npm test` in exapp/code-sandbox: 20 pass (run, server, deploy posture). The network case runs only inside the container (`SANDBOX_IN_CONTAINER=1`), and the per-run process cap only binds the non-root runner uid; both wait on a run of the suite in the built image.
+  - 2026-11-25: the suite run in the built image with the compose posture (README, Tests): 63 pass, 0 fail, 0 skipped, the network case included. That run found two faults, both fixed here: a folder the program made stayed behind after the run (the server uid cannot unlink inside a runner-owned folder; `removeRunDir()` now deletes as the runner uid first), and `/layers` was mounted noexec, because Docker mounts a tmpfs noexec unless `exec` is given, so no installed tool could start (`exec` added in `deploy/docker-compose.yml`, asserted by the posture test). New test: `a folder the program made and closed is gone after the run` (fails without the fix).
 
 ### Task 2: Dispatch and the backend choice
 - **spec_ref**: `openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-the-admin-chooses-where-code-runs-req-sandbox-004`

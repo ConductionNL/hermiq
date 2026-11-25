@@ -53,8 +53,25 @@ npm test
 The network case and the per-run process cap hold only inside the container.
 The process cap applies to the non-root runner uid, not to a root test run. The
 network test runs where `SANDBOX_IN_CONTAINER=1`, which the image sets, so run
-the suite in the image as well:
+the suite in the image as well, with the posture of `deploy/docker-compose.yml`
+(no network, read-only root, the three tmpfs mounts, only SETUID and SETGID) and
+as the server's own uid, so the runner uid and the limits bind as in production:
 
 ```bash
-docker run --rm --network none ghcr.io/conductionnl/hermiq-code-sandbox:latest npm test
+docker run --rm --network none --read-only \
+  --cap-drop ALL --cap-add SETUID --cap-add SETGID --security-opt no-new-privileges:true \
+  --pids-limit 256 --memory 3g \
+  --tmpfs /work:rw,noexec,nosuid,nodev,size=256m,mode=0711,uid=10000,gid=10000 \
+  --tmpfs /tmp:rw,noexec,nosuid,nodev,size=16m \
+  --tmpfs /layers:rw,exec,nosuid,nodev,size=1g,mode=0755,uid=10000,gid=10000 \
+  -v "$PWD":/app:ro \
+  ghcr.io/conductionnl/hermiq-code-sandbox:latest \
+  setpriv --reuid=sandbox --regid=sandbox --init-groups \
+    --inh-caps=-all,+setuid,+setgid --ambient-caps=+setuid,+setgid -- \
+    node --test test/*.test.js
 ```
+
+The source is mounted read-only over `/app` so the deploy posture test can read
+`deploy/`, which the image does not carry. In the image, the run and
+installed-tool tests use the real `/work` and `/layers` tmpfs, because `/tmp` is
+noexec there.

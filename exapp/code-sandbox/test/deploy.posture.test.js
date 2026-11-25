@@ -132,7 +132,9 @@ test('the image runs each program as the separate runner uid', () => {
 
 test('installed tool layers sit in their own tmpfs the runner can run from but not write', () => {
 	const sandbox = service('hermiq-code-sandbox')
-	assert.match(sandbox, /- \/layers:rw,nosuid,nodev,size=\d+[mg],mode=0755,uid=10000,gid=10000/)
+	// `exec` spelled out: Docker mounts a tmpfs noexec unless told otherwise,
+	// and an installed binary runs from this one.
+	assert.match(sandbox, /- \/layers:rw,exec,nosuid,nodev,size=\d+[mg],mode=0755,uid=10000,gid=10000/)
 	assert.match(sandbox, /SANDBOX_LAYER_ROOT: \/layers/)
 	const dockerfile = fs.readFileSync(path.join(__dirname, '..', 'Dockerfile'), 'utf8')
 	assert.match(dockerfile, /SANDBOX_LAYER_ROOT=\/layers/)

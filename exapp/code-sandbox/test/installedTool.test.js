@@ -15,7 +15,11 @@ const path = require('path')
 const os = require('os')
 const fs = require('fs')
 
-const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'installed-tool-test-'))
+// In the image, layers live on the real layer tmpfs: /tmp is noexec there, as
+// in production, and an installed binary runs from the layer root.
+const base = process.env.SANDBOX_IN_CONTAINER === '1' && process.env.SANDBOX_LAYER_ROOT ? process.env.SANDBOX_LAYER_ROOT : os.tmpdir()
+const scratch = fs.mkdtempSync(path.join(base, 'installed-tool-test-'))
+fs.chmodSync(scratch, 0o755)
 process.env.SANDBOX_LAYER_ROOT = path.join(scratch, 'layers')
 process.env.SANDBOX_WORK_ROOT = path.join(scratch, 'work')
 fs.mkdirSync(process.env.SANDBOX_WORK_ROOT)

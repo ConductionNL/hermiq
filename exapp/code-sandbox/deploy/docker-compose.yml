@@ -33,8 +33,9 @@ services:
       - /tmp:rw,noexec,nosuid,nodev,size=16m
       # Installed tool layers (tools-agent-workspace-and-installed-tools D5):
       # unpacked by the server, readable and runnable by the runner, never
-      # writable by it. Not noexec, because an installed binary runs from here.
-      - /layers:rw,nosuid,nodev,size=1g,mode=0755,uid=10000,gid=10000
+      # writable by it. Not noexec, because an installed binary runs from here:
+      # `exec` is spelled out, since Docker mounts a tmpfs noexec by default.
+      - /layers:rw,exec,nosuid,nodev,size=1g,mode=0755,uid=10000,gid=10000
     environment:
       APP_ID: hermiq-code-sandbox
       APP_PORT: "9000"
