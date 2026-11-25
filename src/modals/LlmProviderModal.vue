@@ -585,14 +585,14 @@ export default {
 		/**
 		 * The declared context window of the current model, as the field shows it.
 		 *
-		 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+		 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
 		 */
 		contextWindow: {
 			/**
 			 * The window, or '' when none is declared.
 			 *
 			 * @return {number|string} The window.
-			 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+			 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
 			 */
 			get() {
 				return this.modelContextWindows[this.capabilityKey] ?? ''
@@ -602,7 +602,7 @@ export default {
 			 * Declare the window for the current model; anything but a positive whole number clears it.
 			 *
 			 * @param {number|string} value The field's value.
-			 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+			 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
 			 */
 			set(value) {
 				if (this.capabilityKey === '') {

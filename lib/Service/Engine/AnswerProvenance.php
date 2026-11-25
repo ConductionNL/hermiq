@@ -25,7 +25,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-how-an-answer-came-about/tasks.md#task-1-the-provenance-record-on-both-transports
+ * @spec openspec/changes/archive/2026-11-25-chat-how-an-answer-came-about/tasks.md#task-1-the-provenance-record-on-both-transports
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ namespace OCA\Hermiq\Service\Engine;
 /**
  * The provenance record of one answer.
  *
- * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+ * @spec openspec/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
  */
 final class AnswerProvenance {
 
@@ -56,7 +56,7 @@ final class AnswerProvenance {
 	 *     sources: list<array{id: string, type: string, name: string}>,
 	 *     steps: list<array<string, mixed>>}
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-every-answer-records-how-it-came-about-req-atrn-001
 	 */
 	public function build(?RunTraceCollector $trace, array $sources): array {
 		return [

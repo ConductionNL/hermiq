@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-how-an-answer-came-about/tasks.md#task-2-how-this-answer-came-about-on-the-chat-page
+ * @spec openspec/changes/archive/2026-11-25-chat-how-an-answer-came-about/tasks.md#task-2-how-this-answer-came-about-on-the-chat-page
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ use OCP\IL10N;
 /**
  * Plain-language sentences from a provenance record.
  *
- * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-can-read-how-an-answer-came-about-in-plain-language-req-atrn-002
+ * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-can-read-how-an-answer-came-about-in-plain-language-req-atrn-002
  */
 class AnswerProvenanceWriter implements AnswerProvenanceWriterInterface {
 
@@ -63,7 +63,7 @@ class AnswerProvenanceWriter implements AnswerProvenanceWriterInterface {
 	 *
 	 * @return list<string> The sentences.
 	 *
-	 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#scenario-a-legal-aid-worker-checks-what-an-answer-rests-on
+	 * @spec openspec/specs/answer-transparency/spec.md#scenario-a-legal-aid-worker-checks-what-an-answer-rests-on
 	 */
 	public function sentences(mixed $record): array {
 		if (is_array($record) === false) {

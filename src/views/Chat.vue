@@ -1566,7 +1566,7 @@ export default {
 		 * The context readout of the open session, or null without a usage record.
 		 *
 		 * @return {{text: string, warning: string}|null}
-		 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+		 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
 		 */
 		contextReadout() {
 			const uuid = this.activeSession?.uuid || this.activeSession?.id
@@ -3016,7 +3016,7 @@ export default {
 		 * @param {string} uuid The session UUID.
 		 * @param {object|null|undefined} usage The usage from the `final` frame or the send response.
 		 * @return {void}
-		 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+		 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
 		 */
 		rememberContextUsage(uuid, usage) {
 			if (!uuid || !usage) {

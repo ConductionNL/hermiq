@@ -1145,7 +1145,7 @@ export default {
 		 * default provider is not refused here, since that provider is not known.
 		 *
 		 * @return {boolean}
-		 * @spec openspec/changes/chat-how-an-answer-came-about/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
+		 * @spec openspec/specs/answer-transparency/spec.md#requirement-the-models-reasoning-is-shown-only-when-the-owner-allows-it-and-the-provider-returns-it-req-atrn-003
 		 */
 		reasoningAvailable() {
 			return !this.form.provider || providerReturnsReasoning(this.form.provider)
