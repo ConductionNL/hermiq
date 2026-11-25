@@ -187,6 +187,76 @@ class FlowHandoffsTest extends TestCase {
 	}//end testAFailedRunClosesAsFailed()
 
 	/**
+	 * A run that ended at an End step is stored as `stopped`; OpenRegister reads
+	 * it as `completed`, and so does the handoff: done, with the run's items.
+	 *
+	 * @return void
+	 */
+	public function testARunThatEndedAtAnEndStepClosesAsDone(): void {
+		$this->handoffs->method('waitingFor')->willReturn('h-1');
+		$this->tools->method('invokeTool')->willReturn([
+			'result' => [
+				'found' => true,
+				'status' => 'stopped',
+				'outcome' => 'completed',
+				'items' => [['json' => ['uitkomst' => 'vergunning verleend']]],
+				'log' => [['transition' => 'e1', 'type' => 'openregister.end', 'status' => 'stopped']],
+			],
+			'isError' => false,
+		]);
+		$this->handoffs->expects($this->once())->method('close')
+			->with('h-1', 'done', ['items' => [['json' => ['uitkomst' => 'vergunning verleend']]]])
+			->willReturn(true);
+
+		$this->assertTrue($this->flows()->closeForRun(runUuid: 'run-42', status: 'stopped'));
+	}//end testARunThatEndedAtAnEndStepClosesAsDone()
+
+	/**
+	 * The first terminal event of an End step comes before its log entry is
+	 * saved: the handoff keeps waiting for the event that settles it.
+	 *
+	 * @return void
+	 */
+	public function testAStopNotYetInTheLogKeepsTheHandoffWaiting(): void {
+		$this->handoffs->method('waitingFor')->willReturn('h-1');
+		$this->tools->method('invokeTool')->willReturn([
+			'result' => [
+				'found' => true,
+				'status' => 'stopped',
+				'outcome' => 'stopped',
+				'log' => [['transition' => 'w1', 'type' => 'openregister.wait', 'status' => 'completed']],
+			],
+			'isError' => false,
+		]);
+		$this->handoffs->expects($this->never())->method('close');
+
+		$this->assertFalse($this->flows()->closeForRun(runUuid: 'run-42', status: 'stopped'));
+	}//end testAStopNotYetInTheLogKeepsTheHandoffWaiting()
+
+	/**
+	 * An oversight check that stopped the run is not a clean end: failed.
+	 *
+	 * @return void
+	 */
+	public function testAnOversightStopClosesAsFailed(): void {
+		$this->handoffs->method('waitingFor')->willReturn('h-1');
+		$this->tools->method('invokeTool')->willReturn([
+			'result' => [
+				'found' => true,
+				'status' => 'stopped',
+				'outcome' => 'stopped',
+				'log' => [['transition' => 'c1', 'status' => 'stopped', 'checkId' => 'four-eyes']],
+			],
+			'isError' => false,
+		]);
+		$this->handoffs->expects($this->once())->method('close')
+			->with('h-1', 'failed', ['status' => 'stopped', 'outcome' => 'stopped'])
+			->willReturn(true);
+
+		$this->assertTrue($this->flows()->closeForRun(runUuid: 'run-42', status: 'stopped'));
+	}//end testAnOversightStopClosesAsFailed()
+
+	/**
 	 * A run no agent waits for closes nothing.
 	 *
 	 * @return void
