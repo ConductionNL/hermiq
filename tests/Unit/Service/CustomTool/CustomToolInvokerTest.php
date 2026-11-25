@@ -36,6 +36,13 @@ final class CustomToolInvokerTest extends TestCase {
 	/** @var list<array{toolId: string, arguments: array<string, mixed>}> */
 	private array $facadeCalls = [];
 
+	/**
+	 * What OpenRegister's tool facade answers a runFlow call.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private array $facadeAnswer = ['result' => ['runUuid' => 'run-1', 'queued' => true], 'isError' => false];
+
 	/** @var list<array<string, mixed>> */
 	private array $sourceCalls = [];
 
@@ -123,7 +130,7 @@ final class CustomToolInvokerTest extends TestCase {
 		$facade->method('invokeTool')->willReturnCallback(
 			function (string $toolId, array $arguments): array {
 				$this->facadeCalls[] = ['toolId' => $toolId, 'arguments' => $arguments];
-				return ['result' => ['runUuid' => 'run-1', 'queued' => true], 'isError' => false];
+				return $this->facadeAnswer;
 			}
 		);
 
@@ -242,6 +249,33 @@ final class CustomToolInvokerTest extends TestCase {
 		$this->assertSame('owner_unresolved', $answer['error']['code']);
 		$this->assertSame([], $this->facadeCalls);
 	}//end testAFlowTargetWithoutAnOwnerIsRefused()
+
+	/**
+	 * A flow OpenRegister refuses to run is a failed call, not a result: the facade
+	 * reports the flow's own refusal inside an envelope that is not itself an error.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 */
+	public function testAFlowOpenRegisterRefusesIsAFailedCall(): void {
+		$this->tool = CustomToolDefinition::normalise(payload: CustomToolDefinitionTest::vergunningcheck());
+		$this->facadeAnswer = [
+			'result' => ['isError' => true, 'error' => 'internal_error', 'message' => 'This flow has no published version, so it cannot back a run.'],
+			'isError' => false,
+		];
+
+		$answer = $this->invoker()->invoke(
+			toolId: 'hermiq.custom_vergunningcheck',
+			arguments: ['adres' => 'Markt 3', 'activiteit' => 'terras', 'triggeredBy' => 'behandelaar']
+		);
+
+		$this->assertSame(
+			['code' => 'tool_failed', 'message' => 'The flow could not be run: This flow has no published version, so it cannot back a run.'],
+			$answer['error']
+		);
+		$this->assertArrayNotHasKey('result', $answer);
+	}//end testAFlowOpenRegisterRefusesIsAFailedCall()
 
 	/**
 	 * Wrong input is refused, naming the field, before any call.
