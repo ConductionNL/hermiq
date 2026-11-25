@@ -4,7 +4,9 @@
 
 - [x] Build the `companion` bundle and confirm `js/hermiq-companion.js` is produced
   - `npm run build` on development (2026-11-20) emits `js/hermiq-companion.js` (100,805 bytes) and the async `js/hermiq-companion-panel.js`.
-- [ ] Load an office editor page and confirm exactly one companion is present
+- [x] Load an office editor page and confirm exactly one companion is present
+  - 2026-11-25, sandbox instance (Nextcloud 34, PostgreSQL 16, OpenRegister main 03495635, hermiq development, richdocuments stable34 with Collabora CODE 26.04.6.2): `Welcome to Nextcloud Hub.docx` opened in Nextcloud Office from Files (`/apps/files/files/22?openfile=true`, the editor in the core Viewer). Exactly one `cn-ai-companion` on the page and none inside the editor's three frames; no console error from the companion.
+  - Found and fixed in the same PR: the Viewer (`#viewer`, z-index 9998) covered the companion's root (2001), so the button was present but could not be clicked (the editor frame took the click). `keepAboveTheViewer()` in `src/companion.js` raises the companion's own root to 10000 while `#viewer` is in the document and drops it back to 2001 when it closes, so other modals still win; no suite is named. Re-run live: the button opens the panel over the editor, with the "About this document" chip (file id 22). Vitest: `companion-mount.spec.js` (15/15).
 - [x] Confirm a Hermiq page still has exactly one, not two
   - 2026-11-24: `tests/e2e/spec-coverage/companion-everywhere.spec.ts`: on a Hermiq page exactly one `cn-ai-companion` and no global container; on the Files page exactly one, in its own container appended to body, with no console error. Written, runs in nightly (UNBLOCK rule 3); not run here, no instance.
 

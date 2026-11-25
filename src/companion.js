@@ -18,7 +18,7 @@
  * Deliberately NOT mounted on Hermiq's own pages: `CnAppRoot` already renders a
  * companion there, and two would fight over the same corner of the screen.
  *
- * @spec openspec/changes/companion-everywhere/specs/companion-everywhere/spec.md
+ * @spec openspec/specs/companion-everywhere/spec.md
  */
 
 // The CnAiCompanion import below is DEEP, not
@@ -208,6 +208,50 @@ function currentAppId() {
 }
 
 /**
+ * The z-index of the companion's own container while Nextcloud's Viewer is open.
+ *
+ * @type {string}
+ */
+const ABOVE_VIEWER = '10000'
+
+/**
+ * The z-index of the companion's own container otherwise: above the header (2000),
+ * below every genuine modal.
+ *
+ * @type {string}
+ */
+const ABOVE_HEADER = '2001'
+
+/**
+ * Keep the companion reachable while Nextcloud's Viewer is open.
+ *
+ * An office editor opened from Files (and an image, PDF or text file) is shown
+ * in the core Viewer, `#viewer`, a full-screen modal at z-index 9998. At the
+ * root's usual 2001 the Viewer covered the button completely: measured live on a
+ * document open in Nextcloud Office, the companion was mounted once and
+ * `elementFromPoint` at its button returned the editor frame. While `#viewer`
+ * is in the document the root rises above it; when the Viewer closes it drops
+ * back, so any other modal still wins over the assistant.
+ *
+ * The Viewer is core, not an office suite, so this names no suite (ADR-087 §5).
+ * Only the root's own style is written; the host page is observed, never changed.
+ *
+ * @param {HTMLElement} root The companion's own container.
+ * @return {MutationObserver} The observer, so a caller could disconnect it.
+ * @spec openspec/specs/companion-everywhere/spec.md#scenario-the-companion-appears-on-a-third-party-office-editor-page
+ */
+export function keepAboveTheViewer(root) {
+	const place = () => {
+		root.style.zIndex = document.getElementById('viewer') !== null ? ABOVE_VIEWER : ABOVE_HEADER
+	}
+	place()
+	const observer = new MutationObserver(place)
+	observer.observe(document.body, { childList: true })
+
+	return observer
+}
+
+/**
  * Mount the companion into its own container appended to the body.
  *
  * A dedicated container rather than an existing element: the host page belongs to
@@ -272,9 +316,10 @@ async function mount() {
 	// 2001, not something larger: a genuine modal (Nextcloud uses far higher)
 	// must still win over an assistant panel.
 	root.style.position = 'relative'
-	root.style.zIndex = '2001'
+	root.style.zIndex = ABOVE_HEADER
 
 	document.body.appendChild(root)
+	keepAboveTheViewer(root)
 
 	const fileId = openFileId()
 

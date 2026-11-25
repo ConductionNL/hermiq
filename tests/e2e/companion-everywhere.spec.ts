@@ -17,7 +17,7 @@
  * SPDX-License-Identifier: EUPL-1.2
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  *
- * @spec openspec/changes/companion-everywhere/specs/companion-everywhere/spec.md
+ * @spec openspec/specs/companion-everywhere/spec.md
  */
 
 import type { Page } from '@playwright/test'

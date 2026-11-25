@@ -240,4 +240,35 @@ describe('companion init script', () => {
 		})
 		expect(document.querySelectorAll('#hermiq-companion-stylesheet')).toHaveLength(1)
 	})
+
+	// companion-everywhere: an office editor opened from Files is shown in the core
+	// Viewer (#viewer, z-index 9998), which covered the companion at 2001.
+	it('rises above the Viewer while it is open and drops back when it closes', async () => {
+		await loadOn('/apps/files/files/22?dir=/Documents&openfile=true')
+		await renderedProps()
+		const root = document.getElementById('hermiq-companion-root')
+		expect(root.style.zIndex).toBe('2001')
+
+		const viewer = document.createElement('div')
+		viewer.id = 'viewer'
+		document.body.appendChild(viewer)
+		await vi.waitFor(() => expect(root.style.zIndex).toBe('10000'))
+		expect(Number(root.style.zIndex)).toBeGreaterThan(9998)
+
+		viewer.remove()
+		await vi.waitFor(() => expect(root.style.zIndex).toBe('2001'))
+	})
+
+	it('starts above a Viewer that is already open when it mounts', async () => {
+		const viewer = document.createElement('div')
+		viewer.id = 'viewer'
+		document.body.appendChild(viewer)
+
+		await loadOn('/apps/files/files/22?dir=/Documents&openfile=true')
+		const props = await renderedProps()
+
+		expect(document.getElementById('hermiq-companion-root').style.zIndex).toBe('10000')
+		expect(props.context.fileId).toBe(22)
+		expect(viewer.childElementCount).toBe(0)
+	})
 })

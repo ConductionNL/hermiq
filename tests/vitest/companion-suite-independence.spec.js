@@ -6,7 +6,7 @@
  * (ADR-087 §5): no capability may come to depend on a named suite. The names
  * may appear in comments that explain the design, never in the code itself.
  *
- * @spec openspec/changes/companion-everywhere/specs/companion-everywhere/spec.md
+ * @spec openspec/specs/companion-everywhere/spec.md
  */
 
 import { readFileSync } from 'node:fs'
