@@ -614,7 +614,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return bool True when the call is held.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	private function holdsMessage(string $name): bool {
 		if ($this->holdOutput === false) {
@@ -639,7 +639,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return string JSON-encoded outcome for the follow-up LLM turn.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	private function holdMessageDraft(string $name, array $arguments): string {
 		$call = new ToolCall(toolId: $this->resolveToolId(name: $name), arguments: $arguments);
@@ -664,7 +664,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return list<string> The editable argument names.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	private function editableArguments(string $name): array {
 		$editable = $this->descriptorFor(name: $name)['editable'] ?? DraftRelease::DEFAULT_EDITABLE;
@@ -682,7 +682,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return ConfirmRefusal The outcome.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	private static function heldDraft(string $approvalId): ConfirmRefusal {
 		$held = new ConfirmRefusal(

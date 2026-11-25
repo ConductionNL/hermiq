@@ -3624,8 +3624,8 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return DeliveryResult|null The no-delivery outcome, or null to deliver as usual.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 *
 	 * @SuppressWarnings(PHPMD.ElseExpression) the two branches build one value from two sources; an early
 	 * return would duplicate what follows.
@@ -3659,7 +3659,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return bool True when the output is held.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) OutputHold is a pure check over the schedule and agent; it holds
 	 * no state to inject.
@@ -3680,7 +3680,7 @@ class ScheduleService implements ScheduleServiceInterface {
 	 *
 	 * @return DeliveryResult The no-delivery outcome with its warning.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	private function holdFailed(ObjectEntity $schedule, Throwable $error): DeliveryResult {
 		$this->logger->warning(

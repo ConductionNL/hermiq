@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
  */
 
 declare(strict_types=1);
@@ -64,7 +64,7 @@ final class DraftRelease {
 	 * The draft's kind: `delivery` or `tool`.
 	 *
 	 * @return string The kind.
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	public function kind(): string {
 		if ((string)($this->draft['kind'] ?? '') === self::KIND_TOOL) {
@@ -86,7 +86,7 @@ final class DraftRelease {
 	 *
 	 * @throws DraftEditRefused When an edit changes a field that may not be edited, or is not text.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	public function released(array $edits): array {
 		if ($this->kind() === self::KIND_TOOL) {
@@ -113,7 +113,7 @@ final class DraftRelease {
 	 * The fields of a tool draft a reviewer may edit.
 	 *
 	 * @return list<string> The editable argument names.
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	public function editable(): array {
 		$raw = $this->draft['editable'] ?? self::DEFAULT_EDITABLE;
@@ -161,7 +161,7 @@ final class DraftRelease {
 	 *
 	 * @throws DraftEditRefused When a fixed argument is changed.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	private function releasedArguments(array $arguments, array $edits): array {
 		$editable = $this->editable();

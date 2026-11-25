@@ -107,7 +107,7 @@ class TurnGuard {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
 	 */
 	public function stop(string $reason): void {
 		$this->stopReason = $reason;

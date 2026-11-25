@@ -104,7 +104,7 @@ interface ApprovalServiceInterface {
 	 *
 	 * @throws \InvalidArgumentException When it is not a pending question or the answer is refused.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	public function answerQuestion(ObjectEntity $approval, string $deciderUid, string $answer): array;
 
@@ -120,7 +120,7 @@ interface ApprovalServiceInterface {
 	 * @throws \OCA\Hermiq\Service\Approval\DraftEditRefused When a field that may not be edited is changed.
 	 * @throws \InvalidArgumentException When it is not a pending draft.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
 	 */
 	public function releaseDraft(ObjectEntity $approval, string $deciderUid, array $edits = []): array;
 

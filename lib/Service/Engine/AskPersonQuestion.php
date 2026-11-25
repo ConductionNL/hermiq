@@ -15,7 +15,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
  */
 
 declare(strict_types=1);
@@ -28,7 +28,7 @@ use InvalidArgumentException;
  * A question of at most 500 characters, up to four suggested answers of at most
  * 80 characters each, and whether the person may answer in their own words.
  *
- * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
  */
 final class AskPersonQuestion {
 
@@ -69,7 +69,7 @@ final class AskPersonQuestion {
 	 *
 	 * @throws InvalidArgumentException With the rule the call broke.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
 	 */
 	public function __construct(array $arguments) {
 		$text = ($arguments['question'] ?? null);
@@ -91,7 +91,7 @@ final class AskPersonQuestion {
 	 *
 	 * @return array{text: string, options: list<string>, allowOther: bool}
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
 	 */
 	public function toArray(): array {
 		return ['text' => $this->text, 'options' => $this->options, 'allowOther' => $this->allowOther];
@@ -127,7 +127,7 @@ final class AskPersonQuestion {
 	 *
 	 * @throws InvalidArgumentException For an empty, too long or non-text answer.
 	 *
-	 * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
 	 */
 	private static function option(mixed $raw): string {
 		$option = '';

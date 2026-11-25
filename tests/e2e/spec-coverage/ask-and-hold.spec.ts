@@ -59,7 +59,7 @@
  *     PLAYWRIGHT_BASE_URL=<your rig> NC_USER=admin NC_PASS=admin \
  *       npx playwright test -c tests/e2e/spec-coverage/playwright.config.ts ask-and-hold
  *
- * Covers openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md
+ * Covers openspec/specs/human-approval-gate/spec.md
  */
 
 import type { Page, Request } from '@playwright/test'
@@ -225,6 +225,16 @@ async function openInbox(page: Page): Promise<void> {
 	await page.goto(`${await appRoot(page)}/approvals`, { waitUntil: 'domcontentloaded' })
 	await dismissTour(page)
 	await expect(page.locator('.approval-inbox__table')).toBeVisible({ timeout: 30_000 })
+	// On a fresh instance the setup wizard opens AFTER the inbox has rendered,
+	// once the app's own reads settle, and its modal then takes every click.
+	// Seen live (25 Nov): the first dismissTour ran before it existed. Give it a
+	// moment to appear (an instance already set up never shows it).
+	await page
+		.locator('[data-testid-modal="cn-wizard-dialog"]')
+		.first()
+		.waitFor({ state: 'visible', timeout: 3_000 })
+		.catch(() => undefined)
+	await dismissTour(page)
 }
 
 /**

@@ -6,7 +6,7 @@
  * the agent's text in an editor, "Release" sending it as written, "Edit and
  * release" sending only the changed fields, and "Discard" handing over.
  *
- * @spec openspec/changes/oversight-ask-and-hold/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+ * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
  */
 
 import { flushPromises, mount } from '@vue/test-utils'
