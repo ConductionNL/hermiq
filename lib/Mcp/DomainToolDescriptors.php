@@ -34,7 +34,12 @@ use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 /**
  * Descriptors of the domain tools.
  *
+ * Four reads only. There is no tool that starts an agent run: an agent able to
+ * run agents could re-enter itself and spend the organisation's budget, so a
+ * run by hand stays a human action on the Run now button (hermiq-mcp-adoption).
+ *
  * @spec openspec/changes/archive/2026-11-24-hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
+ * @spec openspec/specs/hermiq-domain-mcp-tools/spec.md#requirement-no-domain-tool-starts-an-agent-run
  */
 final class DomainToolDescriptors {
 
@@ -44,11 +49,9 @@ final class DomainToolDescriptors {
 
 	public const PENDING_APPROVALS = AppIdentity::APP_ID . '.listPendingApprovals';
 
-	public const RUN_AGENT_NOW = AppIdentity::APP_ID . '.runAgentNow';
-
 	public const SEARCH_SKILLS = AppIdentity::APP_ID . '.searchSkills';
 
-	public const IDS = [self::LIST_AGENTS, self::AGENT_STATUS, self::PENDING_APPROVALS, self::RUN_AGENT_NOW, self::SEARCH_SKILLS];
+	public const IDS = [self::LIST_AGENTS, self::AGENT_STATUS, self::PENDING_APPROVALS, self::SEARCH_SKILLS];
 
 	public const ALL = [
 		[
@@ -92,24 +95,6 @@ final class DomainToolDescriptors {
 			'description' => 'List the pending approvals the acting user is the reviewer of, as in the approval inbox.',
 			'inputSchema' => ['type' => 'object', 'properties' => [], 'required' => []],
 			...ReadOnlyToolHints::HINTS,
-		],
-		[
-			'id' => self::RUN_AGENT_NOW,
-			'subject' => 'schedule',
-			'action' => 'run',
-			'reach' => ToolReachResolver::REACH_USER,
-			'name' => 'Run agent now',
-			'description' => 'Run one of the acting user\'s own schedules now, as the Run now button does, and report the run status.',
-			'inputSchema' => [
-				'type' => 'object',
-				'properties' => ['scheduleId' => ['type' => 'string', 'description' => 'The schedule uuid.']],
-				'required' => ['scheduleId'],
-			],
-			// A run does whatever the agent's own tools do, so it is never read-only.
-			'readOnlyHint' => false,
-			'destructiveHint' => true,
-			'idempotentHint' => false,
-			'scope' => 'create',
 		],
 		[
 			'id' => self::SEARCH_SKILLS,

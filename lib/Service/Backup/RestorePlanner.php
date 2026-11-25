@@ -32,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
  */
 
 declare(strict_types=1);
@@ -52,7 +52,7 @@ use Throwable;
 /**
  * The plan of a restore: counts per schema, and the writes the restore makes.
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
  *
  * @SuppressWarnings(PHPMD.TooManyMethods) carried in with operations-backup-and-restore; splitting it is
  * follow-up work, not part of this merge.
@@ -109,7 +109,7 @@ class RestorePlanner {
 	 *
 	 * @throws \RuntimeException When the backup file cannot be read.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 */
 	public function preview(RestorePoint $point, BackupSettings $settings): array {
 		$plan = $this->plan(point: $point, settings: $settings);
@@ -137,7 +137,7 @@ class RestorePlanner {
 	 *
 	 * @throws \RuntimeException When the backup file cannot be read.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 */
 	public function plan(RestorePoint $point, BackupSettings $settings): array {
 		$descriptor = $this->writer->descriptor();
@@ -412,7 +412,7 @@ class RestorePlanner {
 	 * @return array<string, mixed>|string|null The content; `createdAfter` when it was created after
 	 *                                          the moment; null when its history does not reach it.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 */
 	public function stateAt(array $live, array $entries, ?DateTimeImmutable $at): array|string|null {
 		if ($at === null || $entries === []) {

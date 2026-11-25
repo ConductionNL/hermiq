@@ -32,8 +32,7 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Loads a schedule only for its owner. Moved out of `RunNowController` so the
- * run-now route and the `hermiq.runAgentNow` tool run the identical guard: a
+ * Loads a schedule only for its owner, for the run-now route: a
  * schedule that cannot be loaded, or that another user owns, is not the
  * caller's, and the caller cannot tell the two apart.
  *

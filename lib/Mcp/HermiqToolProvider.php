@@ -22,10 +22,11 @@
  * An agent turn reaches these tools through Hermiq's own engine (`Engine\FacadeToolInvoker`),
  * which applies the agent's grants before it dispatches here; each tool is also directly
  * invocable through OpenRegister's tool registry.
- * hermiq-domain-mcp-tools additionally registers five tools over Hermiq's own domain
- * objects (`DomainToolDescriptors`): listAgents, getAgentStatus, listPendingApprovals,
- * runAgentNow and searchSkills. They run in `Service\Mcp\DomainTools`, which delegates
- * to the read or trigger path each page already uses, under the same guard.
+ * hermiq-domain-mcp-tools additionally registers four read tools over Hermiq's own
+ * domain objects (`DomainToolDescriptors`): listAgents, getAgentStatus,
+ * listPendingApprovals and searchSkills. They run in `Service\Mcp\DomainTools`, which
+ * delegates to the read path each page already uses, under the same guard. No tool
+ * starts an agent run (hermiq-mcp-adoption).
  *
  * agent-tool-governance-and-disclosure additionally registers `hermiq.searchTools`
  * here (design.md §2) — Hermiq's progressive-disclosure meta-tool. It flows through

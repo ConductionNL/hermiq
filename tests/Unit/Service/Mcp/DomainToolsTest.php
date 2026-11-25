@@ -27,7 +27,6 @@ use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\Hermiq\Mcp\DomainToolDescriptors;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\Mcp\DomainTools;
-use OCA\Hermiq\Service\Mcp\RunNowTool;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -38,7 +37,6 @@ use RuntimeException;
 /**
  * @covers \OCA\Hermiq\Service\Mcp\DomainTools
  * @uses   \OCA\Hermiq\Service\Schedule\OwnedSchedule
- * @uses   \OCA\Hermiq\Service\Mcp\RunNowTool
  */
 final class DomainToolsTest extends TestCase {
 
@@ -71,7 +69,6 @@ final class DomainToolsTest extends TestCase {
 			$this->agents,
 			$this->approvals,
 			$this->skills,
-			new RunNowTool($this->schedules, $this->objects, $logger, $this->literacy),
 			$this->objects,
 			$logger
 		);
@@ -135,40 +132,34 @@ final class DomainToolsTest extends TestCase {
 		$this->assertSame(['results' => [$approval], 'total' => 1], $this->tools()->invoke('alice', DomainToolDescriptors::PENDING_APPROVALS, []));
 	}
 
-	public function testRunAgentNowRunsTheCallersOwnScheduleAndReportsTheStatus(): void {
-		$schedule = self::entity('s-1', 'alice', ['lastStatus' => 'ok', 'nextRun' => '2026-11-14T08:00:00+00:00']);
-		$this->objects->method('find')->willReturn($schedule);
-		$this->schedules->expects($this->once())->method('runNow')->with($this->identicalTo($schedule));
+	/**
+	 * No domain tool starts an agent run: the old id is an unknown tool and nothing runs.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/hermiq-domain-mcp-tools/spec.md#requirement-no-domain-tool-starts-an-agent-run
+	 */
+	public function testRunAgentNowIsAnUnknownToolAndRunsNothing(): void {
+		$this->objects->expects($this->never())->method('find');
 
-		$this->assertSame(
-			['scheduleId' => 's-1', 'status' => 'ok', 'error' => null, 'nextRun' => '2026-11-14T08:00:00+00:00'],
-			$this->tools()->invoke('alice', DomainToolDescriptors::RUN_AGENT_NOW, ['scheduleId' => 's-1'])
-		);
+		$this->assertNotContains(needle: 'hermiq.runAgentNow', haystack: DomainToolDescriptors::IDS);
+		$this->assertNotContains(needle: 'hermiq.runAgentNow', haystack: array_column(DomainToolDescriptors::ALL, 'id'));
+		$result = $this->tools()->invoke(uid: 'alice', toolId: 'hermiq.runAgentNow', arguments: ['scheduleId' => 's-1']);
+		$this->assertSame(expected: 'unknown_tool', actual: $result['error']['code']);
 	}
 
-	public function testASchedulOfSomebodyElseIsNotRunAndReadsAsNotFound(): void {
-		$this->objects->method('find')->willReturn(self::entity('s-1', 'bob'));
-		$this->schedules->expects($this->never())->method('runNow');
-
-		$this->assertSame(['error' => ['code' => 'not_found', 'message' => 'Schedule not found.']], $this->tools()->invoke('alice', DomainToolDescriptors::RUN_AGENT_NOW, ['scheduleId' => 's-1']));
-	}
-
-	public function testARunByHandStillNeedsTheCourseWhenTheOrganisationRequiresIt(): void {
-		$this->objects->method('find')->willReturn(self::entity('s-1', 'alice'));
-		$literacy = $this->createMock(LiteracyRequirementInterface::class);
-		$literacy->method('refusal')->with('alice')->willReturn(['message' => 'Finish the AI course first.', 'errorCode' => 'x', 'courseUrl' => '/c']);
-		$this->literacy = $literacy;
-		$this->schedules->expects($this->never())->method('runNow');
-
-		$this->assertSame(['error' => ['code' => 'literacy_required', 'message' => 'Finish the AI course first.']], $this->tools()->invoke('alice', DomainToolDescriptors::RUN_AGENT_NOW, ['scheduleId' => 's-1']));
-	}
-
-	public function testAFailingRunIsAnEnvelopeNotAThrow(): void {
-		$this->objects->method('find')->willReturn(self::entity('s-1', 'alice'));
-		$this->schedules->method('runNow')->willThrowException(new RuntimeException('engine down'));
-
-		$this->assertSame(['error' => ['code' => 'tool_failed', 'message' => 'The tool call failed.']], $this->tools()->invoke('alice', DomainToolDescriptors::RUN_AGENT_NOW, ['scheduleId' => 's-1']));
-		$this->assertSame('invalid_arguments', $this->tools()->invoke('alice', DomainToolDescriptors::RUN_AGENT_NOW, ['scheduleId' => ['x']])['error']['code']);
+	/**
+	 * Every domain tool that is left only reads.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/hermiq-domain-mcp-tools/spec.md#requirement-no-domain-tool-starts-an-agent-run
+	 */
+	public function testEveryDomainToolIsReadOnly(): void {
+		foreach (DomainToolDescriptors::ALL as $descriptor) {
+			$this->assertTrue(condition: $descriptor['readOnlyHint'], message: $descriptor['id']);
+			$this->assertSame(expected: 'read', actual: $descriptor['scope'], message: $descriptor['id']);
+		}
 	}
 
 	public function testSearchSkillsMatchesEveryWordInNameOrDescription(): void {

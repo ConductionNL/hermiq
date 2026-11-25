@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use Throwable;
 /**
  * A backup file or a moment in time, for one organisation.
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
  */
 final class RestorePoint {
 
@@ -77,7 +77,7 @@ final class RestorePoint {
 	 *
 	 * @throws InvalidArgumentException When a value is missing or not understood.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) BackupFiles::isBackupName() is a pure check of a file name, with
 	 * nothing to inject.
@@ -114,7 +114,7 @@ final class RestorePoint {
 	 *
 	 * @return self The point.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 */
 	public function withOrganisation(string $organisation): self {
 		return new self(kind: $this->kind, organisation: $organisation, file: $this->file, at: $this->at, removeCreatedAfter: $this->removeCreatedAfter);
@@ -125,7 +125,7 @@ final class RestorePoint {
 	 *
 	 * @return array<string, mixed> The values.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 */
 	public function toArray(): array {
 		return [

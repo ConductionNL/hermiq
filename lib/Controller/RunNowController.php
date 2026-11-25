@@ -217,7 +217,7 @@ class RunNowController extends Controller {
 	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-1-2
 	 */
 	private function loadOwnedSchedule(string $scheduleId, string $uid): ?ObjectEntity {
-		// The guard lives in OwnedSchedule so the `hermiq.runAgentNow` tool runs it too.
+		// The guard lives in OwnedSchedule.
 		return (new OwnedSchedule(objectService: $this->objectService, logger: $this->logger))
 			->load(scheduleId: $scheduleId, uid: $uid);
 	}//end loadOwnedSchedule()

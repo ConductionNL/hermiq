@@ -3,8 +3,8 @@
 /**
  * Hermiq DomainTools.
  *
- * Runs the five domain tools (hermiq-domain-mcp-tools) through the read and
- * trigger paths their pages already use, under the same guards.
+ * Runs the four domain tools (hermiq-domain-mcp-tools) through the read
+ * paths their pages already use, under the same guards.
  *
  * @category Service
  * @package  OCA\Hermiq\Service\Mcp
@@ -45,13 +45,15 @@ use Throwable;
  *   agent the caller may not see is `not_found`, as the page's 404.
  * - `getAgentStatus` lists only the caller's OWN schedules for the agent.
  * - `listPendingApprovals` is `ApprovalController::index()`: the caller as reviewer.
- * - `runAgentNow` is `RunNowTool`: the `OwnedSchedule` guard `RunNowController::run()`
- *   runs, then its course requirement, before `ScheduleServiceInterface::runNow()`.
  * - `searchSkills` filters `SkillServiceInterface::listSkills()`, the tenant read
  *   the skills page uses.
  *
+ * No branch starts an agent run (hermiq-mcp-adoption): `hermiq.runAgentNow`
+ * is an unknown tool.
+ *
  * `invoke()` never throws: a failure is the `{error: {code, message}}` envelope.
  *
+ * @spec openspec/specs/hermiq-domain-mcp-tools/spec.md#requirement-no-domain-tool-starts-an-agent-run
  * @spec openspec/changes/archive/2026-11-24-hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
  */
 class DomainTools {
@@ -69,7 +71,6 @@ class DomainTools {
 	 * @param AgentCatalogInterface             $agents      The agent read rule of the catalogue page.
 	 * @param ApprovalInbox                     $approvals   The approval inbox read.
 	 * @param SkillServiceInterface             $skills      The tenant's skill catalogue.
-	 * @param RunNowTool                        $runNow      Runs one of the caller's schedules now.
 	 * @param ObjectService                     $objects     Loads an agent and the caller's schedules for it.
 	 * @param LoggerInterface                   $logger      Logs a failed call.
 	 */
@@ -77,7 +78,6 @@ class DomainTools {
 		private readonly AgentCatalogInterface $agents,
 		private readonly ApprovalInbox $approvals,
 		private readonly SkillServiceInterface $skills,
-		private readonly RunNowTool $runNow,
 		private readonly ObjectService $objects,
 		private readonly LoggerInterface $logger,
 	) {
@@ -93,6 +93,7 @@ class DomainTools {
 	 * @return array<string, mixed> The result, or an error envelope.
 	 *
 	 * @spec openspec/changes/archive/2026-11-24-hermiq-domain-mcp-tools/specs/hermiq-domain-mcp-tools/spec.md
+	 * @spec openspec/specs/hermiq-domain-mcp-tools/spec.md#requirement-no-domain-tool-starts-an-agent-run
 	 */
 	public function invoke(string $uid, string $toolId, array $arguments): array {
 		try {
@@ -100,7 +101,6 @@ class DomainTools {
 				DomainToolDescriptors::LIST_AGENTS => $this->listAgents(uid: $uid, arguments: $arguments),
 				DomainToolDescriptors::AGENT_STATUS => $this->agentStatus(uid: $uid, agentId: self::text(arguments: $arguments, name: 'agentId')),
 				DomainToolDescriptors::PENDING_APPROVALS => $this->pendingApprovals(uid: $uid),
-				DomainToolDescriptors::RUN_AGENT_NOW => $this->runNow->run(uid: $uid, scheduleId: self::text(arguments: $arguments, name: 'scheduleId')),
 				DomainToolDescriptors::SEARCH_SKILLS => $this->searchSkills(query: self::text(arguments: $arguments, name: 'query')),
 				default => self::error(code: 'unknown_tool', message: "Unknown tool id '" . $toolId . "'."),
 			};

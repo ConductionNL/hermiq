@@ -76,7 +76,7 @@ export function backupPayload(form) {
  * The backups in the backup folder, newest first, each with its manifest.
  *
  * @return {Promise<Array<{name: string, manifest: object}>>} The backups.
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
  */
 export async function listBackups() {
 	const { data } = await axios.get(generateUrl('/apps/hermiq/api/backup/files'))
@@ -91,7 +91,7 @@ export async function listBackups() {
  *
  * @param {object} point The restore point, from `restorePoint()`.
  * @return {Promise<object>} The preview.
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
  */
 export async function previewRestore(point) {
 	try {
@@ -110,7 +110,7 @@ export async function previewRestore(point) {
  *
  * @param {object} point The restore point, from `restorePoint()`.
  * @return {Promise<object>} `{ queued: true, organisation, writes }`.
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
  */
 export async function startRestore(point) {
 	const { data } = await axios.post(generateUrl('/apps/hermiq/api/backup/restore'), point)
@@ -125,7 +125,7 @@ export async function startRestore(point) {
  *
  * @param {{kind: string, file: string, organisation: string, at: string, removeCreatedAfter: boolean}} form The form.
  * @return {object} The point.
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
  */
 export function restorePoint(form) {
 	const removeCreatedAfter = form.removeCreatedAfter === true
@@ -149,7 +149,7 @@ export function restorePoint(form) {
  *
  * @param {object|null} preview The preview.
  * @return {Array<{schema: string, putBack: number, changed: number, createdAfter: number, missing: number, noHistory: number, notRestorable: string[]}>} The rows.
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
  */
 export function previewRows(preview) {
 	const schemas = preview?.schemas || {}
@@ -175,7 +175,7 @@ export function previewRows(preview) {
  *
  * @param {Array<{manifest: object}>} backups The backups.
  * @return {string[]} The organisations, sorted, once each.
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
  */
 export function backupOrganisations(backups) {
 	const names = (backups || []).map((backup) => backup?.manifest?.organisation).filter((name) => typeof name === 'string' && name !== '')

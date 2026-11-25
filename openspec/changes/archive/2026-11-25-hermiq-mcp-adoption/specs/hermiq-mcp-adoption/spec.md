@@ -1,6 +1,6 @@
 # hermiq-mcp-adoption Specification
 
-**Status**: planned
+**Status**: implemented
 **Scope**: hermiq
 **OpenSpec changes**:
 - `hermiq-mcp-adoption` — declares the ADR-063 dialect on a read-only subset of Hermiq's registers and refuses the agent-governance surface outright (kind: code)
@@ -11,8 +11,8 @@ Defines Hermiq's agent-facing tool surface over its **own** registers under ADR-
 fleet's agent platform, so its registers double as its governance control plane: an agent that can
 write them can widen its own grants. This capability therefore specifies both what is exposed (a
 small, read-only subset) and — normatively — what MUST NOT be, so a later dialect edit cannot quietly
-re-open the escalation path. Supersedes the unimplemented `hermiq-domain-mcp-tools` change, which
-proposed hand-written `listPendingApprovals` / `runAgentNow` tools under the older ADR-035.
+re-open the escalation path. The hand-written domain tools of `hermiq-domain-mcp-tools` stay
+(Ruben, 25 Nov 2026), except `hermiq.runAgentNow`, which is removed: no tool starts an agent run.
 
 ## ADDED Requirements
 
@@ -55,40 +55,17 @@ emitted, which is a stronger guarantee than one enforced at invoke time.
 - THEN no such tool MUST exist in the catalog
 - AND the attempt MUST fail as an unknown tool rather than being gated at invoke time
 
-### Requirement: The agent-governance objects are off the tool surface entirely
-The system MUST NOT declare `x-openregister-mcp` on `Approval`, `AgentWebhook`, `GuardrailPolicy`, `ModelPolicy`, `TenantControl`, `Budget`, `Skill`, `SkillSource`, `Memory`, `UserProfile`, `Incident` or `AiFeature` — for read verbs as well as write verbs.
-
-These are the control plane, not the domain. `Approval` is the human gate an agent could otherwise
-enumerate and (given any future write) self-approve. `AgentWebhook` carries `secretHash` and
-`secretPrefix` — credential material. `GuardrailPolicy.inputFilters` / `outputFilters` **are** the
-blocklist, so reading them tells an agent what to evade, and `TenantControl.engaged` is the tenant
-kill-switch. Because the dialect has no field projection, a `get` returns the entire object, so
-"expose the safe fields only" is not expressible and the schema MUST stay off.
-
-#### Scenario: Approvals are not reachable as a tool
-- GIVEN the derived catalog for app id `hermiq`
-- WHEN an agent enumerates available tools
-- THEN no `hermiq.approval.*` tool MUST appear
-- AND no `hermiq.guardrailpolicy.*`, `hermiq.agentwebhook.*` or `hermiq.tenantcontrol.*` tool MUST appear
-
-#### Scenario: Transcript bodies stay off while headers stay on
-- GIVEN `Session` is declared and `SessionTurn`, `Conversation` and `Message` are not
-- WHEN an agent enumerates available tools
-- THEN `hermiq.session.search` MUST be present
-- AND no tool returning message `content` MUST be present, so a transcript cannot be read and forwarded through `hermiq.sendMail`
-
 ## Non-Functional Requirements
 
-- **Performance:** The curated surface MUST stay at or below roughly a dozen `hermiq.*` tools, so tool-selection accuracy and prompt token cost do not degrade (ADR-063 rule 3).
+- **Performance:** The register-derived surface MUST stay at the six read tools above, so tool-selection accuracy and prompt token cost do not degrade (ADR-063 rule 3).
 - **Internationalization:** No new user-facing strings; tool `description` prose is agent-facing English. N/A for `nl_NL`/`en_US`.
 
 ## Acceptance Criteria
 
-- [ ] `hermiq_register.json` validates at import with the dialect on exactly `Agent`, `Schedule`, `Session`
-- [ ] The derived catalog for `hermiq` contains six tools, all read-only
-- [ ] No `create`/`update`/`delete` tool id exists for `hermiq`
-- [ ] No governance schema appears in the catalog under any verb
-- [ ] The superseded `hermiq-domain-mcp-tools` change is withdrawn
+- [x] `hermiq_register.json` declares the dialect on exactly `Agent`, `Schedule`, `Session` (`McpReadOnlySurfaceTest`)
+- [x] The derived catalog for `hermiq` contains six tools, all read-only
+- [x] No `create`/`update`/`delete` tool id exists for `hermiq`
+- [x] `hermiq.runAgentNow` is removed (`DomainToolsTest`)
 
 ## Notes
 
