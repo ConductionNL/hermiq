@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-traces-carry-metadata-by-default-and-never-tool-arguments-or-results-req-trex-002
+ * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#requirement-traces-carry-metadata-by-default-and-never-tool-arguments-or-results-req-trex-002
  */
 
 declare(strict_types=1);
@@ -80,7 +80,7 @@ class TraceExporter {
 	 *
 	 * @return array<string, mixed> The trace record.
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-2-the-exporter
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-2-the-exporter
 	 */
 	public function fromRun(array $context, string $trigger, string $content, string $organisation = ''): array {
 		$start = $this->nanos(value: ($context['startedAt'] ?? null));
@@ -101,7 +101,7 @@ class TraceExporter {
 	 *
 	 * @return array<string, mixed> The trace record.
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-2-the-exporter
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-2-the-exporter
 	 */
 	public function fromChatTurn(array $turn, string $content, string $organisation = ''): array {
 		$attributes = [
@@ -307,7 +307,7 @@ class TraceExporter {
 	 *
 	 * @return array<string, mixed> The span.
 	 *
-	 * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-traces-carry-metadata-by-default-and-never-tool-arguments-or-results-req-trex-002
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#requirement-traces-carry-metadata-by-default-and-never-tool-arguments-or-results-req-trex-002
 	 */
 	private function stepSpan(array $step, array $root): array {
 		$start = $this->nanos(value: ($step['startedAt'] ?? null), fallback: $root['start']);
@@ -394,7 +394,7 @@ class TraceExporter {
 	 *
 	 * @return string The exportable text.
 	 *
-	 * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#scenario-redacted-text-hides-a-secret
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#scenario-redacted-text-hides-a-secret
 	 */
 	private function clean(string $text, string $organisation): string {
 		if ($text === '') {

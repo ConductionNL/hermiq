@@ -784,7 +784,7 @@ class Engine implements EngineInterface {
 	 *
 	 * @return array<string, mixed> The envelope, unchanged.
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
 	 */
 	private function exportTurn(array $turn, array $envelope, array $timings): array {
 		if ($this->traceExportQueue === null || ($turn['dryRun'] ?? false) === true) {
