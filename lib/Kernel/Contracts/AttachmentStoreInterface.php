@@ -51,7 +51,7 @@ interface AttachmentStoreInterface {
 	 * @throws AttachmentRefusedException For a refused type or a file over the cap; nothing is written.
 	 * @throws RuntimeException When the file could not be read or written.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
 	 */
 	public function store(string $uid, array $upload): array;
 }//end interface

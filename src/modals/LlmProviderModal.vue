@@ -536,7 +536,7 @@ export default {
 		 * The model id typed for the selected provider, trimmed.
 		 *
 		 * @return {string} The model id, or '' when none is set.
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 		 */
 		currentModel() {
 			const block = this.form[configKeyOf(this.providerValue)]
@@ -547,7 +547,7 @@ export default {
 		 * The `provider/model` key the capabilities are stored under.
 		 *
 		 * @return {string} The key, or '' when no model is set.
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 		 */
 		capabilityKey() {
 			return this.currentModel
@@ -558,14 +558,14 @@ export default {
 		/**
 		 * "Reads images" for the current model.
 		 *
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 		 */
 		readsImages: {
 			/**
 			 * Whether the current model is declared to read images.
 			 *
 			 * @return {boolean} True when declared.
-			 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+			 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 			 */
 			get() {
 				return this.hasCapability('image')
@@ -575,7 +575,7 @@ export default {
 			 * Declare or withdraw reading images for the current model.
 			 *
 			 * @param {boolean} value Ticked or not.
-			 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+			 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 			 */
 			set(value) {
 				this.setCapability('image', value)
@@ -619,14 +619,14 @@ export default {
 		/**
 		 * "Reads PDFs" for the current model.
 		 *
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 		 */
 		readsPdfs: {
 			/**
 			 * Whether the current model is declared to read PDFs.
 			 *
 			 * @return {boolean} True when declared.
-			 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+			 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 			 */
 			get() {
 				return this.hasCapability('pdf')
@@ -636,7 +636,7 @@ export default {
 			 * Declare or withdraw reading PDFs for the current model.
 			 *
 			 * @param {boolean} value Ticked or not.
-			 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+			 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 			 */
 			set(value) {
 				this.setCapability('pdf', value)
@@ -650,7 +650,7 @@ export default {
 		 *
 		 * @param {string} capability `image` or `pdf`.
 		 * @return {boolean} True when declared.
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 		 */
 		hasCapability(capability) {
 			const declared = this.modelCapabilities[this.capabilityKey] || []
@@ -663,7 +663,7 @@ export default {
 		 * @param {string} capability `image` or `pdf`.
 		 * @param {boolean} value Whether it is ticked.
 		 * @return {void}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 		 */
 		setCapability(capability, value) {
 			if (this.capabilityKey === '') {
@@ -952,7 +952,7 @@ export default {
 		 * @param {object} payload The patch.
 		 * @return {void}
 		 *
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 		 */
 		attachModelCapabilities(payload) {
 			if (this.capabilityKey === '') {

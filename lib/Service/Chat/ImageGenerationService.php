@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+ * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
  */
 
 declare(strict_types=1);
@@ -45,7 +45,7 @@ use Throwable;
 /**
  * Runs a text-to-image task for the person and keeps the result in their Files, marked.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
+ * @spec openspec/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
  */
 class ImageGenerationService implements ImageGenerationServiceInterface {
 
@@ -88,7 +88,7 @@ class ImageGenerationService implements ImageGenerationServiceInterface {
 	 *
 	 * @return bool True when a provider can run TextToImage.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
+	 * @spec openspec/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
 	 */
 	public function isAvailable(?string $uid = null): bool {
 		try {
@@ -109,7 +109,7 @@ class ImageGenerationService implements ImageGenerationServiceInterface {
 	 *
 	 * @return bool True when "Create an image" may be shown.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
+	 * @spec openspec/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
 	 */
 	public function canCreate(string $uid): bool {
 		return $this->featureEnabled() === true && $this->isAvailable(uid: $uid) === true;
@@ -123,7 +123,7 @@ class ImageGenerationService implements ImageGenerationServiceInterface {
 	 *
 	 * @return list<array<string, mixed>> The images as generated attachments.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 	 */
 	public function takeCreated(): array {
 		$created = $this->created;
@@ -138,7 +138,7 @@ class ImageGenerationService implements ImageGenerationServiceInterface {
 	 *
 	 * @return array<string, mixed> The fileId, name, mimeType, size and origin `generated`.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 	 */
 	public function asAttachment(array $created): array {
 		return [
@@ -159,7 +159,7 @@ class ImageGenerationService implements ImageGenerationServiceInterface {
 	 *
 	 * @return array<string, mixed> The created file's id, name and path, or an error.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
+	 * @spec openspec/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
 	 */
 	public function invoke(string $uid, string $toolId, array $arguments): array {
 		unset($toolId);
@@ -185,7 +185,7 @@ class ImageGenerationService implements ImageGenerationServiceInterface {
 	 * @throws ImageGenerationException When the feature is off, no provider runs, the task
 	 *                                  fails, or the file cannot be marked.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
 	 */
 	public function create(string $uid, string $prompt): array {
 		$this->assertCanCreate(uid: $uid, prompt: $prompt);
@@ -212,7 +212,7 @@ class ImageGenerationService implements ImageGenerationServiceInterface {
 	 *
 	 * @throws ImageGenerationException When any of the three is refused.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
 	 */
 	private function assertCanCreate(string $uid, string $prompt): void {
 		if (trim($prompt) === '') {
@@ -240,7 +240,7 @@ class ImageGenerationService implements ImageGenerationServiceInterface {
 	 *
 	 * @throws ImageGenerationException When the file cannot be marked.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
 	 */
 	private function keepOnlyMarked(File $file): void {
 		try {

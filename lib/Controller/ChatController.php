@@ -573,7 +573,7 @@ class ChatController extends Controller {
 	 *
 	 * @return JSONResponse|null
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	private function attachmentRefusalResponse(Exception $exception): ?JSONResponse {
 		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {

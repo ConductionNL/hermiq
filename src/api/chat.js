@@ -567,7 +567,7 @@ function ragFields(ragSettings) {
  *
  * @param {File} file The file the person chose.
  * @return {Promise<{path: string, name: string, fileId: number, mimeType: string, size: number}>}
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
  */
 export async function uploadChatAttachment(file) {
 	const form = new FormData()
@@ -581,7 +581,7 @@ export async function uploadChatAttachment(file) {
  * text-to-image provider is installed (chat-attachments-and-images D7).
  *
  * @return {Promise<boolean>} True when the action may be shown.
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+ * @spec openspec/specs/image-generation/spec.md#scenario-no-provider-no-button
  */
 export async function getImageAvailability() {
 	const response = await axios.get(generateUrl(`${CHAT_BASE}/images/availability`))
@@ -595,7 +595,7 @@ export async function getImageAvailability() {
  * @param {string} sessionId The session UUID.
  * @param {string} prompt What the image shows.
  * @return {Promise<{userTurn: object, assistantTurn: object}>} The two turns.
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+ * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
  */
 export async function createChatImage(sessionId, prompt) {
 	const response = await axios.post(generateUrl(`${CHAT_BASE}/images`), {

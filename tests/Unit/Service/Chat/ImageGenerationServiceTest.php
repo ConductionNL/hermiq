@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+ * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
  */
 
 declare(strict_types=1);
@@ -160,7 +160,7 @@ class ImageGenerationServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-a-communications-advisor-asks-for-an-illustration
+	 * @spec openspec/specs/image-generation/spec.md#scenario-a-communications-advisor-asks-for-an-illustration
 	 */
 	public function testAnImageIsSavedInTheirFilesAndTheResultHoldsItsId(): void {
 		$result = $this->service()->invoke(
@@ -185,7 +185,7 @@ class ImageGenerationServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-a-file-that-cannot-be-marked-is-not-kept
+	 * @spec openspec/specs/image-generation/spec.md#scenario-a-file-that-cannot-be-marked-is-not-kept
 	 */
 	public function testAFileThatCannotBeMarkedIsNotKept(): void {
 		$result = $this->service(tagFails: true)->invoke(uid: 'communicatie', toolId: 'hermiq.generateImage', arguments: ['prompt' => 'Een kaart']);
@@ -199,7 +199,7 @@ class ImageGenerationServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+	 * @spec openspec/specs/image-generation/spec.md#scenario-no-provider-no-button
 	 */
 	public function testWithoutAProviderNothingRuns(): void {
 		$service = $this->service(provider: false);
@@ -227,7 +227,7 @@ class ImageGenerationServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
 	 */
 	public function testCreateAnswersTheSavedFileExactly(): void {
 		$this->assertSame(
@@ -241,7 +241,7 @@ class ImageGenerationServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
+	 * @spec openspec/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
 	 */
 	public function testEveryRefusalCarriesItsExactMessage(): void {
 		$refusals = [
@@ -277,7 +277,7 @@ class ImageGenerationServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 	 */
 	public function testAToolCreatedImageIsHandedToTheAnswerOnce(): void {
 		$service = $this->service();
@@ -307,7 +307,7 @@ class ImageGenerationServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+	 * @spec openspec/specs/image-generation/spec.md#scenario-no-provider-no-button
 	 */
 	public function testTheChatActionNeedsTheFeatureAndAProvider(): void {
 		$this->assertTrue($this->service()->canCreate(uid: 'communicatie'));

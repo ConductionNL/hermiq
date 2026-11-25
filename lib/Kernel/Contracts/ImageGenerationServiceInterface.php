@@ -46,7 +46,7 @@ interface ImageGenerationServiceInterface {
 	 *
 	 * @return array<string, mixed> The fileId, name, mimeType, size and origin `generated`.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 	 */
 	public function asAttachment(array $created): array;
 
@@ -57,7 +57,7 @@ interface ImageGenerationServiceInterface {
 	 *
 	 * @return bool True when "Create an image" may be shown.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
+	 * @spec openspec/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
 	 */
 	public function canCreate(string $uid): bool;
 
@@ -72,7 +72,7 @@ interface ImageGenerationServiceInterface {
 	 * @throws ImageGenerationException When the feature is off, no provider runs, the task
 	 *                                  fails, or the file cannot be marked.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
 	 */
 	public function create(string $uid, string $prompt): array;
 
@@ -83,7 +83,7 @@ interface ImageGenerationServiceInterface {
 	 *
 	 * @return bool True when a provider can run TextToImage.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
+	 * @spec openspec/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
 	 */
 	public function isAvailable(?string $uid = null): bool;
 
@@ -96,7 +96,7 @@ interface ImageGenerationServiceInterface {
 	 *
 	 * @return array<string, mixed> The created file's id, name and path, or an error.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
+	 * @spec openspec/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
 	 */
 	public function invoke(string $uid, string $toolId, array $arguments): array;
 }//end interface

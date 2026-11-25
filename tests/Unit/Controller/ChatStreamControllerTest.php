@@ -399,7 +399,7 @@ class ChatStreamControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function testTheAttachmentNoticesRideOnTheFinalFrame(): void {
 		$this->authenticate('alice');
@@ -490,7 +490,7 @@ class ChatStreamControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 	 */
 	public function testTheFinalFrameCarriesTheAnswersAttachments(): void {
 		$this->authenticate('alice');

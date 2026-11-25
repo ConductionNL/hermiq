@@ -693,7 +693,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
 	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 * @spec openspec/specs/agent-credentials/spec.md#requirement-a-pinned-credential-goes-first-and-is-never-bypassed-req-agcred-002
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	public function createChatDriver(
@@ -1942,7 +1942,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *
 	 * @return list<array<string, mixed>> The messages.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function mapHistoryToFireworksMessages(array $messageHistory): array {
 		$messages = [];

@@ -742,7 +742,7 @@ class ToolLoopTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-an-agent-without-the-grant-asks-for-an-image
+	 * @spec openspec/specs/image-generation/spec.md#scenario-an-agent-without-the-grant-asks-for-an-image
 	 */
 	public function testTheImageToolIsOfferedOnlyWithItsGrant(): void {
 		$catalog = [

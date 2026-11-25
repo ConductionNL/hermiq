@@ -50,7 +50,7 @@ final class ServiceRegistrar {
 	 * @return void
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-schedule-dispatcher/tasks.md#task-1-2
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function register(IRegistrationContext $context): void {
 		(new ContractBindings())->register(context: $context);

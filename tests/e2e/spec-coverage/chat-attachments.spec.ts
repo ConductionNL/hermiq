@@ -18,7 +18,7 @@
  * The notice test stubs the stream's `final` frame and the thread listing, so it
  * checks what the page shows for a given frame without a model.
  *
- * Covers openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md (REQ-CATT-002, REQ-CATT-005).
+ * Covers openspec/specs/chat-attachments/spec.md (REQ-CATT-002, REQ-CATT-005).
  */
 
 import { expect, test } from '@playwright/test'

@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+ * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
  */
 
 declare(strict_types=1);
@@ -47,7 +47,7 @@ use Throwable;
 /**
  * Creates an image from the chat and stores it as the answer.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+ * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
  */
 class ChatImageController extends Controller {
 
@@ -90,7 +90,7 @@ class ChatImageController extends Controller {
 	 *
 	 * @return JSONResponse `{ available: bool }`.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+	 * @spec openspec/specs/image-generation/spec.md#scenario-no-provider-no-button
 	 */
 	#[NoAdminRequired]
 	public function availability(): JSONResponse {
@@ -110,7 +110,7 @@ class ChatImageController extends Controller {
 	 *
 	 * @return JSONResponse `{ userTurn, assistantTurn }`, or `{ error, code }` on a refusal.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-a-communications-advisor-asks-for-an-illustration
+	 * @spec openspec/specs/image-generation/spec.md#scenario-a-communications-advisor-asks-for-an-illustration
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 10, period: 60)]

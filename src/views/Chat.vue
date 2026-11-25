@@ -2046,7 +2046,7 @@ export default {
 		 * Ask once whether "Create an image" may be shown; any failure means no.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+		 * @spec openspec/specs/image-generation/spec.md#scenario-no-provider-no-button
 		 */
 		async loadImageAvailability() {
 			try {
@@ -2061,7 +2061,7 @@ export default {
 		 *
 		 * @param {{userTurn: object, assistantTurn: object}} turns The two stored turns.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 		 */
 		async onImageCreated(turns) {
 			this.showImageForm = false
@@ -2114,7 +2114,7 @@ export default {
 		 *
 		 * @param {object} attachment The attachment reference.
 		 * @return {boolean} True for an image type.
-		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 		 */
 		isImage(attachment) {
 			return String(attachment?.mimeType || '').startsWith('image/')
@@ -2125,7 +2125,7 @@ export default {
 		 *
 		 * @param {object} attachment The attachment reference.
 		 * @return {string} The preview URL.
-		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 		 */
 		previewUrl(attachment) {
 			return generateUrl('/core/preview?fileId={fileId}&x=256&y=256&a=1', {
@@ -2138,7 +2138,7 @@ export default {
 		 *
 		 * @param {object} attachment The attachment reference.
 		 * @return {string} The Files link.
-		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 		 */
 		fileLink(attachment) {
 			return generateUrl('/f/{fileId}', { fileId: attachment.fileId })
@@ -2890,7 +2890,7 @@ export default {
 		 * @param {boolean} [answerCacheBypass] True to ask the model again instead of the answer cache.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-chat-page-streams-the-answer-as-the-agent-writes-it-req-chstrm-001
 		 */
 		async sendViaStream(text, uuid, attachments = [], answerCacheBypass = false) {
@@ -2950,7 +2950,7 @@ export default {
 		 * @param {boolean} [answerCacheBypass] True to ask the model again instead of the answer cache.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		async sendViaPost(text, uuid, attachments = [], answerCacheBypass = false) {
 			const result = await sendChatMessage({
@@ -3029,7 +3029,7 @@ export default {
 		 * Open the device's file chooser (the hidden input).
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		chooseDeviceFile() {
 			this.$refs.attachmentInput?.click()
@@ -3041,7 +3041,7 @@ export default {
 		 *
 		 * @param {Event} event The input's change event.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		async onDeviceFileChosen(event) {
 			const file = event?.target?.files?.[0]
@@ -3075,7 +3075,7 @@ export default {
 		 * so no copy is made.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		async chooseFromFiles() {
 			const picker = getFilePickerBuilder(
@@ -3110,7 +3110,7 @@ export default {
 		 *
 		 * @param {object} attachment {fileId, name, mimeType, origin}.
 		 * @return {void}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		queueAttachment(attachment) {
 			if (!attachment.fileId) {
@@ -3129,7 +3129,7 @@ export default {
 		 *
 		 * @param {object} attachment The queued file.
 		 * @return {void}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		removeAttachment(attachment) {
 			this.pendingAttachments = this.pendingAttachments.filter(

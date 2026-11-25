@@ -87,4 +87,5 @@ Kind: code. Size L. Rows `hermiq:ch-attach`, `dm-image-chat`, `ch-image-gen`, `d
 - [x] `openspec validate chat-attachments-and-images --type change --strict` passes (archive pass 2026-10-07: "Change 'chat-attachments-and-images' is valid")
 - [x] PHPUnit, Newman and the two Playwright files run, exit codes read
   - 2026-11-24: run on development 671a9f6e: the change's PHPUnit tests 236 pass (PHPUnit exits 1 only for the missing coverage driver; the full suite fails only on the 3 inherited `ToolAccessRequestPropertyRulesTest` errors). Newman and Playwright written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
-- [ ] A live check on the dev instance: attach a PDF from the companion and see the upload return 200 instead of 404
+- [x] A live check on the dev instance: attach a PDF from the companion and see the upload return 200 instead of 404
+  - 2026-11-25, sandbox instance (Nextcloud 34, PostgreSQL 16, OpenRegister main 03495635, hermiq development c7aa796a, php -S): signed in as admin on the Files page, exactly one companion (`cn-ai-companion`) is present; opened it, chose a one-page PDF with its attach control: `POST /apps/hermiq/api/chat/attachments` answered 200 with `{path: /Hermiq/Attachments/2026-11/t (2).pdf, mimeType: application/pdf, size: 193}` and the companion shows the file as a chip above the message input.

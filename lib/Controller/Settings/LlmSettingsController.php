@@ -78,7 +78,7 @@ class LlmSettingsController extends Controller {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function __construct(
 		IRequest $request,
@@ -103,7 +103,7 @@ class LlmSettingsController extends Controller {
 	 *                      `*Set` flag so the raw key is never returned to the browser.
 	 *
 	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-2
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -161,7 +161,7 @@ class LlmSettingsController extends Controller {
 	 *
 	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
 	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {
@@ -327,7 +327,7 @@ class LlmSettingsController extends Controller {
 	 *
 	 * @return array<string, list<string>>|JSONResponse|null The declarations, or the 422 answer.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	private function declaredCapabilities(array $data): array|JSONResponse|null {
 		if (array_key_exists('modelCapabilities', $data) === false) {

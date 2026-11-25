@@ -17,7 +17,7 @@
  *     NEXTCLOUD_URL=http://localhost:8080 NC_USER=admin NC_PASS=admin \
  *       npx playwright test --project=chromium image-generation
  *
- * Covers openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md (REQ-CIMG-001, REQ-CIMG-002, REQ-CIMG-004).
+ * Covers openspec/specs/image-generation/spec.md (REQ-CIMG-001, REQ-CIMG-002, REQ-CIMG-004).
  */
 
 import { expect, test } from '@playwright/test'
