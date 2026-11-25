@@ -208,7 +208,7 @@ async function runInstalled(request) {
 		const changed = runner.changedFiles(work, before)
 		return { ...outcome, files: changed.files, filesTruncated: changed.truncated, limits }
 	} finally {
-		fs.rmSync(dir, { recursive: true, force: true })
+		await runner.removeRunDir(dir)
 	}
 }
 

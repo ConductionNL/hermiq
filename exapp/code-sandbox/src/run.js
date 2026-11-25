@@ -29,7 +29,7 @@
 
 'use strict'
 
-const { spawn } = require('child_process')
+const { spawn, execFile } = require('child_process')
 const crypto = require('crypto')
 const fs = require('fs')
 const os = require('os')
@@ -364,6 +364,43 @@ function prepare(request, language) {
 }
 
 /**
+ * Remove a run's directory, whatever the program left in it.
+ *
+ * A folder the program made belongs to the runner uid, and the server's uid
+ * cannot unlink what is inside it (nor read a folder the program closed with
+ * chmod). So, when runs use their own uid, that uid first opens and deletes
+ * what it owns; the server then removes the rest, its own files included.
+ *
+ * @param {string} dir The run's directory, from mkdtemp under the work root.
+ * @return {Promise<void>}
+ *
+ * @spec openspec/changes/tools-code-sandbox/tasks.md#task-1-the-code-sandbox-exapp
+ */
+async function removeRunDir(dir) {
+	const uid = process.env.SANDBOX_RUN_UID
+	if (uid && /^\d+$/.test(uid)) {
+		const asRunner = ['--reuid=' + uid, '--regid=' + uid, '--clear-groups', '--no-new-privs', '--']
+		// Each step reports entries it may not touch (the server's own); those go below.
+		await settle('setpriv', [...asRunner, 'chmod', '-R', 'u+rwX', '--', dir])
+		await settle('setpriv', [...asRunner, 'find', dir, '-mindepth', '1', '-depth', '-delete'])
+	}
+	fs.rmSync(dir, { recursive: true, force: true })
+}
+
+/**
+ * Run a command to its end, ignoring its exit status.
+ *
+ * @param {string} command The command.
+ * @param {string[]} args Its arguments, no shell.
+ * @return {Promise<void>}
+ */
+function settle(command, args) {
+	return new Promise((resolve) => {
+		execFile(command, args, { timeout: 30000, env: { PATH: '/usr/local/bin:/usr/bin:/bin' } }, () => resolve())
+	})
+}
+
+/**
  * Run one request.
  *
  * @param {object} request `{language, code, stdin, files: [{name, content, encoding}], limits}`.
@@ -387,7 +424,7 @@ async function run(request) {
 			const changed = changedFiles(work, before)
 			return { ...outcome, files: changed.files, filesTruncated: changed.truncated, limits }
 		} finally {
-			fs.rmSync(dir, { recursive: true, force: true })
+			await removeRunDir(dir)
 		}
 	}
 	const { dir, inputs } = prepare(request, language)
@@ -395,7 +432,7 @@ async function run(request) {
 		const outcome = await execute(language, limits, dir, request.stdin || '')
 		return { ...outcome, files: createdFiles(dir, inputs), limits }
 	} finally {
-		fs.rmSync(dir, { recursive: true, force: true })
+		await removeRunDir(dir)
 	}
 }
 
@@ -479,4 +516,4 @@ function executeCommand(cmd, limits, where) {
 	})
 }
 
-module.exports = { run, clampLimits, invalid, invalidFiles, commandFor, limitedCommand, executeCommand, placeWorkspace, changedFiles, isWorkspacePath, LIMITS, LANGUAGES }
+module.exports = { run, removeRunDir, clampLimits, invalid, invalidFiles, commandFor, limitedCommand, executeCommand, placeWorkspace, changedFiles, isWorkspacePath, LIMITS, LANGUAGES }

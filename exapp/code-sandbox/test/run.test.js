@@ -15,7 +15,12 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sandbox-test-'))
+// In the image, the runs go under the real work tmpfs, traversable (0711) like
+// /work itself, so the runner uid reaches its own run directory; elsewhere the
+// OS temp directory.
+const base = process.env.SANDBOX_IN_CONTAINER === '1' && process.env.SANDBOX_WORK_ROOT ? process.env.SANDBOX_WORK_ROOT : os.tmpdir()
+const root = fs.mkdtempSync(path.join(base, 'sandbox-test-'))
+fs.chmodSync(root, 0o711)
 process.env.SANDBOX_WORK_ROOT = root
 const { run, clampLimits, commandFor, LANGUAGES } = require('../src/run.js')
 
@@ -59,6 +64,13 @@ test('a fork bomb runs under a process cap and is stopped', async () => {
 	assert.ok(commandFor(LANGUAGES.python, clampLimits({})).args.includes('--nproc=64'))
 	const out = await run({ language: 'python', code: 'import os\nwhile True:\n    os.fork()', limits: { wallSeconds: 3 } })
 	assert.notEqual(out.exitCode, 0)
+	assert.deepEqual(left(), [])
+})
+
+test('a folder the program made and closed is gone after the run', async () => {
+	const code = 'import os\nos.makedirs("uit/diep")\nopen("uit/diep/a.txt", "w").write("x")\nos.chmod("uit/diep", 0)\nos.chmod("uit", 0)'
+	const out = await run({ language: 'python', code })
+	assert.equal(out.exitCode, 0, out.stderr)
 	assert.deepEqual(left(), [])
 })
 
