@@ -119,6 +119,7 @@ class ProviderCallFailedException extends Exception {
 	 * @return self
 	 *
 	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	public static function fromThrowable(Throwable $failure): self {
 		if ($failure instanceof self) {
@@ -134,7 +135,7 @@ class ProviderCallFailedException extends Exception {
 		// what went wrong; the message stays the outermost one.
 		for ($cause = $failure; $cause !== null; $cause = $cause->getPrevious()) {
 			$status = self::statusOf(failure: $cause);
-			if ($status !== null) {
+			if ($status !== null && self::kindForStatus(status: $status) !== self::UNKNOWN) {
 				return new self(message: $failure->getMessage(), kind: self::kindForStatus(status: $status), httpStatus: $status, previous: $failure);
 			}
 
@@ -206,6 +207,8 @@ class ProviderCallFailedException extends Exception {
 	/**
 	 * The HTTP status a client failure carries, through its response or its message.
 	 *
+	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 *
 	 * @param Throwable $failure The failure.
 	 *
 	 * @return int|null
@@ -218,7 +221,11 @@ class ProviderCallFailedException extends Exception {
 			}
 		}
 
-		if (preg_match('/\b(?:HTTP|status(?: code)?)[\s:\/]*([1-5]\d\d)\b/i', $failure->getMessage(), $matches) === 1) {
+		// `HTTP 429`, `HTTP/1.1 503`, `status code 401`, never the `http://` of a
+		// URL: in "Failed to connect ... for http://127.0.0.1:9/v1/chat" the 127 of
+		// the address read as status 127, so a refused connection was typed
+		// unknown and never moved the turn to its fallback (seen live, 25 Nov 2026).
+		if (preg_match('/\b(?:HTTP(?:\/\d(?:\.\d)?)?|status(?: code)?)[\s:]*\(?([1-5]\d\d)\b(?![.:\/])/i', $failure->getMessage(), $matches) === 1) {
 			return (int)$matches[1];
 		}
 

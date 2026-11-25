@@ -34,6 +34,7 @@ import { expect, test } from '@playwright/test'
 import {
 	appRoot,
 	cleanupFamily,
+	deleteObject,
 	dismissTour,
 	harvestToken,
 	jsonHeaders,
@@ -42,6 +43,8 @@ import {
 	seedAgent,
 	TEST_PREFIX,
 } from './_fixtures.ts'
+
+const API = '/index.php/apps/hermiq/api'
 
 const FALLBACK_REFUSED = 'This fallback is not allowed by the model policy.'
 const MODEL_REFUSED =
@@ -102,7 +105,8 @@ async function fakePolicies(
 			await route.fallback()
 			return
 		}
-		await route.fulfill({ json: [current()] })
+		// The list answers `{ policies, dataUse }`, as GET /api/model-policy does.
+		await route.fulfill({ json: { policies: [current()], dataUse: {} } })
 	})
 	await page.route(POLICY_SAVE, async (route: Route) => {
 		const body = route.request().postDataJSON() as Record<string, unknown>
@@ -354,16 +358,40 @@ test.describe('models-several-models-per-turn: the attempts on the run record', 
 
 test.describe('models-several-models-per-turn: the ensemble on the agent', () => {
 	let token = ''
+	let seededPolicy = ''
 
 	test.beforeAll(async ({ browser }) => {
 		const page = await browser.newPage()
 		token = await harvestToken(page)
+		// The save is checked on the server against the caller's effective policy,
+		// so the policy the form is shown below must also exist there: a clean
+		// instance allows none of these models (seen live, 25 Nov 2026).
+		const headers = { ...jsonHeaders(token), 'OCS-APIRequest': 'true' }
+		const active = await page.request.get('/index.php/apps/openregister/api/organisations/active', { headers })
+		const organisation = String((await active.json())?.activeOrganisation?.uuid ?? '')
+		const created = await page.request.post(`${API}/model-policy`, {
+			headers,
+			data: {
+				organisation,
+				allowed: [
+					{ provider: 'anthropic', models: ['claude-opus-4-8'] },
+					{ provider: 'ollama', models: ['qwen2.5'] },
+					{ provider: 'openai', models: ['gpt-4o-mini'] },
+				],
+				defaultModel: { provider: 'ollama', model: 'qwen2.5' },
+			},
+		})
+		expect(created.ok(), `seed the model policy: HTTP ${created.status()}`).toBeTruthy()
+		seededPolicy = String((await created.json())?.id ?? '')
 		await page.close()
 	})
 
 	test.afterAll(async ({ browser }) => {
 		const page = await browser.newPage()
 		await cleanupFamily(page.request, token, 'agent')
+		if (seededPolicy !== '') {
+			await deleteObject(page.request, token, 'modelpolicy', seededPolicy)
+		}
 		await page.close()
 	})
 
@@ -407,8 +435,12 @@ test.describe('models-several-models-per-turn: the ensemble on the agent', () =>
 		const row = page.getByTestId(`agent-form-ensemble-reference-${index}`)
 		await row.getByLabel(`Reference provider ${index + 1}`).click()
 		await page.getByRole('option', { name: provider, exact: true }).click()
-		await row.getByLabel(`Reference model ${index + 1}`).click()
-		await page.getByRole('option', { name: model, exact: true }).click()
+		// The model field is taggable: type the model and take it with Enter, as a
+		// person does; its open list is not reachable by role inside the dialog.
+		const modelField = row.getByLabel(`Reference model ${index + 1}`, { exact: true })
+		await modelField.click()
+		await modelField.fill(model)
+		await modelField.press('Enter')
 	}
 
 	/**
@@ -458,7 +490,10 @@ test.describe('models-several-models-per-turn: the ensemble on the agent', () =>
 		const id = await editSeededAgent(page, 'ensemble')
 
 		const editor = page.getByTestId('agent-form-ensemble')
-		await editor.getByTestId('agent-form-ensemble-switch').click()
+		await editor
+			// The test id lands on the switch's hidden input, whose label takes the click.
+			.getByText('Answer with several models', { exact: true })
+			.click()
 		await expect(page.getByTestId('agent-form-ensemble-cost')).toHaveText(
 			COST_LINE,
 		)
@@ -478,6 +513,11 @@ test.describe('models-several-models-per-turn: the ensemble on the agent', () =>
 		await page.getByRole('button', { name: 'Save' }).last().click()
 		await expect(page.locator('.agent-form')).toHaveCount(0, { timeout: 20_000 })
 
+		// The Configuration card shows its first fields; the rest fold behind "Show all".
+		const showAll = page.getByRole('button', { name: /^Show all \d+ fields$/ })
+		if ((await showAll.count()) > 0) {
+			await showAll.first().click()
+		}
 		await expect(
 			page.getByText('Ensemble: 2 reference models').first(),
 		).toBeVisible()
@@ -511,7 +551,10 @@ test.describe('models-several-models-per-turn: the ensemble on the agent', () =>
 		)
 
 		const editor = page.getByTestId('agent-form-ensemble')
-		await editor.getByTestId('agent-form-ensemble-switch').click()
+		await editor
+			// The test id lands on the switch's hidden input, whose label takes the click.
+			.getByText('Answer with several models', { exact: true })
+			.click()
 		while (
 			(await editor
 				.locator('[data-testid^="agent-form-ensemble-reference-"]')
