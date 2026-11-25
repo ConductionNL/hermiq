@@ -52,13 +52,13 @@ class ScheduleCadenceMapperTest extends TestCase {
 		$config->method('getUserValue')->willReturn($zone);
 		$config->method('getSystemValueString')->willReturn(date_default_timezone_get());
 
-		return new class($config, $engineReadsZones) extends ScheduleCadenceMapper {
+		return new class(config: $config, engineReadsZones: $engineReadsZones) extends ScheduleCadenceMapper {
 			/**
 			 * @param IConfig $config           The config mock.
 			 * @param boolean $engineReadsZones The pinned engine answer.
 			 */
 			public function __construct(IConfig $config, private readonly bool $engineReadsZones) {
-				parent::__construct($config);
+				parent::__construct(config: $config);
 			}
 
 			/**
@@ -76,7 +76,11 @@ class ScheduleCadenceMapperTest extends TestCase {
 	 * @return string The zone.
 	 */
 	private function otherZone(): string {
-		return (date_default_timezone_get() === 'Pacific/Kiritimati') ? 'America/Adak' : 'Pacific/Kiritimati';
+		if (date_default_timezone_get() === 'Pacific/Kiritimati') {
+			return 'America/Adak';
+		}
+
+		return 'Pacific/Kiritimati';
 	}//end otherZone()
 
 	/**
@@ -156,14 +160,30 @@ class ScheduleCadenceMapperTest extends TestCase {
 	#[DataProvider('shapes')]
 	public function testAZoneReadingEngineTakesSensitiveCronsWithTheOwnersZone(array $payload, ?string $sameZone, ?string $otherZone): void {
 		$mapper = $this->mapper(sameZone: false, engineReadsZones: true);
-		$schedule = $this->schedule($payload);
+		$schedule = $this->schedule(payload: $payload);
 
-		$this->assertSame($sameZone, $mapper->mappedCron($schedule), 'Same cron as for an owner in the server zone.');
+		$this->assertSame(
+			expected: $sameZone,
+			actual: $mapper->mappedCron(schedule: $schedule),
+			message: 'Same cron as for an owner in the server zone.'
+		);
 
-		$sensitive = ($sameZone !== null && $otherZone === null);
-		$this->assertSame(($sensitive === true) ? $this->otherZone() : '', $mapper->mirrorTimezone($schedule));
-		$this->assertSame('', $this->mapper(sameZone: true, engineReadsZones: true)->mirrorTimezone($schedule), 'A same-zone owner needs no zone.');
-		$this->assertSame('', $this->mapper(sameZone: false)->mirrorTimezone($schedule), 'An engine without zones never gets one.');
+		$wantedZone = '';
+		if ($sameZone !== null && $otherZone === null) {
+			$wantedZone = $this->otherZone();
+		}
+
+		$this->assertSame(expected: $wantedZone, actual: $mapper->mirrorTimezone(schedule: $schedule));
+		$this->assertSame(
+			expected: '',
+			actual: $this->mapper(sameZone: true, engineReadsZones: true)->mirrorTimezone(schedule: $schedule),
+			message: 'A same-zone owner needs no zone.'
+		);
+		$this->assertSame(
+			expected: '',
+			actual: $this->mapper(sameZone: false)->mirrorTimezone(schedule: $schedule),
+			message: 'An engine without zones never gets one.'
+		);
 	}//end testAZoneReadingEngineTakesSensitiveCronsWithTheOwnersZone()
 
 	/**
@@ -176,10 +196,15 @@ class ScheduleCadenceMapperTest extends TestCase {
 	 */
 	public function testAnUnknownOwnerZoneKeepsASensitiveCronLocal(): void {
 		$mapper = $this->mapper(sameZone: false, engineReadsZones: true, zone: 'Mars/Olympus_Mons');
-		$schedule = $this->schedule(['kind' => 'cron', 'cronExpr' => '0 8 * * *']);
+		$schedule = $this->schedule(payload: ['kind' => 'cron', 'cronExpr' => '0 8 * * *']);
+		$cadence = $this->schedule(payload: ['kind' => 'cron', 'cronExpr' => '*/10 * * * *']);
 
-		$this->assertNull($mapper->mappedCron($schedule));
-		$this->assertSame('', $mapper->mirrorTimezone($schedule));
-		$this->assertSame('*/10 * * * *', $mapper->mappedCron($this->schedule(['kind' => 'cron', 'cronExpr' => '*/10 * * * *'])), 'A pure cadence needs no zone.');
+		$this->assertNull(actual: $mapper->mappedCron(schedule: $schedule));
+		$this->assertSame(expected: '', actual: $mapper->mirrorTimezone(schedule: $schedule));
+		$this->assertSame(
+			expected: '*/10 * * * *',
+			actual: $mapper->mappedCron(schedule: $cadence),
+			message: 'A pure cadence needs no zone.'
+		);
 	}//end testAnUnknownOwnerZoneKeepsASensitiveCronLocal()
 }//end class

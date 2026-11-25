@@ -28,7 +28,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Schedule;
 
-use DateTimeZone;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Flow\Nodes\TriggerScheduleNode;
 use OCP\IConfig;
@@ -192,7 +191,7 @@ class ScheduleCadenceMapper {
 		}
 
 		$zone = $this->ownerTimezoneName(owner: $owner);
-		if (in_array(needle: $zone, haystack: DateTimeZone::listIdentifiers(), strict: true) === false) {
+		if (in_array(needle: $zone, haystack: timezone_identifiers_list(), strict: true) === false) {
 			return '';
 		}
 

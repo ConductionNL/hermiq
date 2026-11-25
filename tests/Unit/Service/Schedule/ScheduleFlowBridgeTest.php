@@ -191,13 +191,13 @@ class ScheduleFlowBridgeTest extends TestCase {
 	 * @return ScheduleCadenceMapper
 	 */
 	private function cadenceMapper(): ScheduleCadenceMapper {
-		return new class($this->config, $this->engineReadsZones) extends ScheduleCadenceMapper {
+		return new class(config: $this->config, engineReadsZones: $this->engineReadsZones) extends ScheduleCadenceMapper {
 			/**
 			 * @param IConfig $config           The config mock.
 			 * @param boolean $engineReadsZones The pinned engine answer.
 			 */
 			public function __construct(IConfig $config, private readonly bool $engineReadsZones) {
-				parent::__construct($config);
+				parent::__construct(config: $config);
 			}
 
 			/**
@@ -347,13 +347,17 @@ class ScheduleFlowBridgeTest extends TestCase {
 	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
 	 */
 	public function testASensitiveCronMirrorsWithTheOwnersZone(): void {
-		$other = (date_default_timezone_get() === 'Pacific/Chatham') ? 'Europe/Amsterdam' : 'Pacific/Chatham';
-		$this->config = $this->createMock(IConfig::class);
+		$other = 'Pacific/Chatham';
+		if (date_default_timezone_get() === $other) {
+			$other = 'Europe/Amsterdam';
+		}
+
+		$this->config = $this->createMock(originalClassName: IConfig::class);
 		$this->config->method('getUserValue')->willReturn($other);
 		$this->config->method('getSystemValueString')->willReturn('UTC');
 		$this->engineReadsZones = true;
 
-		$schedule = $this->schedule(['kind' => 'cron', 'cronExpr' => '0 9 * * *', 'name' => 'Morning', 'agentId' => '', 'enabled' => true]);
+		$schedule = $this->schedule(payload: ['kind' => 'cron', 'cronExpr' => '0 9 * * *', 'name' => 'Morning', 'agentId' => '', 'enabled' => true]);
 		$this->objectService->method('findAll')->willReturn([$schedule]);
 		$inserted = null;
 		$this->flowMapper->method('insert')->willReturnCallback(
@@ -363,12 +367,12 @@ class ScheduleFlowBridgeTest extends TestCase {
 			}
 		);
 
-		$this->assertSame(1, $this->bridge()->syncAll()['mirrored']);
-		$this->assertSame('0 9 * * *', $inserted->getCron(), 'The expression travels unchanged.');
+		$this->assertSame(expected: 1, actual: $this->bridge()->syncAll()['mirrored']);
+		$this->assertSame(expected: '0 9 * * *', actual: $inserted->getCron(), message: 'The expression travels unchanged.');
 		$this->assertSame(
-			['cron' => '0 9 * * *', 'runAs' => 'alice', 'timezone' => $other],
-			$inserted->getNodes()[0]['config'],
-			'The engine reads the cron in the owner\'s zone.'
+			expected: ['cron' => '0 9 * * *', 'runAs' => 'alice', 'timezone' => $other],
+			actual: $inserted->getNodes()[0]['config'],
+			message: 'The engine reads the cron in the owner\'s zone.'
 		);
 	}//end testASensitiveCronMirrorsWithTheOwnersZone()
 
@@ -381,18 +385,28 @@ class ScheduleFlowBridgeTest extends TestCase {
 	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
 	 */
 	public function testAZoneDriftRedefinesTheMirror(): void {
-		$this->config = $this->createMock(IConfig::class);
+		$this->config = $this->createMock(originalClassName: IConfig::class);
 		$this->config->method('getUserValue')->willReturn('Asia/Tokyo');
 		$this->config->method('getSystemValueString')->willReturn('UTC');
 		$this->engineReadsZones = true;
 		if (date_default_timezone_get() === 'Asia/Tokyo') {
-			$this->markTestSkipped('The server zone must differ from the owner zone.');
+			$this->markTestSkipped(message: 'The server zone must differ from the owner zone.');
 		}
 
-		$schedule = $this->schedule(['kind' => 'cron', 'cronExpr' => '0 8 * * *', 'agentId' => '', 'engineFlowId' => 'flow-1', 'enabled' => true]);
+		$schedule = $this->schedule(
+			payload: ['kind' => 'cron', 'cronExpr' => '0 8 * * *', 'agentId' => '', 'engineFlowId' => 'flow-1', 'enabled' => true]
+		);
 		$this->objectService->method('findAll')->willReturn([$schedule]);
-		$stored = $this->mirrorFlow('0 8 * * *', 'alice', true);
-		$stored->setNodes([['id' => 'trigger', 'type' => 'openregister.trigger-schedule', 'config' => ['cron' => '0 8 * * *', 'runAs' => 'alice', 'timezone' => 'Europe/Amsterdam']]]);
+		$stored = $this->mirrorFlow(cron: '0 8 * * *', runAs: 'alice', enabled: true);
+		$stored->setNodes(
+			[
+				[
+					'id' => 'trigger',
+					'type' => 'openregister.trigger-schedule',
+					'config' => ['cron' => '0 8 * * *', 'runAs' => 'alice', 'timezone' => 'Europe/Amsterdam'],
+				],
+			]
+		);
 		$this->flowMapper->method('findByUuid')->willReturn($stored);
 		$zones = [];
 		$this->flowMapper->method('update')->willReturnCallback(
@@ -402,8 +416,8 @@ class ScheduleFlowBridgeTest extends TestCase {
 			}
 		);
 
-		$this->assertSame(1, $this->bridge()->syncAll()['refreshed']);
-		$this->assertSame(['Asia/Tokyo'], $zones);
+		$this->assertSame(expected: 1, actual: $this->bridge()->syncAll()['refreshed']);
+		$this->assertSame(expected: ['Asia/Tokyo'], actual: $zones);
 	}//end testAZoneDriftRedefinesTheMirror()
 
 	/**
