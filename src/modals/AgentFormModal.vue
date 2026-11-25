@@ -2420,7 +2420,7 @@ export default {
 					}
 				}
 
-				this.$emit('saved', saved)
+				this.announceSaved(saved)
 				this.handleClose()
 			} catch (e) {
 				this.error = e?.message || this.t('hermiq', 'Unknown error')

@@ -315,7 +315,7 @@ export default {
 						this.t('hermiq', 'The server did not accept the context.'),
 					)
 				}
-				this.$emit('saved', saved)
+				this.announceSaved(saved)
 				this.handleClose()
 			} catch (e) {
 				this.error =

@@ -635,7 +635,7 @@ export default {
 					saved = await this.saveNew()
 				}
 
-				this.$emit('saved', saved)
+				this.announceSaved(saved)
 				this.handleClose()
 			}, () => this.t('hermiq', 'Unknown error'))
 		},

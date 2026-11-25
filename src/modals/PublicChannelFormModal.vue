@@ -336,7 +336,7 @@ export default {
 					this.problems = [error?.message || String(error || '') || this.t('hermiq', 'The server did not accept the channel.')]
 					return
 				}
-				this.$emit('saved', saved)
+				this.announceSaved(saved)
 				if (saved.kind === 'app') {
 					this.handleClose()
 					return

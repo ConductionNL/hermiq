@@ -78,7 +78,9 @@ function instance(component, state) {
 			if (key in obj) {
 				return obj[key]
 			}
-			const method = component.methods[key]
+			// A mixin's methods count too (formDialogSlot.announceSaved).
+			const method = component.methods?.[key]
+				?? (component.mixins ?? []).map((mixin) => mixin.methods?.[key]).find(Boolean)
 			return method ? method.bind(vm) : undefined
 		},
 		set(obj, key, value) {
