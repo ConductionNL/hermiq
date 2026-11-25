@@ -232,7 +232,7 @@ class ChatControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	public function testSendMessagePassesTheScopeToTheEngine(): void {
 		$this->stubParams(['conversation' => 'conv-1', 'message' => 'Wat is de beslistermijn?', 'scope' => ['type' => 'file', 'fileId' => '42']]);
@@ -261,7 +261,7 @@ class ChatControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	public function testSendMessageRefusesABadScope(): void {
 		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi', 'scope' => ['type' => 'register', 'fileId' => 42]]);
@@ -278,7 +278,7 @@ class ChatControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	public function testSendMessageAnUnopenableScopeIsNotFound(): void {
 		$this->stubParams(['conversation' => 'conv-1', 'message' => 'hi', 'scope' => ['type' => 'file', 'fileId' => 9]]);

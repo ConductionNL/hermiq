@@ -4,7 +4,7 @@
  *
  * The sources under a chat answer: which ones open a file, and the page cited.
  *
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005
  */
 
 /**
@@ -24,7 +24,7 @@ function positiveInt(value) {
  *
  * @param {object} source One source of an answer.
  * @return {number|null} The Nextcloud file id.
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005
  */
 export function sourceFileId(source) {
 	if (!source || source.type !== 'file' || source.available === false) {
@@ -38,7 +38,7 @@ export function sourceFileId(source) {
  *
  * @param {object} source One source of an answer.
  * @return {number|null} The page number.
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005
  */
 export function sourcePage(source) {
 	return positiveInt(source?.page)
@@ -49,7 +49,7 @@ export function sourcePage(source) {
  *
  * @param {object} source One source of an answer.
  * @return {string} Its name, else its id.
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005
  */
 export function sourceName(source) {
 	return String(source?.name || source?.id || '')

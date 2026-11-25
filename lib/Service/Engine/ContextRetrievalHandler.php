@@ -118,7 +118,7 @@ class ContextRetrievalHandler {
 	 * @psalm-return array{text: string, sources: list<array>, scoped?: true, noMatch?: string}
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-3
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002
 	 */
 	public function retrieveContext(
 		string $query,
@@ -389,7 +389,7 @@ class ContextRetrievalHandler {
 	 *
 	 * @throws TurnScopeException 400 for a malformed scope, 404 for one the speaker cannot open.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	public function assertScopeReadable(array $ragSettings, string $speaker): void {
 		$scope = (new TurnScope())->fromRagSettings(ragSettings: $ragSettings);
@@ -416,8 +416,8 @@ class ContextRetrievalHandler {
 	 *
 	 * @return array{text: string, sources: list<array<string, mixed>>, scoped: true, noMatch: string}
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
 	 */
 	private function scopedContext(array $scope, string $query, string $speaker, int $limit): array {
 		$context = ['text' => '', 'sources' => [], 'scoped' => true, 'noMatch' => ''];
@@ -443,8 +443,10 @@ class ContextRetrievalHandler {
 			}
 
 			$context['text'] .= '[' . $passage['number'] . '] Source: ' . $where . "\n" . $passage['text'] . "\n\n";
+			// The turn schema types a source id as a string; an integer id is
+			// refused when the answer is stored, and the whole turn fails.
 			$context['sources'][] = [
-				'id' => $passage['file_id'],
+				'id' => (string)$passage['file_id'],
 				'type' => 'file',
 				'name' => $passage['name'],
 				'similarity' => $passage['score'],

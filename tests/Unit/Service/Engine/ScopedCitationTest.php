@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-about-a-document-cites-its-sources/tasks.md#task-3-the-answer-cites-numbered-sources-or-says-nothing-matched
+ * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/tasks.md#task-3-the-answer-cites-numbered-sources-or-says-nothing-matched
  */
 
 declare(strict_types=1);

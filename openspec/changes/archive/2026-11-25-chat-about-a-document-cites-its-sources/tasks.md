@@ -66,5 +66,6 @@ Kind: code. Size M. Rows `filinq:wk-ai-chat`, `ch-citations` (hermiq).
   - 2026-11-21: `tests/e2e/spec-coverage/document-chat.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
 - **acceptance_criteria**:
   - The four `@e2e` scenarios pass on the dev instance with a stub model; docs show the chip and the source list
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
+  - 2026-11-25: run live, 5/5 (sandbox Nextcloud 34 on PostgreSQL 16, OpenRegister main, hermiq development + this change's PR, filinq development, and a stub chat model that always cites [1]): unscoped linked sources, file scope only that document, folder scope stays inside (the better match outside the folder is not used), nothing in scope says so with no sources, filinq My Documents page shows "About this document" and links the source. The scoped scenarios read plain-text documents; PDF text in a scope comes from OpenRegister's text facade (vector-rag). One red fixed on the way: every scoped answer failed to store (source `id` was an integer, the turn schema types it as a string).

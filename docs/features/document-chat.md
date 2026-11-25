@@ -48,4 +48,4 @@ citation order: marker [n] is `sources[n-1]`.
 
 ## Spec
 
-`openspec/changes/chat-about-a-document-cites-its-sources` (`document-chat`).
+`openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources` (`document-chat`, now `openspec/specs/document-chat`).

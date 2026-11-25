@@ -567,7 +567,7 @@ class Engine implements EngineInterface {
 	 *
 	 * @return string The speaker's uid, or ''.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	private function scopeSpeaker(array $turn): string {
 		if (is_array($turn['ragSettings']['scope'] ?? null) === false) {
