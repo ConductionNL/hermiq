@@ -227,8 +227,13 @@ async function openInbox(page: Page): Promise<void> {
 	await expect(page.locator('.approval-inbox__table')).toBeVisible({ timeout: 30_000 })
 	// On a fresh instance the setup wizard opens AFTER the inbox has rendered,
 	// once the app's own reads settle, and its modal then takes every click.
-	// Seen live (25 Nov): the first dismissTour ran before it existed.
-	await page.waitForLoadState('networkidle').catch(() => undefined)
+	// Seen live (25 Nov): the first dismissTour ran before it existed. Give it a
+	// moment to appear (an instance already set up never shows it).
+	await page
+		.locator('[data-testid-modal="cn-wizard-dialog"]')
+		.first()
+		.waitFor({ state: 'visible', timeout: 3_000 })
+		.catch(() => undefined)
 	await dismissTour(page)
 }
 
