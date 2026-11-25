@@ -192,17 +192,19 @@ class AnswerCacheServiceTest extends TestCase {
 	/**
 	 * One agent of org-a, used by a person acting in org-b: org-a's entry is not
 	 * read, and the turn is keyed on org-b (seen live: it was served).
+	 *
+	 * @return void
 	 */
 	public function testThePersonsActiveOrganisationDecidesNotTheAgents(): void {
-		$user = $this->createMock(IUser::class);
+		$user = $this->createMock(originalClassName: IUser::class);
 		$user->method('getUID')->willReturn('alice');
-		$session = $this->createMock(IUserSession::class);
+		$session = $this->createMock(originalClassName: IUserSession::class);
 		$session->method('getUser')->willReturn($user);
-		$versions = $this->createMock(AgentVersionService::class);
+		$versions = $this->createMock(originalClassName: AgentVersionService::class);
 		$versions->method('currentVersionId')->willReturn('version-3');
-		$time = $this->createMock(ITimeFactory::class);
+		$time = $this->createMock(originalClassName: ITimeFactory::class);
 		$time->method('getTime')->willReturn(self::NOW);
-		$organisations = $this->createMock(OrganisationMapper::class);
+		$organisations = $this->createMock(originalClassName: OrganisationMapper::class);
 		$organisations->method('getActiveOrganisationWithFallback')->willReturn('org-b');
 		$inOrgB = new AnswerCacheService(
 			objects: $this->objects,
@@ -215,12 +217,13 @@ class AnswerCacheServiceTest extends TestCase {
 		);
 
 		$run = $this->turn();
-		$this->assertNotSame(expected: $this->service->key($run, 'version-3'), actual: $inOrgB->key($run, 'version-3'));
+		$this->assertNotSame(expected: $this->service->key(run: $run, versionId: 'version-3'), actual: $inOrgB->key(run: $run, versionId: 'version-3'));
 
-		// org-a's entry, even one whose hash were to match, is never served in org-b.
-		$this->objects->method('findAll')->willReturn([$this->entry($run, ['keyHash' => $inOrgB->key($run, 'version-3')], 'org-a')]);
-		$this->assertNull($inOrgB->lookup($run));
-	}
+		// Org-a's entry, even one whose hash were to match, is never served in org-b.
+		$stored = $this->entry(run: $run, overrides: ['keyHash' => $inOrgB->key(run: $run, versionId: 'version-3')], organisation: 'org-a');
+		$this->objects->method('findAll')->willReturn([$stored]);
+		$this->assertNull(actual: $inOrgB->lookup(run: $run));
+	}//end testThePersonsActiveOrganisationDecidesNotTheAgents()
 
 	public function testAnExpiredEntryOrOneOfAnotherVersionIsNotServed(): void {
 		$run = $this->turn();

@@ -119,19 +119,17 @@ class AnswerCacheService {
 	 */
 	private function organisationOf(ResponseTurnRun $run): string {
 		$uid = (string)$this->session->getUser()?->getUID();
-		if ($this->organisations !== null && $uid !== '') {
-			try {
-				$active = (string)($this->organisations->getActiveOrganisationWithFallback(userId: $uid) ?? '');
-				if ($active !== '') {
-					return $active;
-				}
-			} catch (Throwable $error) {
-				$this->logger->info('[AnswerCache] the active organisation could not be read', ['exception' => $error->getMessage()]);
+		if ($uid !== '' && $this->organisations !== null) {
+			// A failing read throws to lookup()/store(), which treat it as a miss.
+			$active = (string)($this->organisations->getActiveOrganisationWithFallback(userId: $uid) ?? '');
+			if ($active !== '') {
+				return $active;
 			}
 		}
 
 		return (string)($run->progress->organisation ?? '');
 	}//end organisationOf()
+
 
 	/**
 	 * Whether the turn may read or write the cache.
