@@ -1088,6 +1088,7 @@ export default {
 .tenant-ops__reassign-input {
 	max-width: 180px;
 }
+
 .tenant-ops__fallbacks {
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
