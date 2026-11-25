@@ -475,7 +475,7 @@ export default {
 		 * One line on the backup: off, or when, where and how many are kept.
 		 *
 		 * @return {string} The line.
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 		 */
 		backupSummary() {
 			if (!this.backup || !this.backup.enabled) {
@@ -596,7 +596,7 @@ export default {
 		 * Read the backup settings; a failure leaves the section saying backups are off.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 		 */
 		async refreshBackup() {
 			try {
@@ -610,7 +610,7 @@ export default {
 		 * Queue a backup now.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+		 * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 		 */
 		async onBackupNow() {
 			try {

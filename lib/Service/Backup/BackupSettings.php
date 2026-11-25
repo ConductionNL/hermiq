@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+ * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use InvalidArgumentException;
 /**
  * The backup settings, validated.
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+ * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
  */
 final class BackupSettings {
 
@@ -76,7 +76,7 @@ final class BackupSettings {
 	 *
 	 * @throws InvalidArgumentException When a value is out of range.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 */
 	public static function fromArray(array $values): self {
 		$folder = trim((string)($values['folder'] ?? self::DEFAULT_FOLDER));
@@ -109,7 +109,7 @@ final class BackupSettings {
 	 *
 	 * @return array{enabled: bool, folder: string, hour: int, keep: int, includeSessions: bool, ownerUid: string}
 	 *
-	* @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	* @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 */
 	public function toArray(): array {
 		return [
@@ -129,7 +129,7 @@ final class BackupSettings {
 	 *
 	 * @return self The settings.
 	 *
-	* @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	* @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 */
 	public function withOwner(string $ownerUid): self {
 		return new self($this->enabled, $this->folder, $this->hour, $this->keep, $this->includeSessions, $ownerUid);

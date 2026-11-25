@@ -9163,13 +9163,13 @@
 				"open-webui": "source read at v0.11.4, not driven: manual only: backend/open_webui/routers/utils.py:74 GET /utils/db/download returns the raw SQLite file (admin, ENABLE_ADMIN_EXPORT config.py:2082, not for PostgreSQL), routers/configs.py:118 export and :100 import config, chat export and import (routers/chats.py:807); searched 'backup|snapshot|restore' in backend/open_webui/routers and utils: no automatic backup or point-in-time restore"
 			},
 			"built": {
-				"state": "specified",
+				"state": "built",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "src/registry.js:41,134 mounts AgentVersionHistoryDialog on the agent detail page; src/api/agents.js:217 rollbackAgentVersion -> lib/Controller/AgentVersionController.php owner-only rollback; src/api/skills.js:387 rollbackSkill. Searched 'backup|snapshot' in lib/Controller, src/views, src/api: no whole-data backup Specified in openspec/changes/operations-backup-and-restore/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/operations-backup-and-restore",
+				"evidence": "lib/Service/Backup/ (scheduled and on-demand backup to Files, restore preview and restore through the audit trail with the organisation's agents stopped), lib/Controller/BackupController.php and lib/Controller/Settings/BackupSettingsController.php (admin-only), src/modals/RestoreDialog.vue. Live check 2026-11-25: backup, prompt change, restore put the original prompt back and the version history shows the restore.",
+				"change": "openspec/changes/archive/2026-11-25-operations-backup-and-restore",
 				"requirement": [
-					"openspec/changes/operations-backup-and-restore/specs/backup-restore :: An administrator can back up an organisation's hermiq data to Files on a schedule (REQ-BKUP-001)",
-					"openspec/changes/operations-backup-and-restore/specs/backup-restore :: A restore starts with a preview of what will change (REQ-BKUP-002)"
+					"openspec/specs/backup-restore :: An administrator can back up an organisation's hermiq data to Files on a schedule (REQ-BKUP-001)",
+					"openspec/specs/backup-restore :: A restore starts with a preview of what will change (REQ-BKUP-002)"
 				]
 			},
 			"feature": "setup-and-admin",

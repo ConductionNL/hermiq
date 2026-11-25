@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use Throwable;
 /**
  * The backup files an administrator can restore from.
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
  */
 class BackupFiles {
 
@@ -60,7 +60,7 @@ class BackupFiles {
 	 *
 	 * @return bool Whether it is.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 */
 	public static function isBackupName(string $name): bool {
 		return preg_match(self::NAME_PATTERN, $name) === 1;
@@ -76,7 +76,7 @@ class BackupFiles {
 	 *
 	 * @return list<array{name: string, manifest: array<string, mixed>}> The backups.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 */
 	public function list(BackupSettings $settings): array {
 		$folder = $this->folder(settings: $settings);
@@ -128,7 +128,7 @@ class BackupFiles {
 	 *
 	 * @throws RuntimeException When the name is not a backup's, the file is not there, or it cannot be read.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 */
 	public function read(BackupSettings $settings, string $name): array {
 		if (self::isBackupName(name: $name) === false) {
