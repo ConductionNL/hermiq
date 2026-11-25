@@ -443,8 +443,10 @@ class ContextRetrievalHandler {
 			}
 
 			$context['text'] .= '[' . $passage['number'] . '] Source: ' . $where . "\n" . $passage['text'] . "\n\n";
+			// The turn schema types a source id as a string; an integer id is
+			// refused when the answer is stored, and the whole turn fails.
 			$context['sources'][] = [
-				'id' => $passage['file_id'],
+				'id' => (string)$passage['file_id'],
 				'type' => 'file',
 				'name' => $passage['name'],
 				'similarity' => $passage['score'],

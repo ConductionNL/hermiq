@@ -155,6 +155,8 @@ class ContextRetrievalScopeTest extends TestCase {
 		$this->assertCount(1, $context['sources']);
 		$source = $context['sources'][0];
 		$this->assertSame(42, $source['file_id']);
+		// The stored turn's schema types `id` as a string (REQ-DCHAT-003: the answer is stored with its sources).
+		$this->assertSame('42', $source['id']);
 		$this->assertSame('file', $source['type']);
 		$this->assertSame('besluit-2026-0042.txt', $source['name']);
 		$this->assertSame('/Dossiers/besluit-2026-0042.txt', $source['file_path']);
