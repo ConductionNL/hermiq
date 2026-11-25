@@ -13,19 +13,21 @@
  *     API, so no model is needed. The Chat page must list both under the
  *     answer, each as a link to `/f/{fileId}`, and the link must open the file.
  *
- * Written against the spec but marked `test.fixme`, because no screen sends a
- * scope yet. hermiq's own Chat page never puts `scope` on a turn, and the
- * companion's scope chip and source list (nextcloud-vue `CnAiChatPanel` and
- * `CnAiMessageList`, tasks.md Task 4) are not built. The filinq page context is
- * not built either (Task 5):
+ * The scoped scenarios (Tasks 4 and 5 are built: nextcloud-vue 2.215.0 sends
+ * `scope` from the companion's page context, filinq passes the open document)
+ * run against the real server, because what they check (which passages
+ * retrieval kept, and whether the model was asked at all) happens there. They
+ * need a chat model behind the instance; a stub that always answers with a
+ * sentence citing [1] is enough, since retrieval, not the model, picks the
+ * sources:
  *   - document-chat::a-question-about-the-open-document-uses-only-that-document
  *   - document-chat::a-question-about-a-dossier-folder-stays-inside-it
  *   - document-chat::nothing-in-scope-matches
- *   - document-chat::the-person-asks-from-a-filinq-document-page
- *   These also need a model behind the instance (the "stub model" of tasks.md
- *   Task 7). The stream is not stubbed in them, because what they check (which
- *   passages retrieval kept, and whether the model was asked at all) happens on
- *   the server.
+ *   - document-chat::the-person-asks-from-a-filinq-document-page (skips
+ *     without filinq)
+ * Their documents are plain text. A scoped file's text is read directly when it
+ * is text; a PDF's text comes from OpenRegister's file text facade
+ * (`extractText`, the vector-rag change), which these scenarios do not test.
  *
  * Not written here, per their `@e2e exclude` lines in the spec:
  *   - a-document-the-person-cannot-open-is-refused (negative API path, PHPUnit
@@ -77,16 +79,27 @@ const COMPOSER = '[data-testid="cn-ai-input-textarea"]'
 const DOCUMENT_CHIP = /Over dit document|About this document/
 const FOLDER_CHIP = /Over deze map|About this folder/
 
-/** Why the scoped scenarios cannot run yet. */
-const NO_SCOPE_SCREEN = 'No screen sends a scope yet: the companion scope chip and source list (nextcloud-vue CnAiChatPanel, tasks.md Task 4) are not built.'
 
 /** The two files the unscoped answer rests on. */
 const FILE_A = `${TEST_PREFIX}-besluit-2026-0042.pdf`
 const FILE_B = `${TEST_PREFIX}-aanvraag-omgevingsvergunning.pdf`
 
-/** The dossier folder and the file outside it (REQ-DCHAT-002). */
+/**
+ * The documents the scoped turns read (plain text, read directly): a decision
+ * that answers "Wat is de beslistermijn?", and a permit application about a
+ * building, which shares no word with a question about parking fines.
+ */
+const DOC_A = `${TEST_PREFIX}-besluit-2026-0042.txt`
+const DOC_A_TEXT = 'Besluit 2026-0042 op de aanvraag van de heer Jansen.\n\nDe beslistermijn voor deze aanvraag bedraagt acht weken na ontvangst.\n'
+const DOC_B = `${TEST_PREFIX}-aanvraag-omgevingsvergunning.txt`
+const DOC_B_TEXT = 'Aanvraag omgevingsvergunning van de heer Jansen.\n\nHij wil een dakkapel bouwen aan de Dorpsstraat 1. Bijgevoegd zijn tekeningen en een situatieschets.\n'
+
+/** The dossier folder, its document, and a file outside it that matches better (REQ-DCHAT-002). */
 const DOSSIER = `${TEST_PREFIX}-dossier-2026-0042`
-const OUTSIDE = `${TEST_PREFIX}-beslistermijnen-overzicht.pdf`
+const DOSSIER_DOC = 'besluit.txt'
+const DOSSIER_DOC_TEXT = 'In dit dossier van de heer Jansen geldt een beslistermijn van acht weken.\n'
+const OUTSIDE = `${TEST_PREFIX}-beslistermijnen-overzicht.txt`
+const OUTSIDE_TEXT = 'Overzicht beslistermijn: de beslistermijn per zaaktype. Elke beslistermijn staat hier, en een beslistermijn kan worden verlengd.\n'
 
 const SESSION_TITLE = `${TEST_PREFIX} Bronnen bij een antwoord`
 
@@ -109,6 +122,31 @@ async function putPdf(
 	const put = await req.put(`${DAV}/${path}`, {
 		headers: { requesttoken: token, 'Content-Type': 'application/pdf' },
 		data: '%PDF-1.4\n%%EOF\n',
+	})
+	expect([201, 204], `PUT ${path} HTTP ${put.status()}`).toContain(put.status())
+	const fileId = parseInt(put.headers()['oc-fileid'] ?? '', 10)
+	expect(fileId, `PUT ${path} must answer with an OC-FileId`).toBeGreaterThan(0)
+	return fileId
+}
+
+/**
+ * Put one plain-text document in the admin's Files and return its file id.
+ *
+ * @param req   The request context (admin session).
+ * @param token The CSRF request-token.
+ * @param path  The path under the admin's Files.
+ * @param text  The document's text.
+ * @return The file id.
+ */
+async function putText(
+	req: APIRequestContext,
+	token: string,
+	path: string,
+	text: string,
+): Promise<number> {
+	const put = await req.put(`${DAV}/${path}`, {
+		headers: { requesttoken: token, 'Content-Type': 'text/plain' },
+		data: text,
 	})
 	expect([201, 204], `PUT ${path} HTTP ${put.status()}`).toContain(put.status())
 	const fileId = parseInt(put.headers()['oc-fileid'] ?? '', 10)
@@ -149,6 +187,51 @@ async function askCompanion(
 	return (await sent).postDataJSON() as Record<string, unknown>
 }
 
+/**
+ * The file ids of every source a streamed answer carries.
+ *
+ * Walks each `data:` frame of the server-sent stream and collects the
+ * `file_id` of every entry in any `sources` list it holds.
+ *
+ * @param stream The raw text/event-stream body.
+ * @return The file ids, in the order they were sent.
+ */
+function sourceFileIds(stream: string): number[] {
+	const ids: number[] = []
+	const walk = (value: unknown): void => {
+		if (Array.isArray(value)) {
+			value.forEach(walk)
+			return
+		}
+		if (value === null || typeof value !== 'object') {
+			return
+		}
+		for (const [key, inner] of Object.entries(value as Record<string, unknown>)) {
+			if (key === 'sources' && Array.isArray(inner)) {
+				for (const source of inner as Array<Record<string, unknown>>) {
+					const id = Number(source?.file_id ?? source?.fileId)
+					if (Number.isFinite(id) && id > 0) {
+						ids.push(id)
+					}
+				}
+			} else {
+				walk(inner)
+			}
+		}
+	}
+	for (const line of stream.split('\n')) {
+		if (line.startsWith('data:') === false) {
+			continue
+		}
+		try {
+			walk(JSON.parse(line.slice(5).trim()))
+		} catch {
+			// Not every frame is JSON (keep-alives); those carry no sources.
+		}
+	}
+	return ids
+}
+
 test.describe.configure({ mode: 'serial' })
 
 test.describe('chat-about-a-document-cites-its-sources: scoped turns and linked sources', () => {
@@ -157,6 +240,9 @@ test.describe('chat-about-a-document-cites-its-sources: scoped turns and linked 
 	let sessionUuid = ''
 	let fileA = 0
 	let fileB = 0
+	let docA = 0
+	let docB = 0
+	let dossierFolder = 0
 	let dossierFile = 0
 	let outsideFile = 0
 	const turnIds: string[] = []
@@ -169,13 +255,17 @@ test.describe('chat-about-a-document-cites-its-sources: scoped turns and linked 
 		fileA = await putPdf(page.request, token, FILE_A)
 		fileB = await putPdf(page.request, token, FILE_B)
 
+		docA = await putText(page.request, token, DOC_A, DOC_A_TEXT)
+		docB = await putText(page.request, token, DOC_B, DOC_B_TEXT)
+
 		// A dossier folder with a document in it, and a better match outside it.
-		await page.request.fetch(`${DAV}/${DOSSIER}`, {
+		const mkcol = await page.request.fetch(`${DAV}/${DOSSIER}`, {
 			method: 'MKCOL',
 			headers: { requesttoken: token },
 		})
-		dossierFile = await putPdf(page.request, token, `${DOSSIER}/besluit.pdf`)
-		outsideFile = await putPdf(page.request, token, OUTSIDE)
+		dossierFolder = parseInt(mkcol.headers()['oc-fileid'] ?? '', 10)
+		dossierFile = await putText(page.request, token, `${DOSSIER}/${DOSSIER_DOC}`, DOSSIER_DOC_TEXT)
+		outsideFile = await putText(page.request, token, OUTSIDE, OUTSIDE_TEXT)
 
 		agentId = (await seedAgent(page.request, token, {
 			name: `${TEST_PREFIX}-bronnen`,
@@ -241,7 +331,7 @@ test.describe('chat-about-a-document-cites-its-sources: scoped turns and linked 
 				.delete(`${API}/sessions/${sessionUuid}/permanent`, { headers })
 				.catch(() => undefined)
 		}
-		for (const path of [FILE_A, FILE_B, OUTSIDE, DOSSIER]) {
+		for (const path of [FILE_A, FILE_B, DOC_A, DOC_B, OUTSIDE, DOSSIER]) {
 			await page.request
 				.delete(`${DAV}/${path}`, { headers: { requesttoken: cleanupToken } })
 				.catch(() => undefined)
@@ -296,61 +386,64 @@ test.describe('chat-about-a-document-cites-its-sources: scoped turns and linked 
 
 	// @e2e document-chat::a-question-about-the-open-document-uses-only-that-document
 	test('a question about the open document uses only that document', async ({ page }) => {
-		test.fixme(true, NO_SCOPE_SCREEN)
-
 		// The companion takes the file id from the open file's URL (src/companion.js).
-		await page.goto(`/index.php/apps/files/files/${fileA}?dir=/&openfile=true`)
+		await page.goto(`/index.php/apps/files/files/${docA}?dir=/&openfile=true`)
 		await openCompanion(page)
 		await expect(page.getByText(DOCUMENT_CHIP).first()).toBeVisible()
 
 		const body = await askCompanion(page, 'Wat is de beslistermijn?')
-		expect(body.scope).toEqual({ type: 'file', fileId: fileA })
+		expect(body.scope).toEqual({ type: 'file', fileId: docA })
 
-		// Every source of the answer is that one file.
-		const links = page.getByRole('link', { name: /\.pdf/ })
+		// Every source of the answer is that one file; the dossier document and
+		// the overview mention the same term and are not used.
+		const links = page.getByRole('link', { name: /\.txt/ })
 		await expect(links.first()).toBeVisible({ timeout: 90_000 })
 		for (const link of await links.all()) {
-			await expect(link).toHaveText(FILE_A)
-			await expect(link).toHaveAttribute('href', new RegExp(`/f/${fileA}\\b`))
+			await expect(link).toContainText(DOC_A)
+			await expect(link).toHaveAttribute('href', new RegExp(`/f/${docA}\\b`))
 		}
 	})
 
 	// @e2e document-chat::a-question-about-a-dossier-folder-stays-inside-it
 	test('a question about a dossier folder stays inside it', async ({ page }) => {
-		test.fixme(true, `${NO_SCOPE_SCREEN} The folder page context (pageKind "folder") is not built either.`)
+		// A folder scope is set by a dossier page (filinq, pageKind "folder");
+		// the turn it sends is sent here as such a page sends it.
+		const reply = await page.request.post(`${API}/chat/stream`, {
+			headers: { ...jsonHeaders(token), Accept: 'text/event-stream' },
+			data: {
+				message: 'Wat is de beslistermijn?',
+				content: 'Wat is de beslistermijn?',
+				newThread: true,
+				agentUuid: agentId,
+				scope: { type: 'folder', fileId: dossierFolder },
+			},
+			timeout: 90_000,
+		})
+		const stream = await reply.text()
+		expect(reply.status(), stream.slice(0, 500)).toBe(200)
 
-		await page.goto(`/index.php/apps/files/?dir=/${encodeURIComponent(DOSSIER)}`)
-		await openCompanion(page)
-		await expect(page.getByText(FOLDER_CHIP).first()).toBeVisible()
-
-		const body = await askCompanion(page, 'Wat is de beslistermijn?')
-		expect((body.scope as Record<string, unknown>)?.type).toBe('folder')
-
-		const links = page.getByRole('link', { name: /\.pdf/ })
-		await expect(links.first()).toBeVisible({ timeout: 90_000 })
+		const fileIds = sourceFileIds(stream)
+		expect(fileIds.length, stream.slice(-1500)).toBeGreaterThan(0)
 		// The file outside the folder matches the question better, and is not used.
-		await expect(page.getByRole('link', { name: OUTSIDE })).toHaveCount(0)
-		for (const link of await links.all()) {
-			await expect(link).toHaveAttribute('href', new RegExp(`/f/${dossierFile}\\b`))
+		expect(fileIds).not.toContain(outsideFile)
+		for (const id of fileIds) {
+			expect(id).toBe(dossierFile)
 		}
-		expect(outsideFile).toBeGreaterThan(0)
 	})
 
 	// @e2e document-chat::nothing-in-scope-matches
 	test('a question the document does not answer says so and lists no sources', async ({ page }) => {
-		test.fixme(true, NO_SCOPE_SCREEN)
-
-		await page.goto(`/index.php/apps/files/files/${fileB}?dir=/&openfile=true`)
+		await page.goto(`/index.php/apps/files/files/${docB}?dir=/&openfile=true`)
 		await openCompanion(page)
 		await expect(page.getByText(DOCUMENT_CHIP).first()).toBeVisible()
 
 		const body = await askCompanion(page, 'Hoe hoog is de boete voor fout parkeren?')
-		expect(body.scope).toEqual({ type: 'file', fileId: fileB })
+		expect(body.scope).toEqual({ type: 'file', fileId: docB })
 
 		await expect(
 			page.getByText(/does not answer|geeft geen antwoord/i).first(),
 		).toBeVisible({ timeout: 90_000 })
-		await expect(page.getByRole('link', { name: FILE_B })).toHaveCount(0)
+		await expect(page.getByRole('link', { name: DOC_B })).toHaveCount(0)
 	})
 
 	// @e2e document-chat::the-person-asks-from-a-filinq-document-page
