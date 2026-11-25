@@ -291,37 +291,24 @@ class HandoffService {
 	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 	 */
 	public function find(string $handoffId): ?array {
-		return $this->storedHandoff(handoffId: $handoffId)?->getObject();
-	}//end find()
-
-	/**
-	 * The stored handoff object, or null when the id is empty or there is none with it.
-	 *
-	 * OpenRegister's find answers an unknown id either with null or with a
-	 * DoesNotExistException; both mean the handoff is not there.
-	 *
-	 * @param string $handoffId The handoff's uuid.
-	 *
-	 * @return ObjectEntity|null
-	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
-	 */
-	private function storedHandoff(string $handoffId): ?ObjectEntity {
 		if ($handoffId === '') {
 			return null;
 		}
 
 		try {
-			return $this->objectService->find(
+			$object = $this->objectService->find(
 				id: $handoffId,
 				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SCHEMA_SLUG),
 				_rbac: false,
 				_multitenancy: false
 			);
 		} catch (DoesNotExistException) {
+			// OpenRegister answers an unknown id with this exception as well as with null.
 			return null;
 		}
-	}//end storedHandoff()
+
+		return $object?->getObject();
+	}//end find()
 
 	/**
 	 * Every waiting handoff, by id.
@@ -471,12 +458,11 @@ class HandoffService {
 	 * @return array<string, mixed>|null
 	 */
 	private function waiting(string $handoffId): ?array {
-		$object = $this->storedHandoff(handoffId: $handoffId);
-		if (($object instanceof ObjectEntity) === false) {
+		$handoff = $this->find(handoffId: $handoffId);
+		if ($handoff === null) {
 			return null;
 		}
 
-		$handoff = $object->getObject();
 		if (($handoff['status'] ?? null) !== self::WAITING) {
 			$this->logger->info(
 				'[HandoffService] A handoff that is no longer waiting was left as it is',
