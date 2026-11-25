@@ -8,6 +8,15 @@
  * both, and re-reading the list after a save.
  */
 
+import { emit } from '@nextcloud/event-bus'
+
+/**
+ * The event-bus channel a successful write announces itself on. A
+ * schema-driven detail page (CnDetailPage) re-reads its object when it hears
+ * it, so every object-bound widget shows what the backend now holds.
+ */
+export const PAGE_REFRESH_CHANNEL = 'cn:page:refresh'
+
 export const formDialogSlot = {
 	props: {
 		/**
@@ -67,15 +76,25 @@ export const formDialogSlot = {
 
 		/**
 		 * Announce a save: emits `saved` and ADDITIONALLY re-reads the host list
-		 * through the `refresh` prop when supplied.
+		 * through the `refresh` prop when supplied. A dialog opened without one
+		 * (a detail page's `open-modal` header action passes props only)
+		 * announces the write on `cn:page:refresh` instead, so the detail page
+		 * re-reads the record: without it the agent's Configuration card kept
+		 * showing the ensemble as Off after it was saved on (seen live, 25 Nov
+		 * 2026).
 		 *
 		 * @param {object} saved The saved record.
 		 * @return {void}
 		 * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
+		 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
 		 */
 		announceSaved(saved) {
 			this.$emit('saved', saved)
-			this.refresh?.()
+			if (typeof this.refresh === 'function') {
+				this.refresh()
+				return
+			}
+			emit(PAGE_REFRESH_CHANNEL, {})
 		},
 	},
 }

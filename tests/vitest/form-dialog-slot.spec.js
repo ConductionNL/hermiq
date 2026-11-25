@@ -10,9 +10,12 @@
  */
 
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { h } from 'vue'
-import { formDialogSlot } from '../../src/modals/formDialogSlot.js'
+import { emit } from '@nextcloud/event-bus'
+import { formDialogSlot, PAGE_REFRESH_CHANNEL } from '../../src/modals/formDialogSlot.js'
+
+vi.mock('@nextcloud/event-bus', () => ({ emit: vi.fn() }))
 
 const Dialog = {
 	mixins: [formDialogSlot],
@@ -23,6 +26,10 @@ const Dialog = {
 }
 
 describe('form dialog slot', () => {
+	beforeEach(() => {
+		emit.mockClear()
+	})
+
 	it('re-reads the host list after a save and still emits saved', () => {
 		const refresh = vi.fn()
 		const wrapper = mount(Dialog, { props: { refresh } })
@@ -31,6 +38,8 @@ describe('form dialog slot', () => {
 
 		expect(refresh).toHaveBeenCalledTimes(1)
 		expect(wrapper.emitted('saved')).toEqual([[{ id: 'c-1' }]])
+		// The list is re-read directly; no second read through the page bus.
+		expect(emit).not.toHaveBeenCalled()
 	})
 
 	it('saves without a refresh binding, as when mounted outside an index page', () => {
@@ -38,6 +47,17 @@ describe('form dialog slot', () => {
 
 		expect(() => wrapper.vm.announceSaved({ id: 'c-2' })).not.toThrow()
 		expect(wrapper.emitted('saved')).toEqual([[{ id: 'c-2' }]])
+	})
+
+	// @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-agent-owner-can-switch-on-ensemble-answers-req-mens-001
+	it('without a refresh binding, announces the write so a detail page re-reads its record', () => {
+		const wrapper = mount(Dialog)
+
+		wrapper.vm.announceSaved({ id: 'a-1' })
+
+		expect(emit).toHaveBeenCalledTimes(1)
+		expect(emit).toHaveBeenCalledWith(PAGE_REFRESH_CHANNEL, {})
+		expect(PAGE_REFRESH_CHANNEL).toBe('cn:page:refresh')
 	})
 
 	it('closing does not re-read the list', () => {
@@ -49,6 +69,7 @@ describe('form dialog slot', () => {
 
 		expect(close).toHaveBeenCalledTimes(1)
 		expect(refresh).not.toHaveBeenCalled()
+		expect(emit).not.toHaveBeenCalled()
 		expect(wrapper.emitted('close')).toHaveLength(1)
 	})
 })

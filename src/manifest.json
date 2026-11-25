@@ -374,11 +374,13 @@
 								"ensemble": {
 									"label": "Answer with several models",
 									"formatter": "agentEnsemble",
+									"widget": "json",
 									"editable": false
 								},
 								"answerCache": {
 									"label": "Reuse answers to repeated questions",
 									"formatter": "agentAnswerCache",
+									"widget": "json",
 									"editable": false
 								}
 							}
