@@ -228,7 +228,7 @@ class MessageHistoryHandlerTest extends TestCase {
 
 		// The fetch is filtered + capped + newest-first.
 		$this->assertSame(expected: 'conv-1', actual: $capturedConfig['filters']['sessionId']);
-		$this->assertSame(['_created' => 'DESC'], $capturedConfig['sort']);
+		$this->assertSame(expected: ['_created' => 'DESC'], actual: $capturedConfig['sort']);
 		$this->assertSame(10, $capturedConfig['limit']);
 
 		// tool role (unknown to LLPhant mapping) and the empty-content turn are

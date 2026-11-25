@@ -454,8 +454,11 @@ class SessionShareServiceTest extends TestCase {
 
 		$this->assertSame(['sess-g'], array_map(static fn (ObjectEntity $s): string => (string)$s->getUuid(), $found));
 		$this->assertSame(
-			[[['filters' => ['shareKeys' => 'user:bram'], 'sort' => ['_updated' => 'DESC'], 'limit' => 200], false], [['filters' => ['shareKeys' => 'group:team-inkoop'], 'sort' => ['_updated' => 'DESC'], 'limit' => 200], false]],
-			$this->queries
+			expected: [
+				[['filters' => ['shareKeys' => 'user:bram'], 'sort' => ['_updated' => 'DESC'], 'limit' => 200], false],
+				[['filters' => ['shareKeys' => 'group:team-inkoop'], 'sort' => ['_updated' => 'DESC'], 'limit' => 200], false],
+			],
+			actual: $this->queries
 		);
 		$this->assertSame([], $this->service(null)->sharedWith(uid: ''));
 	}//end testSharedWithListsByKeyAndChecksTheShare()
