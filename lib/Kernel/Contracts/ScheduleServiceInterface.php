@@ -195,7 +195,7 @@ interface ScheduleServiceInterface {
 	 *
 	 * @return string What happened: `ran`, `stale`, `claimed_elsewhere`, `deferred` or `gone`.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 */
 	public function runQueued(string $scheduleUuid, string $occurrenceKey): string;
 

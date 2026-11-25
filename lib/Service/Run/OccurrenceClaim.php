@@ -50,7 +50,7 @@ use Throwable;
  * A claim that cannot be taken for any reason is not taken: a worker that
  * does not hold it does not run, so an occurrence runs at most once.
  *
- * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+ * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
  */
 class OccurrenceClaim {
 
@@ -95,7 +95,7 @@ class OccurrenceClaim {
 	 *
 	 * @return bool True when OpenRegister's `lockObject(LockRequest, advisory)` is there.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 */
 	public function isAvailable(): bool {
 		if ($this->available !== null) {
@@ -131,7 +131,7 @@ class OccurrenceClaim {
 	 *
 	 * @return bool True when this worker holds the claim.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 */
 	public function claim(string $scheduleUuid, string $occurrenceKey, int $ttlSeconds): bool {
 		if (trim($scheduleUuid) === '') {
@@ -167,7 +167,7 @@ class OccurrenceClaim {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 */
 	public function release(string $scheduleUuid): void {
 		try {
@@ -193,7 +193,7 @@ class OccurrenceClaim {
 	 *
 	 * @return string The occurrence key.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
 	 */
 	public static function keyFor(string $scheduleUuid, array $data): string {
 		$retryState = ($data['retryState'] ?? null);
@@ -212,7 +212,7 @@ class OccurrenceClaim {
 	 *
 	 * @return string The occurrence key.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 */
 	public static function pendingOf(array $data): string {
 		$pending = ($data['pendingOccurrence'] ?? '');
@@ -235,7 +235,7 @@ class OccurrenceClaim {
 	 *
 	 * @return bool True when the occurrence is lost.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
 	 */
 	public static function isStale(array $data, DateTimeImmutable $now, int $ttlSeconds): bool {
 		if (self::pendingOf(data: $data) === '' || in_array(($data['lastStatus'] ?? ''), self::IN_FLIGHT, true) === false) {
@@ -260,7 +260,7 @@ class OccurrenceClaim {
 	 *
 	 * @return bool True for a live run.
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 	 */
 	public static function isLiveRun(array $data, DateTimeImmutable $now, int $ttlSeconds): bool {
 		if (($data['lastStatus'] ?? '') !== 'running' || self::pendingOf(data: $data) === '') {

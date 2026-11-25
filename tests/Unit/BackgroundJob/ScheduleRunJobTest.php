@@ -31,7 +31,7 @@ use ReflectionMethod;
 use RuntimeException;
 
 /**
- * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+ * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
  */
 #[CoversClass(ScheduleRunJob::class)]
 final class ScheduleRunJobTest extends TestCase {

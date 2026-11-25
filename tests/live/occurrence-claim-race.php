@@ -15,7 +15,7 @@
  * unless exactly one worker held each claim. Exit code 0 means every round had
  * one winner.
  *
- * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+ * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
  */
 
 declare(strict_types=1);
