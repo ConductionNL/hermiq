@@ -11,7 +11,7 @@
 
   All strings via t(); server data comes from the admin-gated API, never a DOM read.
 
-  @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+  @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 -->
 <template>
 	<div class="run-concurrency">
@@ -86,7 +86,7 @@ export default {
 		 * Whether a typed limit differs from the stored one.
 		 *
 		 * @return {boolean} True when there is something to save.
-		 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+		 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 		 */
 		changed() {
 			return String(this.maxParallel) !== this.stored.maxParallel
@@ -100,7 +100,7 @@ export default {
 		 *
 		 * @param {{maxParallel: number, maxParallelPerOrganisation: number, maximum: number}} data The limits.
 		 * @return {void}
-		 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+		 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 		 */
 		apply(data) {
 			this.maxParallel = String(data.maxParallel)
@@ -116,7 +116,7 @@ export default {
 		 * Read the limits.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+		 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 		 */
 		async load() {
 			await this.withFlag('loading', async () => {
@@ -129,7 +129,7 @@ export default {
 		 * the instance limit, comes back as a 422 with the reason, which is shown.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+		 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 		 */
 		async save() {
 			await this.withFlag('busy', async () => {
