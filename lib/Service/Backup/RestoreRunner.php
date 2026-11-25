@@ -34,7 +34,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
  */
 
 declare(strict_types=1);
@@ -59,7 +59,7 @@ use Throwable;
 /**
  * Runs one restore.
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with operations-backup-and-restore; splitting it
  * is follow-up work, not part of this merge.
@@ -108,7 +108,7 @@ class RestoreRunner {
 	 *
 	 * @throws RuntimeException When the point is refused; nothing has been written then.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
 	 */
 	public function run(RestorePoint $point, BackupSettings $settings, string $adminUid): array {
 		$plan = $this->planner->plan(point: $point, settings: $settings);

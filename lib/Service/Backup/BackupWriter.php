@@ -33,7 +33,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+ * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
  */
 
 declare(strict_types=1);
@@ -56,7 +56,7 @@ use Throwable;
 /**
  * Writes and prunes the per-organisation backup files.
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+ * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with operations-backup-and-restore; splitting it
  * is follow-up work, not part of this merge.
@@ -109,7 +109,7 @@ class BackupWriter {
 	 *
 	 * @throws RuntimeException When no administrator owns the backup folder.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 */
 	public function backUp(BackupSettings $settings): array {
 		if ($settings->ownerUid === '') {
@@ -151,7 +151,7 @@ class BackupWriter {
 	 *
 	 * @return list<string> The slugs.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 */
 	public function schemaSlugs(array $descriptor, bool $includeSessions): array {
 		$slugs = [];
@@ -174,7 +174,7 @@ class BackupWriter {
 	 *
 	 * @throws RuntimeException When it cannot be read.
 	 *
-	* @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	* @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 *
 	 * @SuppressWarnings(PHPMD.ErrorControlOperator) an unreadable file is reported through the return value
 	 * checked on the next lines.
@@ -197,7 +197,7 @@ class BackupWriter {
 	 *
 	 * @return string The name.
 	 *
-	* @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	* @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 */
 	public static function fileName(string $organisation, DateTimeInterface $stamp): string {
 		return self::FILE_PREFIX . self::token(organisation: $organisation) . '-' . $stamp->format('Y-m-d-Hi') . self::FILE_SUFFIX;
@@ -210,7 +210,7 @@ class BackupWriter {
 	 *
 	 * @return string The token.
 	 *
-	* @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	* @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 */
 	public static function token(string $organisation): string {
 		$token = trim((string)preg_replace('/[^a-z0-9]+/', '-', strtolower($organisation)), '-');
@@ -359,7 +359,7 @@ class BackupWriter {
 	 *
 	 * @return list<string> The names deleted.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 */
 	public function prune(Folder $folder, string $organisation, int $keep): array {
 		$prefix = self::FILE_PREFIX . self::token(organisation: $organisation) . '-';

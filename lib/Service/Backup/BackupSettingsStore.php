@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+ * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
  */
 
 declare(strict_types=1);
@@ -33,7 +33,7 @@ use OCP\IAppConfig;
 /**
  * The stored backup settings.
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+ * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
  */
 class BackupSettingsStore {
 
@@ -56,7 +56,7 @@ class BackupSettingsStore {
 	 *
 	 * @return BackupSettings The settings.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) BackupSettings is a value object; the static call is its named
 	 * constructor, with nothing to inject.
@@ -83,7 +83,7 @@ class BackupSettingsStore {
 	 *
 	 * @return BackupSettings The stored settings.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 */
 	public function save(BackupSettings $settings): BackupSettings {
 		$this->appConfig->setValueString(AppIdentity::APP_ID, self::CONFIG_KEY, (string)json_encode($settings->toArray()));
@@ -95,7 +95,7 @@ class BackupSettingsStore {
 	 *
 	 * @return string The date.
 	 *
-	* @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	* @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 */
 	public function lastRunDate(): string {
 		return $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_LAST_RUN, '');
@@ -108,7 +108,7 @@ class BackupSettingsStore {
 	 *
 	 * @return void
 	 *
-	* @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
+	* @spec openspec/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001
 	 */
 	public function markRun(string $date): void {
 		$this->appConfig->setValueString(AppIdentity::APP_ID, self::CONFIG_LAST_RUN, $date);

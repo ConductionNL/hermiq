@@ -1,4 +1,6 @@
 ---
+
+> **Decision (Ruben, 25 Nov 2026):** keep the domain tools of `hermiq-domain-mcp-tools`; tasks 2-7 (provider deletion, `#[McpTool]` move, withdrawal of the domain tools) and the governance requirement are withdrawn. `hermiq.runAgentNow` is removed (self-re-entry, budget burn); `hermiq.listPendingApprovals` stays. What this change ships: the read-only `x-openregister-mcp` declarations on `Agent`, `Schedule`, `Session` (Task 1) and the removal of `runAgentNow` (Task 8).
 kind: code
 ---
 

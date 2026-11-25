@@ -446,7 +446,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return array{0:string,1:string} The [subject, message] pair.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
 	 */
 	private function restoreFinishedText(array $subjectRaw, IL10N $l): array {
 		$organisation = (string)($subjectRaw['organisation'] ?? '');

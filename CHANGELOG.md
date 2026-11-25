@@ -4,6 +4,10 @@ All notable changes to Hermiq are documented in this file.
 
 ## Unreleased
 
+### Removed
+
+- **No tool starts an agent run (`hermiq-mcp-adoption`).** The `hermiq.runAgentNow` MCP tool is gone: an agent able to run agents could re-enter itself and spend the organisation's budget unattended. A person still runs a schedule with the Run now button. The other domain tools (`listAgents`, `getAgentStatus`, `listPendingApprovals`, `searchSkills`) stay, all read-only. Hermiq's own registers expose read-only `search` and `get` tools on `Agent`, `Schedule` and `Session` only.
+
 ### Added
 
 - **A gated message-translation delegate for other Conduction apps (`message-translation-delegate`).** `POST /api/translate` takes a source text, a target language and an optional glossary of school terms, and returns the translated text plus a mandatory machine-translation notice. It follows the same disabled-until-DPO-enabled `AiFeature` pattern as `course-recommendations`, at `riskCategory: limited` rather than `high`: translating a message does not decide anything about a person, but the EU AI Act still requires the output to be disclosed as machine-translated. A glossary term's supplied translation is always used verbatim, never paraphrased. Off by default until a DPO enables it; no consuming app is wired up yet.

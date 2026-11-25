@@ -32,7 +32,7 @@ use PHPUnit\Framework\TestCase;
  *
  * @covers \OCA\Hermiq\Notification\Notifier
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
+ * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
  */
 class NotifierRestoreTest extends TestCase {
 

@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-backup-and-restore-are-for-administrators-only-req-bkup-004
+ * @spec openspec/specs/backup-restore/spec.md#requirement-backup-and-restore-are-for-administrators-only-req-bkup-004
  */
 
 declare(strict_types=1);
@@ -49,7 +49,7 @@ use Throwable;
 /**
  * List backups, preview a restore, queue a restore.
  *
- * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-backup-and-restore-are-for-administrators-only-req-bkup-004
+ * @spec openspec/specs/backup-restore/spec.md#requirement-backup-and-restore-are-for-administrators-only-req-bkup-004
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with operations-backup-and-restore; splitting it
  * is follow-up work, not part of this merge.
@@ -84,7 +84,7 @@ class BackupController extends Controller {
 	 *
 	 * @return JSONResponse The backups.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function files(): JSONResponse {
@@ -102,7 +102,7 @@ class BackupController extends Controller {
 	 * @return JSONResponse The preview; 422 for a point that cannot be understood,
 	 *                      404 for a backup that is not there, 409 when it is refused.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) RestorePoint is a value object; the static call is its named
 	 * constructor, with nothing to inject.
@@ -134,7 +134,7 @@ class BackupController extends Controller {
 	 *
 	 * @return JSONResponse 202 when queued; 422, 404 or 409 as for the preview.
 	 *
-	 * @spec openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) RestorePoint is a value object; the static call is its named
 	 * constructor, with nothing to inject.

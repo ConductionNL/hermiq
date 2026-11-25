@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/hermiq-mcp-adoption/specs/hermiq-mcp-adoption/spec.md#requirement-declarative-read-only-tool-surface-on-a-curated-schema-subset
+ * @spec openspec/specs/hermiq-mcp-adoption/spec.md#requirement-declarative-read-only-tool-surface-on-a-curated-schema-subset
  */
 
 declare(strict_types=1);
