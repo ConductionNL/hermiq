@@ -1413,9 +1413,25 @@ class ApprovalService implements ApprovalServiceInterface {
 			return $this->applyApproval(approval: $approval, deciderUid: $deciderUid);
 		}
 
-		// The task decided. Never apply from the stale entity: the terminal
-		// listener may already have released the run, and a second release
-		// would run the gated action twice.
+		return $this->afterMirroredApproval(approval: $approval, deciderUid: $deciderUid);
+	}//end approve()
+
+	/**
+	 * What approve() reports once the mirror task completed.
+	 *
+	 * Never applies from the stale entity: the terminal listener may already
+	 * have released the run, and a second release would run the gated action
+	 * twice. An unreadable approval is left alone; a still-pending one (the
+	 * terminal event never reached hermiq) is applied once from the re-read.
+	 *
+	 * @param ObjectEntity $approval   The approval as it was before the completion.
+	 * @param string       $deciderUid The reviewer who decided.
+	 *
+	 * @return array{status:string, ran:bool}
+	 *
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
+	 */
+	private function afterMirroredApproval(ObjectEntity $approval, string $deciderUid): array {
 		$uuid = (string)$approval->getUuid();
 		$current = $this->loadApproval(uuid: $uuid);
 		if ($current === null) {
@@ -1428,7 +1444,7 @@ class ApprovalService implements ApprovalServiceInterface {
 		}
 
 		return ($this->appliedDecisions[$uuid] ?? ['status' => $status, 'ran' => false]);
-	}//end approve()
+	}//end afterMirroredApproval()
 
 	/**
 	 * Apply an approval: the one place an Approval becomes `approved`.
@@ -1453,19 +1469,7 @@ class ApprovalService implements ApprovalServiceInterface {
 			return $settled;
 		}
 
-		$data = $approval->getObject();
-		$data['status'] = 'approved';
-		$data['decidedBy'] = $deciderUid;
-		$data['decidedAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
-
-		$this->persistApproval(
-			data: $data,
-			target: new ApprovalTarget(
-				uuid: (string)$approval->getUuid(),
-				owner: (string)($approval->getOwner() ?? '')
-			)
-		);
-		$this->writeDecisionAudit(approval: $approval, decision: new ApprovalDecision(action: 'approve', reason: ''));
+		$data = $this->recordApproval(approval: $approval, deciderUid: $deciderUid);
 
 		// Release the OpenRegister mirror BEFORE resuming: a resume crash must
 		// not leave a decided approval dangling in anyone's task inbox. When
@@ -1481,6 +1485,31 @@ class ApprovalService implements ApprovalServiceInterface {
 
 		return $result;
 	}//end applyApproval()
+
+	/**
+	 * Save the Approval as approved by $deciderUid and audit the decision.
+	 *
+	 * @param ObjectEntity $approval   The pending approval.
+	 * @param string       $deciderUid The reviewer who decided.
+	 *
+	 * @return array<string, mixed> The approved payload.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
+	 */
+	private function recordApproval(ObjectEntity $approval, string $deciderUid): array {
+		$data = $approval->getObject();
+		$data['status'] = 'approved';
+		$data['decidedBy'] = $deciderUid;
+		$data['decidedAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
+
+		$this->persistApproval(
+			data: $data,
+			target: new ApprovalTarget(uuid: (string)$approval->getUuid(), owner: (string)($approval->getOwner() ?? ''))
+		);
+		$this->writeDecisionAudit(approval: $approval, decision: new ApprovalDecision(action: 'approve', reason: ''));
+
+		return $data;
+	}//end recordApproval()
 
 	/**
 	 * The answer approve() gives without deciding through the task: a
@@ -1505,29 +1534,47 @@ class ApprovalService implements ApprovalServiceInterface {
 		// re-runs pre-qualification, and until it passes the transition is REFUSED
 		// from EVERY surface (the Approval stays pending, nothing is written), so an
 		// edited-but-unscanned body can never apply through an inbox approval.
-		if ((string)($data['sourceType'] ?? '') === 'skill-draft') {
-			$consolidation = $this->container->get(SkillConsolidationService::class);
-			if ($consolidation->isDraftApprovable(draftId: (string)($data['draftId'] ?? '')) === false) {
-				$this->logger->info(
-					'Hermiq refused approval of skill-draft Approval '
-					. ((string)$approval->getUuid()) . ': the draft is awaiting re-qualification.'
-				);
-				return ['status' => 'pending', 'ran' => false];
-			}
-		}
-
 		// Oversight-ask-and-hold: a question is answered, never just approved
 		// (answerQuestion()), and approving a draft releases it as written.
-		if ((string)($data['sourceType'] ?? '') === 'question') {
+		$sourceType = (string)($data['sourceType'] ?? '');
+		if ($sourceType === 'question' || $this->skillDraftAwaitsRequalification(approval: $approval) === true) {
 			return ['status' => 'pending', 'ran' => false];
 		}
 
-		if ((string)($data['sourceType'] ?? '') === 'draft') {
+		if ($sourceType === 'draft') {
 			return $this->releaseDraft(approval: $approval, deciderUid: $deciderUid, edits: []);
 		}
 
 		return null;
 	}//end approvalShortCircuit()
+
+	/**
+	 * Whether a skill-draft Approval's draft lacks valid gate evidence.
+	 *
+	 * A content edit invalidates scan and eval and re-runs pre-qualification;
+	 * until it passes, approval is refused from every surface (the Approval
+	 * stays pending, nothing is written).
+	 *
+	 * @param ObjectEntity $approval The approval.
+	 *
+	 * @return bool True when it is a skill draft that may not be approved yet.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
+	 */
+	private function skillDraftAwaitsRequalification(ObjectEntity $approval): bool {
+		$data = $approval->getObject();
+		if ((string)($data['sourceType'] ?? '') !== 'skill-draft') {
+			return false;
+		}
+
+		$consolidation = $this->container->get(SkillConsolidationService::class);
+		if ($consolidation->isDraftApprovable(draftId: (string)($data['draftId'] ?? '')) === true) {
+			return false;
+		}
+
+		$this->logger->info('Hermiq refused approval of skill-draft Approval ' . ((string)$approval->getUuid()) . ': awaiting re-qualification.');
+		return true;
+	}//end skillDraftAwaitsRequalification()
 
 	/**
 	 * Resume the gated run matching the Approval's `sourceType` — the dispatch
@@ -1705,14 +1752,8 @@ class ApprovalService implements ApprovalServiceInterface {
 			return false;
 		}
 
-		try {
-			$completion = $this->container->get(MirrorTaskCompletion::class);
-		} catch (Throwable $e) {
-			$this->logger->info('Hermiq decides approval ' . ((string)$approval->getUuid()) . ' on its own path: ' . $e->getMessage());
-			return false;
-		}
-
-		if (($completion instanceof MirrorTaskCompletion) === false) {
+		$completion = $this->mirrorTaskCompletion();
+		if ($completion === null) {
 			return false;
 		}
 
@@ -1723,6 +1764,28 @@ class ApprovalService implements ApprovalServiceInterface {
 
 		return $completion->complete(approval: $approval, outcome: $decision->action, deciderUid: $deciderUid, comment: $comment);
 	}//end completeMirror()
+
+	/**
+	 * The mirror task completion service, or null when it cannot be resolved.
+	 *
+	 * @return MirrorTaskCompletion|null
+	 *
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
+	 */
+	private function mirrorTaskCompletion(): ?MirrorTaskCompletion {
+		try {
+			$completion = $this->container->get(MirrorTaskCompletion::class);
+		} catch (Throwable $e) {
+			$this->logger->info('Hermiq decides approvals on its own path: ' . $e->getMessage());
+			return null;
+		}
+
+		if (($completion instanceof MirrorTaskCompletion) === false) {
+			return null;
+		}
+
+		return $completion;
+	}//end mirrorTaskCompletion()
 
 	/**
 	 * Idempotently ensure one pending question Approval for a scheduled run
