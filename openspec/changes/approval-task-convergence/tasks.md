@@ -23,7 +23,8 @@
 
 ## Phase 3: thin delegate (staged)
 
-- [ ] 3.1 `ApprovalService::approve()`/`deny()` become delegates over `TaskService::complete()`; the terminal listener becomes the ONLY decision applier
+- [x] 3.1 `ApprovalService::approve()`/`deny()` become delegates over `TaskService::complete()`; the terminal listener becomes the ONLY decision applier
+      - 2026-11-26: `approve()`/`deny()` complete the mirror task through `MirrorTaskCompletion` (resolved at call time; `completeWithAnswer()`, claiming a pool task first) and then re-read the Approval; the decision itself lives in the new `applyApproval()`/`applyDenial()`, which `TaskTerminalListener` calls. hermiq applies directly only for an un-mirrored Approval, an install without the task surface, a refused completion, or a re-read that is still pending (an event that never reached hermiq); an unreadable re-read is left alone. `approve()` reports the result the listener applied in the same request. `TalkReactionDecider` falls back onto the appliers, since it already tried the task. Tests: `ApprovalServiceTaskDelegateTest`; listener and Talk tests moved onto the appliers.
 - [ ] 3.2 Evaluate `TaskSequenceService::provision()` for multi-step approval (skill drafts with maintainer + owner sign-off); adopt or record the rejection
 - [ ] 3.3 Adopt `expiresAt`/`onTimeout` for TTL-bounded `toolcall` approvals once OpenRegister's `task-expiry-and-outcomes` change lands, replacing the app-local TTL constant
 - [ ] 3.4 Retire the approval schema's decision fields that the task now owns; `occ openregister:schemas:prune-retired` for anything dropped

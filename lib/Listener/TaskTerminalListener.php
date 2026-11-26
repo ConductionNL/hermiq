@@ -152,6 +152,7 @@ class TaskTerminalListener implements IEventListener {
 	 * @return void
 	 *
 	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-a-task-decision-is-an-approval-decision
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
 	 */
 	private function apply(object $task, string $approvalUuid): void {
 		$approval = $this->approvalService->loadApproval(uuid: $approvalUuid);
@@ -178,12 +179,12 @@ class TaskTerminalListener implements IEventListener {
 
 		$outcome = strtolower(trim((string)$this->read(subject: $task, getter: 'getOutcome')));
 		if (in_array($outcome, self::REJECTING_OUTCOMES, true) === true) {
-			$this->approvalService->deny(approval: $approval, deciderUid: $decider, reason: $this->rejectionReason(task: $task));
+			$this->approvalService->applyDenial(approval: $approval, deciderUid: $decider, reason: $this->rejectionReason(task: $task));
 
 			return;
 		}
 
-		$this->approvalService->approve(approval: $approval, deciderUid: $decider);
+		$this->approvalService->applyApproval(approval: $approval, deciderUid: $decider);
 
 	}//end apply()
 

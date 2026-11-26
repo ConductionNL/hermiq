@@ -94,6 +94,7 @@ use OCA\Hermiq\Service\Approval\ApprovalTarget;
 use OCA\Hermiq\Service\Approval\ApprovalTaskBridge;
 use OCA\Hermiq\Service\Approval\DraftEditRefused;
 use OCA\Hermiq\Service\Approval\DraftRelease;
+use OCA\Hermiq\Service\Approval\MirrorTaskCompletion;
 use OCA\Hermiq\Service\Approval\QuestionAnswer;
 use OCA\Hermiq\Service\ComputerUse\ComputerRunGrant;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
@@ -184,6 +185,17 @@ class ApprovalService implements ApprovalServiceInterface {
 	 * @var int
 	 */
 	public const TOOLCALL_APPROVAL_TTL_SECONDS = 3600;
+
+	/**
+	 * The result of each decision applied in this request, by approval uuid.
+	 *
+	 * When a decision completes the mirror task, OpenRegister's terminal event
+	 * reaches TaskTerminalListener in the same request and applies it there;
+	 * the delegating approve() reads the applied result back from here.
+	 *
+	 * @var array<string, array{status: string, ran: bool}>
+	 */
+	private array $appliedDecisions = [];
 
 	/**
 	 * Constructor.
@@ -1388,8 +1400,101 @@ class ApprovalService implements ApprovalServiceInterface {
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
 	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
 	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-5-approvalservice-sourcetype-webhook-generalisation
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-a-hermiq-decision-completes-the-mirror-task
 	 */
 	public function approve(ObjectEntity $approval, string $deciderUid): array {
+		$settled = $this->approvalShortCircuit(approval: $approval, deciderUid: $deciderUid);
+		if ($settled !== null) {
+			return $settled;
+		}
+
+		if ($this->completeMirror(approval: $approval, decision: new ApprovalDecision(action: 'approved', reason: ''), deciderUid: $deciderUid) === false) {
+			return $this->applyApproval(approval: $approval, deciderUid: $deciderUid);
+		}
+
+		// The task decided. Never apply from the stale entity: the terminal
+		// listener may already have released the run, and a second release
+		// would run the gated action twice.
+		$uuid = (string)$approval->getUuid();
+		$current = $this->loadApproval(uuid: $uuid);
+		if ($current === null) {
+			return ['status' => 'approved', 'ran' => false];
+		}
+
+		$status = (string)($current->getObject()['status'] ?? '');
+		if ($status === 'pending') {
+			return $this->applyApproval(approval: $current, deciderUid: $deciderUid);
+		}
+
+		return ($this->appliedDecisions[$uuid] ?? ['status' => $status, 'ran' => false]);
+	}//end approve()
+
+	/**
+	 * Apply an approval: the one place an Approval becomes `approved`.
+	 *
+	 * Called by TaskTerminalListener when the mirror task completes, and by
+	 * approve() only when the Approval has no mirror task or OpenRegister
+	 * refused to complete it. Transitions the Approval, audits the decision,
+	 * releases the mirror (a no-op when the task already decided) and resumes
+	 * the gated run. A non-pending Approval is a no-op.
+	 *
+	 * @param ObjectEntity $approval   The pending approval.
+	 * @param string       $deciderUid The reviewer who decided.
+	 *
+	 * @return array{status:string, ran:bool} The resulting status and whether a run fired.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-a-hermiq-decision-completes-the-mirror-task
+	 */
+	public function applyApproval(ObjectEntity $approval, string $deciderUid): array {
+		$settled = $this->approvalShortCircuit(approval: $approval, deciderUid: $deciderUid);
+		if ($settled !== null) {
+			return $settled;
+		}
+
+		$data = $approval->getObject();
+		$data['status'] = 'approved';
+		$data['decidedBy'] = $deciderUid;
+		$data['decidedAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
+
+		$this->persistApproval(
+			data: $data,
+			target: new ApprovalTarget(
+				uuid: (string)$approval->getUuid(),
+				owner: (string)($approval->getOwner() ?? '')
+			)
+		);
+		$this->writeDecisionAudit(approval: $approval, decision: new ApprovalDecision(action: 'approve', reason: ''));
+
+		// Release the OpenRegister mirror BEFORE resuming: a resume crash must
+		// not leave a decided approval dangling in anyone's task inbox. When
+		// the decision CAME from the task, the mirror is already terminal and
+		// this is a no-op (design.md Decision 1).
+		$this->taskBridge->releaseFor(approval: $approval, decision: 'approved', deciderUid: $deciderUid);
+
+		$sourceType = (string)($data['sourceType'] ?? 'schedule');
+		$ran = $this->resumeGatedRun(sourceType: $sourceType, data: $data);
+
+		$result = ['status' => 'approved', 'ran' => $ran];
+		$this->appliedDecisions[(string)$approval->getUuid()] = $result;
+
+		return $result;
+	}//end applyApproval()
+
+	/**
+	 * The answer approve() gives without deciding through the task: a
+	 * non-pending Approval, a skill draft awaiting re-qualification, a question
+	 * (answered, never approved) and a held draft (released as written).
+	 *
+	 * @param ObjectEntity $approval   The approval.
+	 * @param string       $deciderUid The reviewer.
+	 *
+	 * @return array{status:string, ran:bool}|null Null when the approval is decided as an approval.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
+	 */
+	private function approvalShortCircuit(ObjectEntity $approval, string $deciderUid): ?array {
 		$data = $approval->getObject();
 		if ((string)($data['status'] ?? '') !== 'pending') {
 			return ['status' => (string)($data['status'] ?? ''), 'ran' => false];
@@ -1421,30 +1526,8 @@ class ApprovalService implements ApprovalServiceInterface {
 			return $this->releaseDraft(approval: $approval, deciderUid: $deciderUid, edits: []);
 		}
 
-		$data['status'] = 'approved';
-		$data['decidedBy'] = $deciderUid;
-		$data['decidedAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
-
-		$this->persistApproval(
-			data: $data,
-			target: new ApprovalTarget(
-				uuid: (string)$approval->getUuid(),
-				owner: (string)($approval->getOwner() ?? '')
-			)
-		);
-		$this->writeDecisionAudit(approval: $approval, decision: new ApprovalDecision(action: 'approve', reason: ''));
-
-		// Release the OpenRegister mirror BEFORE resuming: a resume crash must
-		// not leave a decided approval dangling in anyone's task inbox. When
-		// the decision CAME from the task, the mirror is already terminal and
-		// this is a no-op (design.md Decision 1).
-		$this->taskBridge->releaseFor(approval: $approval, decision: 'approved', deciderUid: $deciderUid);
-
-		$sourceType = (string)($data['sourceType'] ?? 'schedule');
-		$ran = $this->resumeGatedRun(sourceType: $sourceType, data: $data);
-
-		return ['status' => 'approved', 'ran' => $ran];
-	}//end approve()
+		return null;
+	}//end approvalShortCircuit()
 
 	/**
 	 * Resume the gated run matching the Approval's `sourceType` — the dispatch
@@ -1521,8 +1604,44 @@ class ApprovalService implements ApprovalServiceInterface {
 	 * @return void
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-a-hermiq-decision-completes-the-mirror-task
 	 */
 	public function deny(ObjectEntity $approval, string $deciderUid, ?string $reason): void {
+		if ((string)($approval->getObject()['status'] ?? '') !== 'pending') {
+			return;
+		}
+
+		$decision = new ApprovalDecision(action: 'rejected', reason: trim((string)($reason ?? '')));
+		if ($this->completeMirror(approval: $approval, decision: $decision, deciderUid: $deciderUid) === false) {
+			$this->applyDenial(approval: $approval, deciderUid: $deciderUid, reason: $reason);
+			return;
+		}
+
+		// The task decided; apply only what the terminal listener did not.
+		$current = $this->loadApproval(uuid: (string)$approval->getUuid());
+		if ($current !== null && (string)($current->getObject()['status'] ?? '') === 'pending') {
+			$this->applyDenial(approval: $current, deciderUid: $deciderUid, reason: $reason);
+		}
+	}//end deny()
+
+	/**
+	 * Apply a denial: the one place an Approval becomes `denied`.
+	 *
+	 * Called by TaskTerminalListener when the mirror task is rejected, and by
+	 * deny() only when the Approval has no mirror task or OpenRegister refused
+	 * to complete it. A non-pending Approval is a no-op.
+	 *
+	 * @param ObjectEntity $approval   The pending approval.
+	 * @param string       $deciderUid The reviewer who decided.
+	 * @param string|null  $reason     Optional free-text denial reason.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-a-hermiq-decision-completes-the-mirror-task
+	 */
+	public function applyDenial(ObjectEntity $approval, string $deciderUid, ?string $reason): void {
 		$data = $approval->getObject();
 		if ((string)($data['status'] ?? '') !== 'pending') {
 			return;
@@ -1564,7 +1683,46 @@ class ApprovalService implements ApprovalServiceInterface {
 			);
 		}
 
-	}//end deny()
+	}//end applyDenial()
+
+	/**
+	 * Complete the approval's mirror task as the decider, when it has one.
+	 *
+	 * MirrorTaskCompletion is resolved at call time, like the skill
+	 * consolidation service, so an install without it, or an approval without a
+	 * mirror, decides on hermiq's own path.
+	 *
+	 * @param ObjectEntity     $approval   The pending approval.
+	 * @param ApprovalDecision $decision   The task outcome (`approved`|`rejected`) and its comment.
+	 * @param string           $deciderUid The reviewer deciding.
+	 *
+	 * @return bool True when the mirror task was completed.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
+	 */
+	private function completeMirror(ObjectEntity $approval, ApprovalDecision $decision, string $deciderUid): bool {
+		if (trim((string)($approval->getObject()['taskUuid'] ?? '')) === '') {
+			return false;
+		}
+
+		try {
+			$completion = $this->container->get(MirrorTaskCompletion::class);
+		} catch (Throwable $e) {
+			$this->logger->info('Hermiq decides approval ' . ((string)$approval->getUuid()) . ' on its own path: ' . $e->getMessage());
+			return false;
+		}
+
+		if (($completion instanceof MirrorTaskCompletion) === false) {
+			return false;
+		}
+
+		$comment = null;
+		if ($decision->reason !== '') {
+			$comment = $decision->reason;
+		}
+
+		return $completion->complete(approval: $approval, outcome: $decision->action, deciderUid: $deciderUid, comment: $comment);
+	}//end completeMirror()
 
 	/**
 	 * Idempotently ensure one pending question Approval for a scheduled run

@@ -67,6 +67,7 @@ class TalkReactionDecider {
 	 * @return void
 	 *
 	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-a-talk-reaction-completes-the-mirror-task
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
 	 */
 	public function approve(ObjectEntity $approval, string $reactor): void {
 		$pending = $this->throughTask(approval: $approval, outcome: 'approved', reactor: $reactor, comment: null);
@@ -74,7 +75,7 @@ class TalkReactionDecider {
 			return;
 		}
 
-		$this->approvalService->approve(approval: $pending, deciderUid: $reactor);
+		$this->approvalService->applyApproval(approval: $pending, deciderUid: $reactor);
 	}//end approve()
 
 	/**
@@ -87,6 +88,7 @@ class TalkReactionDecider {
 	 * @return void
 	 *
 	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-a-talk-reaction-completes-the-mirror-task
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
 	 */
 	public function deny(ObjectEntity $approval, string $reactor, string $reason): void {
 		$pending = $this->throughTask(approval: $approval, outcome: 'rejected', reactor: $reactor, comment: $reason);
@@ -94,7 +96,7 @@ class TalkReactionDecider {
 			return;
 		}
 
-		$this->approvalService->deny(approval: $pending, deciderUid: $reactor, reason: $reason);
+		$this->approvalService->applyDenial(approval: $pending, deciderUid: $reactor, reason: $reason);
 	}//end deny()
 
 	/**

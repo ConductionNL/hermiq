@@ -79,6 +79,37 @@ interface ApprovalServiceInterface {
 	public function deny(ObjectEntity $approval, string $deciderUid, ?string $reason): void;
 
 	/**
+	 * Apply an approval: transition, audit, release the mirror, resume the run.
+	 *
+	 * The one decision applier for approving. approve() completes the mirror
+	 * task and lets OpenRegister's terminal event reach this method; it calls
+	 * it directly only for an Approval without a mirror or a refused completion.
+	 *
+	 * @param ObjectEntity $approval   The pending approval.
+	 * @param string       $deciderUid The reviewer who decided.
+	 *
+	 * @return array{status:string, ran:bool} The resulting status and whether a run fired.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
+	 */
+	public function applyApproval(ObjectEntity $approval, string $deciderUid): array;
+
+	/**
+	 * Apply a denial: transition, audit, release the mirror.
+	 *
+	 * The one decision applier for denying, the counterpart of applyApproval().
+	 *
+	 * @param ObjectEntity $approval   The pending approval.
+	 * @param string       $deciderUid The reviewer who decided.
+	 * @param string|null  $reason     Optional free-text denial reason.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/approval-task-convergence/tasks.md#phase-3-thin-delegate-staged
+	 */
+	public function applyDenial(ObjectEntity $approval, string $deciderUid, ?string $reason): void;
+
+	/**
 	 * Load an Approval object by UUID without RBAC (the caller applies the guard).
 	 *
 	 * The Approval is owned by the schedule owner, but the decider is the reviewer —

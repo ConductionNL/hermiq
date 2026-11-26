@@ -318,13 +318,13 @@ class TalkApprovalReactionListenerTest extends TestCase {
 				return $reviewer;
 			}
 		);
-		$approvals->method('approve')->willReturnCallback(
+		$approvals->method('applyApproval')->willReturnCallback(
 			function (ObjectEntity $subject, string $deciderUid) use (&$calls): array {
 				$calls[] = 'approve ' . $subject->getUuid() . ' ' . $deciderUid;
 				return ['status' => 'approved'];
 			}
 		);
-		$approvals->method('deny')->willReturnCallback(
+		$approvals->method('applyDenial')->willReturnCallback(
 			function (ObjectEntity $subject, string $deciderUid, ?string $reason) use (&$calls): void {
 				$calls[] = 'deny ' . $subject->getUuid() . ' ' . $deciderUid . ' ' . $reason;
 			}
@@ -357,8 +357,8 @@ class TalkApprovalReactionListenerTest extends TestCase {
 		$this->binding->method('findByMessageId')->willReturn($this->makeApproval());
 		$this->inbox->method('isReviewer')->willReturn(false);
 
-		$this->approvals->expects($this->never())->method('approve');
-		$this->approvals->expects($this->never())->method('deny');
+		$this->approvals->expects($this->never())->method('applyApproval');
+		$this->approvals->expects($this->never())->method('applyDenial');
 		$this->binding->expects($this->never())->method('recordDecidedVia');
 
 		$this->listener->handle($this->makeReaction(emoji: '👍', actorId: 'mallory'));
@@ -375,7 +375,7 @@ class TalkApprovalReactionListenerTest extends TestCase {
 		$this->inbox->method('isReviewer')->willReturn(true);
 
 		$this->approvals->expects($this->once())
-			->method('approve')
+			->method('applyApproval')
 			->willReturn(['status' => 'approved', 'ran' => true]);
 		$this->binding->expects($this->once())
 			->method('recordDecidedVia')
@@ -394,8 +394,8 @@ class TalkApprovalReactionListenerTest extends TestCase {
 		$this->binding->method('findByMessageId')->willReturn($this->makeApproval());
 		$this->inbox->method('isReviewer')->willReturn(true);
 
-		$this->approvals->expects($this->once())->method('deny');
-		$this->approvals->expects($this->never())->method('approve');
+		$this->approvals->expects($this->once())->method('applyDenial');
+		$this->approvals->expects($this->never())->method('applyApproval');
 
 		$this->listener->handle($this->makeReaction(emoji: '👎'));
 
@@ -408,7 +408,7 @@ class TalkApprovalReactionListenerTest extends TestCase {
 	 */
 	public function testOtherEmojiIsIgnored(): void {
 		$this->binding->expects($this->never())->method('findByMessageId');
-		$this->approvals->expects($this->never())->method('approve');
+		$this->approvals->expects($this->never())->method('applyApproval');
 
 		$this->listener->handle($this->makeReaction(emoji: '🎉'));
 
@@ -423,8 +423,8 @@ class TalkApprovalReactionListenerTest extends TestCase {
 		$this->binding->method('findByMessageId')->willReturn($this->makeApproval(status: 'approved'));
 		$this->inbox->method('isReviewer')->willReturn(true);
 
-		$this->approvals->expects($this->never())->method('approve');
-		$this->approvals->expects($this->never())->method('deny');
+		$this->approvals->expects($this->never())->method('applyApproval');
+		$this->approvals->expects($this->never())->method('applyDenial');
 		// Silence would read as "it worked" — the room must be told.
 		$this->bridge->expects($this->once())->method('postToRoom');
 
@@ -441,7 +441,7 @@ class TalkApprovalReactionListenerTest extends TestCase {
 		$this->binding->method('findByMessageId')->willReturn($this->makeApproval(status: 'denied'));
 		$this->inbox->method('isReviewer')->willReturn(true);
 
-		$this->approvals->expects($this->never())->method('approve');
+		$this->approvals->expects($this->never())->method('applyApproval');
 		$this->bridge->expects($this->once())->method('postToRoom');
 
 		$this->listener->handle($this->makeReaction(emoji: '👍'));
@@ -456,7 +456,7 @@ class TalkApprovalReactionListenerTest extends TestCase {
 	public function testUnboundMessageIsIgnored(): void {
 		$this->binding->method('findByMessageId')->willReturn(null);
 
-		$this->approvals->expects($this->never())->method('approve');
+		$this->approvals->expects($this->never())->method('applyApproval');
 
 		$this->listener->handle($this->makeReaction(emoji: '👍'));
 
@@ -497,7 +497,7 @@ class TalkApprovalReactionListenerTest extends TestCase {
 			->method('isReviewer')
 			->with($this->anything(), 'alice')
 			->willReturn(true);
-		$this->approvals->method('approve')->willReturn(['status' => 'approved', 'ran' => true]);
+		$this->approvals->method('applyApproval')->willReturn(['status' => 'approved', 'ran' => true]);
 
 		$this->listener->handle($this->makeReaction(emoji: '👍', actorId: 'users/alice'));
 
