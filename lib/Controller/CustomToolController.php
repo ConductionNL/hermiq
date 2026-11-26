@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
@@ -48,7 +48,7 @@ use Throwable;
  * Every route checks OrganisationPolicyGate::mayAdminister() for the
  * organisation the tool belongs to: its owner or an instance admin.
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with this batch's feature work; splitting it is
  * follow-up work, not part of this merge.
@@ -85,7 +85,7 @@ class CustomToolController extends Controller {
 	 *
 	 * @return JSONResponse 200 {tools}; 401 or 403
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 	 */
 	#[NoAdminRequired]
 	public function index(): JSONResponse {
@@ -114,7 +114,7 @@ class CustomToolController extends Controller {
 	 *
 	 * @return JSONResponse 201 the tool; 400 naming the wrong field; 401 or 403
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 	 */
 	#[NoAdminRequired]
 	public function create(): JSONResponse {
@@ -140,7 +140,7 @@ class CustomToolController extends Controller {
 	 *
 	 * @return JSONResponse 200 the tool; 400 naming the wrong field; 401, 403 or 404
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 	 */
 	#[NoAdminRequired]
 	public function update(string $id): JSONResponse {
@@ -174,7 +174,7 @@ class CustomToolController extends Controller {
 	 *
 	 * @return JSONResponse 200 the tool's answer; 400 on invalid arguments; 401, 403 or 404
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 	 */
 	#[NoAdminRequired]
 	public function tryTool(string $id): JSONResponse {

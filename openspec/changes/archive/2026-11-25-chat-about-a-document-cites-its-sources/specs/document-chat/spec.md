@@ -85,11 +85,11 @@ where the viewer supports it.
 
 ### Requirement: The chat page lists the sources of every answer as links (REQ-DCHAT-005)
 
-On hermiq's own chat page, every answer whose message carries `sources`,
-scoped or not, MUST list them under the answer in the stored order, each
-with its name and, for a file source, a link that opens the file
-(`/f/{fileId}`), at the cited page where the viewer supports it. A source
-the person can no longer open MUST show its name without a link.
+Every answer on hermiq's own chat page MUST list its `sources`, scoped or not,
+under the answer in the stored order, each with its name and, for a file
+source, a link that opens the file (`/f/{fileId}`), at the cited page where
+the viewer supports it. A source the person can no longer open MUST show its
+name without a link.
 
 Rows: `ch-citations` (hermiq matrix). Board: `hermiq/HmChat`.
 

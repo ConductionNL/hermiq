@@ -191,7 +191,7 @@ final class TurnSystemPrompt {
 	 *
 	 * @return string The block.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
 	 */
 	private function scopedContextBlock(array $context): string {
 		$block = "\n\nThe user asks about one document or the documents in one folder. Answer ONLY from the "

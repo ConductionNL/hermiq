@@ -108,7 +108,7 @@ class ChatRefusalFrame {
 	 *
 	 * @return string The sentence.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
 	 */
 	private function scopeMessage(TurnScopeException $cause): string {
 		if ($cause->errorCode() === TurnScopeException::NOT_FOUND) {
