@@ -81,14 +81,15 @@ class AnswerCacheService {
 	/**
 	 * Constructor.
 	 *
-	 * @param ObjectService                  $objects  OpenRegister's single read and write path.
-	 * @param AgentVersionService            $versions The agent's current version.
-	 * @param OrganisationModelPolicyService $policy   The effective model policy.
-	 * @param IUserSession                   $session  The person asking.
-	 * @param ITimeFactory                   $time     The clock.
-	 * @param LoggerInterface                $logger   The logger.
-	 * @param SimilarQuestionSearch|null     $similar  OpenRegister's vector search, for the similarity layer.
-	 * @param RedactionService|null          $redactor Redacts the question stored for the similarity layer.
+	 * @param ObjectService                  $objects       OpenRegister's single read and write path.
+	 * @param AgentVersionService            $versions      The agent's current version.
+	 * @param OrganisationModelPolicyService $policy        The effective model policy.
+	 * @param IUserSession                   $session       The person asking.
+	 * @param ITimeFactory                   $time          The clock.
+	 * @param LoggerInterface                $logger        The logger.
+	 * @param SimilarQuestionSearch|null     $similar       OpenRegister's vector search, for the similarity layer.
+	 * @param RedactionService|null          $redactor      Redacts the question stored for the similarity layer.
+	 * @param OrganisationMapper|null        $organisations Resolves the person's active organisation.
 	 */
 	public function __construct(
 		private readonly ObjectService $objects,
