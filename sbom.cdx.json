@@ -21727,8 +21727,8 @@
     {
       "type": "library",
       "name": "marked",
-      "version": "18.2.1",
-      "bom-ref": "hermiq@0.1.0|marked@18.2.1",
+      "version": "18.3.0",
+      "bom-ref": "hermiq@0.1.0|marked@18.3.0",
       "licenses": [
         {
           "license": {
@@ -21736,15 +21736,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/marked@18.2.1",
+      "purl": "pkg:npm/marked@18.3.0",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/marked/-/marked-18.2.1.tgz",
+          "url": "https://registry.npmjs.org/marked/-/marked-18.3.0.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "8a2e1bc424c2aaac294fce9765680936cf999c021992c98b19831589603b3c321760878da35c7a703757dc93a2a7d34cfdc23aa7ccf9ec5c6588009ba13aee30"
+              "content": "79df3398f5e505bdd47c65cde621cc43232116976a2e0a15e6e9945f1fd0d51f855b7abc569aa9ca8294c2510d2fd6a9a68d9432f34b5110d5693dc030eaf218"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
