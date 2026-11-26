@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
+ * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use Throwable;
 /**
  * Send one batch of traces, retrying and finally dropping it.
  *
- * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
+ * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
  */
 class TraceExportJob extends QueuedJob {
 
@@ -78,7 +78,7 @@ class TraceExportJob extends QueuedJob {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
 	 */
 	protected function run($argument): void {
 		try {

@@ -21,7 +21,7 @@ const BASE = '/apps/hermiq/api/custom-tools'
  * @param {object} tool The tool: slug, name, description, inputSchema, changesData, target, enabled.
  * @return {Promise<object>} The stored tool with its id and toolId.
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  */
 export async function createCustomTool(tool) {
 	const response = await axios.post(generateUrl(BASE), tool)
@@ -35,7 +35,7 @@ export async function createCustomTool(tool) {
  * @param {object} tool The tool's new fields.
  * @return {Promise<object>} The stored tool.
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  */
 export async function updateCustomTool(id, tool) {
 	const response = await axios.put(
@@ -53,7 +53,7 @@ export async function updateCustomTool(id, tool) {
  * @param {object} args The sample inputs.
  * @return {Promise<object>} The tool's answer, or its error envelope.
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  */
 export async function tryCustomTool(id, args) {
 	try {
@@ -76,7 +76,7 @@ export async function tryCustomTool(id, args) {
  * @param {Array<{name: string, type: string, required: boolean, description: string, enumText: string}>} inputs The rows.
  * @return {{type: string, properties: object, required: Array<string>}} The input schema.
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  */
 export function inputSchemaFrom(inputs) {
 	const properties = {}
@@ -100,7 +100,7 @@ export function inputSchemaFrom(inputs) {
  * @param {{type: string, description: string, enumText: string}} input The row.
  * @return {object} The property: its type, a description when given, and an enum for a string with choices.
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  */
 function propertyFrom(input) {
 	const property = { type: input.type || 'string' }
@@ -123,7 +123,7 @@ function propertyFrom(input) {
  * @param {object|null} schema The stored input schema.
  * @return {Array<{name: string, type: string, required: boolean, description: string, enumText: string}>} The rows.
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  */
 export function inputsFrom(schema) {
 	const properties = schema?.properties || {}
@@ -155,7 +155,7 @@ const SAMPLE_PARSERS = {
  * @param {object} samples The sample text per input name.
  * @return {object} The arguments; an empty sample is left out.
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  */
 export function sampleArguments(inputs, samples) {
 	const args = {}
@@ -176,7 +176,7 @@ export function sampleArguments(inputs, samples) {
  *
  * @param {object} form The editable form.
  * @return {object}
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
  */
 export function integriqTargetFrom(form) {
 	const target = {

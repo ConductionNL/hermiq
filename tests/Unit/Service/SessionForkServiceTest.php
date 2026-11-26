@@ -153,7 +153,7 @@ class SessionForkServiceTest extends TestCase {
 		$this->assertSame(['agentsessionturn', 'agentsessionturn'], [$this->saves[1]['schema'], $this->saves[2]['schema']]);
 		$this->assertSame([null, null], [$this->saves[1]['uuid'], $this->saves[2]['uuid']]);
 		$this->assertSame(['sessionId' => 's-1'], $this->queries[0]['filters']);
-		$this->assertSame(['created' => 'ASC'], $this->queries[0]['sort']);
+		$this->assertSame(expected: ['_created' => 'ASC'], actual: $this->queries[0]['sort']);
 		$this->assertFalse($this->queries[0]['_rbac']);
 	}
 

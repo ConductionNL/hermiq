@@ -173,7 +173,9 @@ class MessageHistoryHandler implements MessageHistoryHandlerInterface {
 			->findAll(
 				config: [
 					'filters' => ['sessionId' => $conversationId],
-					'sort' => ['created' => 'DESC'],
+					// `_created` is the object's creation metadata; a plain `created` is
+					// not a SessionTurn property, and OpenRegister ignores a sort on it.
+					'sort' => ['_created' => 'DESC'],
 					'limit' => self::RECENT_MESSAGES_COUNT,
 				],
 				_rbac: false
