@@ -171,7 +171,7 @@ class TalkApprovalBinding implements TalkApprovalBindingInterface {
 				->findAll(
 					config: [
 						'filters' => ['talkMessageId' => $messageId],
-						'sort' => ['created' => 'DESC'],
+						'sort' => ['_created' => 'DESC'],
 						'limit' => 1,
 					]
 				);

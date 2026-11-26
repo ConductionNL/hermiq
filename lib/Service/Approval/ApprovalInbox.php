@@ -82,21 +82,116 @@ class ApprovalInbox {
 	 * reviewer group. Instance-admin visibility is deliberately NOT included — this
 	 * is the "routed to me" inbox, not a global queue.
 	 *
+	 * The routing comes from OpenRegister's task inbox: a mirrored Approval is
+	 * listed when its open mirror task is assigned to the user or offered to a
+	 * group they are in, in the task inbox's order, with its `taskUuid`. An
+	 * Approval without a mirror is listed by hermiq's own routing after those,
+	 * and without the task inbox every Approval is.
+	 *
 	 * @param string $uid The requesting user's UID.
 	 *
 	 * @return array<int, array<string, mixed>> Compact pending-approval records.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-inbox-reads-pending-work-from-the-openregister-task-inbox
 	 */
 	public function listPendingForReviewer(string $uid): array {
 		if ($uid === '') {
 			return [];
 		}
 
-		$objects = $this->pendingApprovals();
+		$objects = array_values(array_filter($this->pendingApprovals(), static fn (mixed $row): bool => ($row instanceof ObjectEntity)));
+		$previews = $this->previewBuilder();
+		$routed = $this->taskInbox()?->routedApprovals(uid: $uid);
+		if ($routed === null) {
+			return $this->locallyRouted(objects: $objects, uid: $uid, previews: $previews);
+		}
+
+		$records = $this->taskRouted(
+			objects: $objects,
+			routed: $routed,
+			reader: new ApprovalInboxReader(uid: $uid, previews: $previews)
+		);
+
+		// An Approval the bridge could not mirror has no task to route it, and
+		// stays decidable on hermiq's own surface: list it from hermiq's own
+		// routing. A mirrored one the task inbox did not answer is not routed here.
+		$unmirrored = array_filter(
+			$objects,
+			static fn (ObjectEntity $object): bool => (trim((string)($object->getObject()['taskUuid'] ?? '')) === '')
+		);
+
+		return array_merge($records, $this->locallyRouted(objects: array_values($unmirrored), uid: $uid, previews: $previews));
+	}//end listPendingForReviewer()
+
+	/**
+	 * The records of the routed approvals, in the task inbox's order, each with
+	 * its mirror's uuid. A routed approval that is not pending for the reader by
+	 * hermiq's own check is left out: a task never widens it.
+	 *
+	 * @param array<int, ObjectEntity>                                  $objects The pending Approvals.
+	 * @param array<int, array{approvalUuid: string, taskUuid: string}> $routed  The task inbox's routing.
+	 * @param ApprovalInboxReader                                       $reader  Who reads, and the preview builder.
+	 *
+	 * @return array<int, array<string, mixed>> The records.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-inbox-reads-pending-work-from-the-openregister-task-inbox
+	 */
+	private function taskRouted(array $objects, array $routed, ApprovalInboxReader $reader): array {
+		$byUuid = [];
+		foreach ($objects as $object) {
+			$byUuid[(string)$object->getUuid()] = $object;
+		}
 
 		$records = [];
-		$previews = $this->previewBuilder();
+		foreach ($routed as $entry) {
+			$object = ($byUuid[$entry['approvalUuid']] ?? null);
+			if ($object === null || $this->isPendingFor(object: $object, uid: $reader->uid) === false) {
+				continue;
+			}
+
+			$record = $this->inboxRecord(approval: $object, previews: $reader->previews);
+			$record['taskUuid'] = $entry['taskUuid'];
+			$records[] = $record;
+		}
+
+		return $records;
+	}//end taskRouted()
+
+	/**
+	 * OpenRegister's task inbox reader, or null when it cannot be resolved.
+	 *
+	 * @return ApprovalTaskInbox|null The reader, or null.
+	 */
+	private function taskInbox(): ?ApprovalTaskInbox {
+		try {
+			$taskInbox = $this->container->get(ApprovalTaskInbox::class);
+		} catch (Throwable $e) {
+			$this->logger->warning('Hermiq approval inbox reads hermiq\'s own routing: ' . $e->getMessage());
+			return null;
+		}
+
+		if (($taskInbox instanceof ApprovalTaskInbox) === false) {
+			return null;
+		}
+
+		return $taskInbox;
+	}//end taskInbox()
+
+	/**
+	 * The pending Approvals hermiq's own reviewer routing sends to a user: the
+	 * inbox source when OpenRegister's task inbox cannot be read.
+	 *
+	 * @param array<int, mixed> $objects The pending Approval rows.
+	 * @param string $uid The requesting user's UID.
+	 * @param ApprovalPreviewBuilder|null $previews The preview builder, when available.
+	 *
+	 * @return array<int, array<string, mixed>> Compact pending-approval records.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-inbox-reads-pending-work-from-the-openregister-task-inbox
+	 */
+	private function locallyRouted(array $objects, string $uid, ?ApprovalPreviewBuilder $previews): array {
+		$records = [];
 		foreach ($objects as $object) {
 			if ($this->isPendingFor(object: $object, uid: $uid) === true) {
 				$records[] = $this->inboxRecord(approval: $object, previews: $previews);
@@ -104,7 +199,7 @@ class ApprovalInbox {
 		}
 
 		return $records;
-	}//end listPendingForReviewer()
+	}//end locallyRouted()
 
 	/**
 	 * Whether the given user may decide the given Approval (separation of duties).
