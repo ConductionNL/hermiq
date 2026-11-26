@@ -1781,7 +1781,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-passes-the-same-governance-as-every-tool-req-custool-004
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-passes-the-same-governance-as-every-tool-req-custool-004
 	 */
 	private static function customToolTrace(string $toolId, mixed $result): array {
 		$meta = [];
