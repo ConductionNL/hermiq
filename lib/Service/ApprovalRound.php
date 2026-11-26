@@ -38,10 +38,15 @@ final class ApprovalRound {
 	 *
 	 * @param string $approvalUuid The pending approval's UUID.
 	 * @param array<int, mixed> $reviewerUids The resolved reviewer user ids.
+	 * @param string|null $taskNotified The reviewer OpenRegister already notifies through the
+	 *                                  approval's mirror task, or null.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-a-mirror-task-is-assigned-to-is-notified-once-by-openregister
 	 */
 	public function __construct(
 		public readonly string $approvalUuid,
 		public readonly array $reviewerUids,
+		public readonly ?string $taskNotified = null,
 	) {
 	}//end __construct()
 }//end class

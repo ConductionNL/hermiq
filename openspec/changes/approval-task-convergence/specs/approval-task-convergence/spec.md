@@ -99,3 +99,28 @@ hermiq's approval inbox (`GET /api/approvals`) SHALL take its routing from OpenR
 - **THEN** the inbox lists every pending Approval routed to the user by hermiq's own routing, and the failure is logged
 
 @e2e exclude {degraded-install branch, unit-covered in ApprovalTaskInboxTest}
+
+### Requirement: the reviewer a mirror task is assigned to is notified once, by OpenRegister
+
+When a pending Approval carries a mirror `taskUuid`, is routed to one named user, and OpenRegister's task notifications are installed, hermiq SHALL NOT raise its own Nextcloud notification to that user, because OpenRegister notifies the assignee when the mirror task is created. hermiq SHALL count that user as reached. Every other recipient of the round SHALL still get hermiq's notification. hermiq's Talk room post and Note-to-self message SHALL still go out. A group-routed mirror, an Approval without a mirror, and an instance without OpenRegister's task notifications SHALL keep hermiq's notification for every reviewer.
+
+#### Scenario: an assigned mirror task carries the notice
+
+- **WHEN** a pending Approval routed to user `bob` is mirrored as a task assigned to `bob`, on an instance with OpenRegister's task notifications
+- **THEN** hermiq raises no notification to `bob`, the delivery reports `bob` reached, and the Talk message to `bob` is still posted
+
+@e2e exclude {cross-app notification; unit-covered in DeliveryServiceApprovalTaskNoticeTest and ApprovalTaskNoticeTest, and the task notice itself is raised by openregister}
+
+#### Scenario: a group-routed mirror keeps hermiq's notice
+
+- **WHEN** a pending Approval routed to a group is mirrored as an unassigned pool task
+- **THEN** hermiq notifies every member of the group itself
+
+@e2e exclude {cross-app routing branch, unit-covered in DeliveryServiceApprovalTaskNoticeTest}
+
+#### Scenario: no task notifications
+
+- **WHEN** the Approval has no `taskUuid`, or OpenRegister does not ship its task notification listener
+- **THEN** hermiq notifies every reviewer as before
+
+@e2e exclude {degraded-install branch, unit-covered in ApprovalTaskNoticeTest}
