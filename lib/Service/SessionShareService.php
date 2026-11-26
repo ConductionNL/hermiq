@@ -342,7 +342,7 @@ class SessionShareService implements SessionShareServiceInterface {
 			->findAll(
 				config: [
 					'filters' => ['shareKeys' => $key],
-					'sort' => ['updated' => 'DESC'],
+					'sort' => ['_updated' => 'DESC'],
 					'limit' => self::MAX_SHARED_SCAN,
 				],
 				_rbac: false
