@@ -68,13 +68,13 @@ class TalkReactionDeciderTest extends TestCase {
 				return $reloaded;
 			}
 		);
-		$approvals->method('approve')->willReturnCallback(
+		$approvals->method('applyApproval')->willReturnCallback(
 			function (ObjectEntity $approval, string $deciderUid): array {
 				$this->calls[] = 'approve ' . (string)($approval->getObject()['version'] ?? '') . ' ' . $deciderUid;
 				return ['status' => 'approved', 'ran' => true];
 			}
 		);
-		$approvals->method('deny')->willReturnCallback(
+		$approvals->method('applyDenial')->willReturnCallback(
 			function (ObjectEntity $approval, string $deciderUid, ?string $reason): void {
 				$this->calls[] = 'deny ' . (string)($approval->getObject()['version'] ?? '') . ' ' . $deciderUid . ' ' . (string)$reason;
 			}

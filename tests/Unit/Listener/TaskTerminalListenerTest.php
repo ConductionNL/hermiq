@@ -116,10 +116,10 @@ class TaskTerminalListenerTest extends TestCase {
 		$approval = $this->pendingApproval();
 		$this->approvalService->method('loadApproval')->with('appr-1')->willReturn($approval);
 		$this->approvalService->expects($this->once())
-			->method('approve')
+			->method('applyApproval')
 			->with($approval, 'carol')
 			->willReturn(['status' => 'approved', 'ran' => true]);
-		$this->approvalService->expects($this->never())->method('deny');
+		$this->approvalService->expects($this->never())->method('applyDenial');
 
 		$this->listener()->handle(new TaskTerminalEvent(task: $this->completedTask(), committed: true));
 	}//end testApprovingOutcomeApproves()
@@ -133,9 +133,9 @@ class TaskTerminalListenerTest extends TestCase {
 		$approval = $this->pendingApproval();
 		$this->approvalService->method('loadApproval')->with('appr-1')->willReturn($approval);
 		$this->approvalService->expects($this->once())
-			->method('deny')
+			->method('applyDenial')
 			->with($approval, 'carol', 'Because I said so');
-		$this->approvalService->expects($this->never())->method('approve');
+		$this->approvalService->expects($this->never())->method('applyApproval');
 
 		$this->listener()->handle(
 			new TaskTerminalEvent(task: $this->completedTask(outcome: 'rejected'), committed: true)
@@ -194,14 +194,14 @@ class TaskTerminalListenerTest extends TestCase {
 		$task = $this->completedTask(completedBy: null);
 		$task->setAssignee('dave');
 		$this->approvalService->expects($this->once())
-			->method('approve')
+			->method('applyApproval')
 			->with($approval, 'dave')
 			->willReturn(['status' => 'approved', 'ran' => false]);
 		$this->listener()->handle(new TaskTerminalEvent(task: $task, committed: true));
 
 		$anonymous = $this->completedTask(completedBy: null);
 		$anonymous->setAssignee(null);
-		$this->approvalService->expects($this->never())->method('deny');
+		$this->approvalService->expects($this->never())->method('applyDenial');
 		$this->listener()->handle(new TaskTerminalEvent(task: $anonymous, committed: true));
 	}//end testAssigneeFallsBackAndNobodyNeverDecides()
 
@@ -213,8 +213,8 @@ class TaskTerminalListenerTest extends TestCase {
 	 */
 	public function testUnresolvableApprovalIsSkipped(): void {
 		$this->approvalService->method('loadApproval')->willReturn(null);
-		$this->approvalService->expects($this->never())->method('approve');
-		$this->approvalService->expects($this->never())->method('deny');
+		$this->approvalService->expects($this->never())->method('applyApproval');
+		$this->approvalService->expects($this->never())->method('applyDenial');
 
 		$this->listener()->handle(new TaskTerminalEvent(task: $this->completedTask(), committed: true));
 	}//end testUnresolvableApprovalIsSkipped()
@@ -229,9 +229,9 @@ class TaskTerminalListenerTest extends TestCase {
 		$approval = $this->pendingApproval();
 		$this->approvalService->method('loadApproval')->willReturn($approval);
 		$this->approvalService->expects($this->once())
-			->method('deny')
+			->method('applyDenial')
 			->with($approval, 'carol', 'Out of scope');
-		$this->approvalService->expects($this->never())->method('approve');
+		$this->approvalService->expects($this->never())->method('applyApproval');
 
 		$task = $this->completedTask(outcome: ' REJECTED ');
 		$task->setComment('  ');

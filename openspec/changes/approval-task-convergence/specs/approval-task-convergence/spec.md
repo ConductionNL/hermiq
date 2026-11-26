@@ -23,7 +23,7 @@ When hermiq creates a pending Approval, it SHALL ensure exactly one OpenRegister
 
 ### Requirement: a task decision is an approval decision
 
-hermiq SHALL consume OpenRegister's committed `TaskTerminalEvent` through a listener registered by string-literal FQN. For a task completed with `metadata.hermiq.approvalUuid` resolving to a pending Approval, a rejecting outcome (`rejected`, `returned`, `declined`, `denied`) SHALL apply `ApprovalService::deny()` and any other outcome SHALL apply `ApprovalService::approve()`, attributed to the task's `completedBy` (falling back to its assignee). An event without a resolvable decider SHALL be skipped and logged, never decided as nobody. Uncommitted events, non-completed terminal states and foreign tasks SHALL be ignored.
+hermiq SHALL consume OpenRegister's committed `TaskTerminalEvent` through a listener registered by string-literal FQN. For a task completed with `metadata.hermiq.approvalUuid` resolving to a pending Approval, a rejecting outcome (`rejected`, `returned`, `declined`, `denied`) SHALL apply `ApprovalService::applyDenial()` and any other outcome SHALL apply `ApprovalService::applyApproval()`, attributed to the task's `completedBy` (falling back to its assignee). An event without a resolvable decider SHALL be skipped and logged, never decided as nobody. Uncommitted events, non-completed terminal states and foreign tasks SHALL be ignored.
 
 #### Scenario: approving from the OpenRegister inbox resumes the gated run
 
@@ -41,14 +41,46 @@ hermiq SHALL consume OpenRegister's committed `TaskTerminalEvent` through a list
 
 ### Requirement: a hermiq decision releases the mirror
 
-When an Approval is decided on hermiq's own surface, hermiq SHALL terminate the linked mirror task as moot so it leaves every OpenRegister inbox. Releasing an already-terminal task SHALL be a no-op, and a decision applied FROM a task terminal event SHALL NOT loop (the approval's non-pending status makes the replay a no-op).
+When an Approval is decided on hermiq's own path (it has no mirror task, or OpenRegister refused to complete it), hermiq SHALL terminate the linked mirror task as moot so it leaves every OpenRegister inbox. Releasing an already-terminal task SHALL be a no-op, and a decision applied FROM a task terminal event SHALL NOT loop (the approval's non-pending status makes the replay a no-op).
 
 #### Scenario: deciding in hermiq clears the OpenRegister inbox
 
-- **WHEN** a reviewer approves a mirrored Approval through hermiq's own controller
+- **WHEN** a reviewer approves a mirrored Approval through hermiq's own controller and OpenRegister refuses to complete its mirror task
 - **THEN** the mirror task is terminated as moot with a reason naming the hermiq decision
 
 @e2e exclude {cross-app write, unit-covered in ApprovalTaskBridgeTest}
+
+### Requirement: a hermiq decision completes the mirror task
+
+`ApprovalService::approve()` and `ApprovalService::deny()` SHALL decide a mirrored Approval by completing its mirror task in OpenRegister as the deciding reviewer, with outcome `approved`, or `rejected` with the denial reason (trimmed, omitted when empty) as the task comment. OpenRegister's terminal event then reaches the task terminal listener, which SHALL be the only caller that applies the decision (`applyApproval()`/`applyDenial()`). After the completion hermiq SHALL re-read the Approval and apply the decision itself only when it is still pending; it SHALL NOT apply a decision to an Approval it can no longer read, so a gated run is never released twice. When the decision was applied in the same request, `approve()` SHALL report that applied result. A non-pending Approval, a question, a held draft and a skill draft awaiting re-qualification SHALL never reach the task. An Approval without a mirror, an install without the task surface, or a refused completion SHALL be decided on hermiq's own path as before.
+
+#### Scenario: approving in hermiq completes the task and the listener applies it
+
+- **WHEN** a reviewer approves a mirrored, pending Approval through hermiq's own controller
+- **THEN** its mirror task is completed by that reviewer with outcome `approved`, the terminal listener approves the Approval and resumes the gated run once, and the controller reports that the run fired
+
+@e2e exclude {cross-app task completion and event, unit-covered in ApprovalServiceTaskDelegateTest}
+
+#### Scenario: denying in hermiq rejects the task with the reason
+
+- **WHEN** a reviewer denies a mirrored, pending Approval with a reason
+- **THEN** its mirror task is completed with outcome `rejected` and that reason as the comment, and the Approval is denied once
+
+@e2e exclude {cross-app task completion, unit-covered in ApprovalServiceTaskDelegateTest}
+
+#### Scenario: a refused completion decides in hermiq
+
+- **WHEN** the Approval has no mirror task, or OpenRegister refuses the completion and the claim
+- **THEN** hermiq approves or denies the Approval itself and releases the mirror as moot
+
+@e2e exclude {degraded branch, unit-covered in ApprovalServiceTaskDelegateTest}
+
+#### Scenario: an Approval the task already decided is not decided again
+
+- **WHEN** the mirror task completed and the re-read Approval is no longer pending, or cannot be read
+- **THEN** hermiq applies no second decision and the gated run is not released again
+
+@e2e exclude {defensive branch, unit-covered in ApprovalServiceTaskDelegateTest}
 
 ### Requirement: in-flight approvals migrate and roll back
 

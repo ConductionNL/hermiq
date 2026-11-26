@@ -110,7 +110,7 @@ final class TaskTerminalListenerFailureTest extends TestCase {
 		$approval->setUuid('appr-1');
 		$approvals = $this->createMock(ApprovalService::class);
 		$approvals->expects($this->once())->method('loadApproval')->with('appr-1')->willReturn($approval);
-		$approvals->method('approve')->willThrowException(new RuntimeException('already decided'));
+		$approvals->method('applyApproval')->willThrowException(new RuntimeException('already decided'));
 		$logger = $this->createMock(LoggerInterface::class);
 		$logger->expects($this->once())
 			->method('error')
