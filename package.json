@@ -72,7 +72,7 @@
     "@opengemeenten/iconset-web-component": "^2.0.0",
     "babel-loader": "^10.1.1",
     "dexie": "^4.4.7",
-    "dompurify": "^3.4.18",
+    "dompurify": "^3.5.0",
     "gridstack": "^14.0.0",
     "marked": "^18.2.1",
     "node-polyfill-webpack-plugin": "4.0.0",
