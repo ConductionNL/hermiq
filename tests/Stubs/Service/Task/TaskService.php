@@ -82,4 +82,31 @@ class TaskService {
 		unset($uuid, $reason, $source);
 		self::refuse();
 	}//end terminateAsMoot()
+
+	/**
+	 * Claim an offered task for the actor (real signature; stub throws).
+	 *
+	 * @param string $uuid The task uuid.
+	 * @param string|null $actor The claiming identity.
+	 *
+	 * @return Task The claimed task.
+	 */
+	public function claim(string $uuid, ?string $actor): Task {
+		unset($uuid, $actor);
+		self::refuse();
+	}//end claim()
+
+	/**
+	 * Complete a task with an explicit outcome (real signature; stub throws).
+	 *
+	 * @param string $uuid The task uuid.
+	 * @param TaskAnswer $answer The outcome, result text and comment.
+	 * @param string|null $actor The completing identity, which must be the assignee.
+	 *
+	 * @return Task The completed task.
+	 */
+	public function completeWithAnswer(string $uuid, TaskAnswer $answer, ?string $actor): Task {
+		unset($uuid, $answer, $actor);
+		self::refuse();
+	}//end completeWithAnswer()
 }//end class

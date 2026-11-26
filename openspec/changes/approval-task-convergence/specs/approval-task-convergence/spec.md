@@ -124,3 +124,35 @@ When a pending Approval carries a mirror `taskUuid`, is routed to one named user
 - **THEN** hermiq notifies every reviewer as before
 
 @e2e exclude {degraded-install branch, unit-covered in ApprovalTaskNoticeTest}
+
+### Requirement: a Talk reaction completes the mirror task
+
+When a reviewer decides a mirrored Approval by reacting in Talk, hermiq SHALL complete the Approval's mirror task in OpenRegister as that reviewer, with outcome `approved` for 👍 and `rejected` for 👎 (with the reaction's reason as the task comment). A task offered to a group SHALL be claimed for the reviewer first. The Approval SHALL then follow from the task: hermiq's task terminal listener applies the decision. hermiq SHALL re-read the Approval after the completion and apply the decision on its own path only when the Approval is still pending; it SHALL NOT decide an Approval it can no longer read, so a gated run is never released twice. When the Approval has no mirror, OpenRegister has no task surface, or OpenRegister refuses the completion and the claim, hermiq SHALL decide the Approval on its own path as before. The reviewer check, the un-react rule and the confirmation in the room are unchanged.
+
+#### Scenario: a 👍 on a mirrored approval completes its task
+
+- **WHEN** the assigned reviewer reacts 👍 to the approval request of a pending Approval that has a mirror task
+- **THEN** the mirror task is completed by that reviewer with outcome `approved`, the Approval is approved by the terminal listener, and the room confirms the approval
+
+@e2e exclude {cross-app Talk reaction and task completion; unit-covered in MirrorTaskCompletionTest and TalkReactionDeciderTest}
+
+#### Scenario: a group reviewer's reaction claims the offered task first
+
+- **WHEN** a member of the reviewing group reacts 👎 to a mirrored Approval whose task is offered to the group
+- **THEN** the task is claimed for that member and completed with outcome `rejected` and the reaction's reason as the comment
+
+@e2e exclude {cross-app pool claim, unit-covered in MirrorTaskCompletionTest}
+
+#### Scenario: a refused completion falls back to hermiq's decision
+
+- **WHEN** OpenRegister refuses both the completion and the claim, or the Approval has no mirror
+- **THEN** hermiq approves or denies the Approval itself, which releases the mirror as moot
+
+@e2e exclude {degraded branch, unit-covered in TalkReactionDeciderTest and MirrorTaskCompletionTest}
+
+#### Scenario: an unreadable approval is not decided twice
+
+- **WHEN** the mirror task completed and the Approval can no longer be read
+- **THEN** hermiq applies no second decision
+
+@e2e exclude {defensive branch, unit-covered in TalkReactionDeciderTest}

@@ -38,10 +38,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkApprovalBindingInterface;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\Talk\TalkBridge;
+use OCA\Hermiq\Service\Talk\TalkReactionDecider;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -78,14 +78,15 @@ class TalkApprovalReactionListener implements IEventListener {
 	 *
 	 * @param TalkBridge $bridge Talk availability and room posting.
 	 * @param TalkApprovalBindingInterface $approvalBinding Resolves an approval from a message id.
-	 * @param ApprovalServiceInterface $approvalService Applies the decision — the same path the inbox uses.
+	 * @param TalkReactionDecider $reactionDecider Applies the decision through the approval's mirror task,
+	 *                                             falling back to the path the inbox uses.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param ApprovalInbox $approvalInbox The reviewer guard — the same check the inbox uses.
 	 */
 	public function __construct(
 		private readonly TalkBridge $bridge,
 		private readonly TalkApprovalBindingInterface $approvalBinding,
-		private readonly ApprovalServiceInterface $approvalService,
+		private readonly TalkReactionDecider $reactionDecider,
 		private readonly LoggerInterface $logger,
 		private readonly ApprovalInbox $approvalInbox,
 	) {
@@ -323,16 +324,17 @@ class TalkApprovalReactionListener implements IEventListener {
 	 * @return string The confirmation to post.
 	 *
 	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-decision-is-confirmed-in-the-room-and-is-not-reversible-by-un-reacting
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-a-talk-reaction-completes-the-mirror-task
 	 */
 	private function recordDecision(ObjectEntity $approval, array $decision): string {
 		$uuid = (string)$approval->getUuid();
 		if ($decision['emoji'] === self::APPROVE) {
-			$this->approvalService->approve(approval: $approval, deciderUid: $decision['reactor']);
+			$this->reactionDecider->approve(approval: $approval, reactor: $decision['reactor']);
 			$this->approvalBinding->recordDecidedVia(approvalUuid: $uuid, via: 'reaction');
 			return '✅ Approved — the run has been released.';
 		}
 
-		$this->approvalService->deny(approval: $approval, deciderUid: $decision['reactor'], reason: 'Denied by reaction in Talk');
+		$this->reactionDecider->deny(approval: $approval, reactor: $decision['reactor'], reason: 'Denied by reaction in Talk');
 		$this->approvalBinding->recordDecidedVia(approvalUuid: $uuid, via: 'reaction');
 		return '🚫 Denied — the run will not execute.';
 
