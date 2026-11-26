@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Approval;
 
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
+use OCA\Hermiq\Service\Approval\ApprovalTaskInbox;
 use OCA\Hermiq\Service\ApprovalPreviewBuilder;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -82,6 +83,130 @@ class ApprovalInboxTest extends TestCase {
 			$this->createMock(LoggerInterface::class),
 		);
 	}//end inbox()
+
+	/**
+	 * A task inbox that routes the given approvals to the reviewer.
+	 *
+	 * The container resolves it; the preview builder is unavailable.
+	 *
+	 * @param array<int, array{approvalUuid: string, taskUuid: string}>|null $routed The routed approvals; null when unreadable.
+	 *
+	 * @return void
+	 */
+	private function routeThroughTaskInbox(?array $routed): void {
+		$taskInbox = $this->createMock(originalClassName: ApprovalTaskInbox::class);
+		$taskInbox->method('routedApprovals')->willReturnCallback(
+			static function (string $uid) use ($routed): ?array {
+				if ($uid !== 'bob') {
+					return [];
+				}
+
+				return $routed;
+			}
+		);
+		$this->container->method('get')->willReturnCallback(
+			static function (string $id) use ($taskInbox): object {
+				if ($id === ApprovalTaskInbox::class) {
+					return $taskInbox;
+				}
+
+				throw new \RuntimeException(message: 'no ' . $id);
+			}
+		);
+	}//end routeThroughTaskInbox()
+
+	/**
+	 * With the task inbox, a mirrored approval is listed in the task inbox's
+	 * order with its taskUuid, a mirror the task inbox does not route is left
+	 * out, and an unmirrored approval follows by hermiq's own routing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-inbox-reads-pending-work-from-the-openregister-task-inbox
+	 */
+	public function testTheTaskInboxRoutesMirroredApprovals(): void {
+		$first = $this->approval(payload: ['status' => 'pending', 'reviewer' => 'bob', 'reviewerType' => 'user', 'taskUuid' => 'task-first']);
+		$first->setUuid('first');
+		$second = $this->approval(payload: ['status' => 'pending', 'reviewer' => 'reviewers', 'reviewerType' => 'group', 'taskUuid' => 'task-second']);
+		$second->setUuid('second');
+		$unrouted = $this->approval(payload: ['status' => 'pending', 'reviewer' => 'bob', 'reviewerType' => 'user', 'taskUuid' => 'task-elsewhere']);
+		$unrouted->setUuid('unrouted');
+		$unmirrored = $this->approval(payload: ['status' => 'pending', 'reviewer' => 'bob', 'reviewerType' => 'user']);
+		$unmirrored->setUuid('unmirrored');
+
+		$this->objectService->method('findAll')->willReturn([$unmirrored, $first, $unrouted, $second]);
+		$this->groupManager->method('isInGroup')->willReturnCallback(
+			static fn (string $uid, string $gid): bool => ($uid === 'bob' && $gid === 'reviewers')
+		);
+
+		$this->routeThroughTaskInbox(
+			routed: [
+				['approvalUuid' => 'second', 'taskUuid' => 'task-second'],
+				['approvalUuid' => 'first', 'taskUuid' => 'task-first'],
+			]
+		);
+		$records = $this->inbox()->listPendingForReviewer(uid: 'bob');
+
+		$this->assertSame(
+			expected: ['second', 'first', 'unmirrored'],
+			actual: array_column($records, 'id'),
+			message: 'Routed approvals in task order, then the unmirrored one; the unrouted mirror is left out.'
+		);
+		$this->assertSame(expected: 'task-second', actual: $records[0]['taskUuid']);
+		$this->assertSame(expected: 'task-first', actual: $records[1]['taskUuid']);
+		$this->assertArrayNotHasKey(key: 'taskUuid', array: $records[2], message: 'An unmirrored approval has no task to name.');
+	}//end testTheTaskInboxRoutesMirroredApprovals()
+
+	/**
+	 * A task row never widens hermiq's reviewer check: a routed approval that is
+	 * decided, someone else's, or not in the pending query is not listed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-inbox-reads-pending-work-from-the-openregister-task-inbox
+	 */
+	public function testATaskRowNeverWidensTheReviewerCheck(): void {
+		$decided = $this->approval(payload: ['status' => 'approved', 'reviewer' => 'bob', 'reviewerType' => 'user', 'taskUuid' => 't1']);
+		$decided->setUuid('decided');
+		$carols = $this->approval(payload: ['status' => 'pending', 'reviewer' => 'carol', 'reviewerType' => 'user', 'taskUuid' => 't2']);
+		$carols->setUuid('carols');
+
+		$this->objectService->method('findAll')->willReturn([$decided, $carols]);
+		$this->groupManager->method('isInGroup')->willReturn(false);
+
+		$this->routeThroughTaskInbox(
+			routed: [
+				['approvalUuid' => 'decided', 'taskUuid' => 't1'],
+				['approvalUuid' => 'carols', 'taskUuid' => 't2'],
+				['approvalUuid' => 'gone', 'taskUuid' => 't3'],
+			]
+		);
+
+		$this->assertSame(expected: [], actual: $this->inbox()->listPendingForReviewer(uid: 'bob'));
+	}//end testATaskRowNeverWidensTheReviewerCheck()
+
+	/**
+	 * When the task inbox cannot be read, every pending approval routed to the
+	 * reviewer by hermiq's own routing is listed, mirrored or not.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-inbox-reads-pending-work-from-the-openregister-task-inbox
+	 */
+	public function testAnUnreadableTaskInboxFallsBackToHermiqRouting(): void {
+		$mirrored = $this->approval(payload: ['status' => 'pending', 'reviewer' => 'bob', 'reviewerType' => 'user', 'taskUuid' => 't1']);
+		$mirrored->setUuid('mirrored');
+		$plain = $this->approval(payload: ['status' => 'pending', 'reviewer' => 'bob', 'reviewerType' => 'user']);
+		$plain->setUuid('plain');
+
+		$this->objectService->method('findAll')->willReturn([$mirrored, $plain]);
+
+		$this->routeThroughTaskInbox(routed: null);
+		$records = $this->inbox()->listPendingForReviewer(uid: 'bob');
+
+		$this->assertSame(expected: ['mirrored', 'plain'], actual: array_column($records, 'id'));
+		$this->assertArrayNotHasKey(key: 'taskUuid', array: $records[0], message: 'The fallback keeps the pre-convergence record shape.');
+	}//end testAnUnreadableTaskInboxFallsBackToHermiqRouting()
 
 	/**
 	 * Build an approval ObjectEntity.

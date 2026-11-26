@@ -158,6 +158,50 @@ final class TraceExporterTest extends TestCase {
 	}//end testARunWithAToolCallCarriesMetadataOnly()
 
 	/**
+	 * A chat turn names the model that answered, and a step lasts what it measured.
+	 *
+	 * Seen live: the chat turn's model span went out with an empty gen_ai.system
+	 * and model, and a 141 ms tool call as 0 µs (the timeline's times are to the second).
+	 *
+	 * @return void
+	 */
+	public function testAChatTurnNamesItsModelAndKeepsStepDurations(): void {
+		$trace = $this->exporter()->fromChatTurn(
+			turn: [
+				'conversationId' => 'conv-1',
+				'userId' => 'alice',
+				'agentId' => 'agent-1',
+				'prompt' => 'Zoek Bakkerij Jansen op',
+				'message' => 'Bakkerij Jansen B.V.',
+				'usage' => ['promptTokens' => 20, 'completionTokens' => 20],
+				'providerDisclosure' => ['provider' => 'ollama', 'model' => 'stub:latest', 'residency' => 'undeclared', 'feature' => ''],
+				'steps' => [
+					[
+						'seq' => 2,
+						'type' => 'tool',
+						'name' => 'hermiq_askRemoteAgent',
+						'startedAt' => '2026-11-25T23:14:40+00:00',
+						'endedAt' => '2026-11-25T23:14:40+00:00',
+						'durationMs' => 141,
+						'outcome' => 'ok',
+					],
+				],
+				'startedAt' => 1795648480.0,
+				'endedAt' => 1795648480.4,
+			],
+			content: 'metadata'
+		);
+
+		[$model, $tool] = $trace['children'];
+		self::assertSame(expected: 'chat stub:latest', actual: $model['name']);
+		self::assertSame(expected: 'ollama', actual: $model['attributes']['gen_ai.system']);
+		self::assertSame(expected: 'stub:latest', actual: $model['attributes']['gen_ai.request.model']);
+		self::assertSame(expected: 141000000, actual: ($tool['end'] - $tool['start']));
+		self::assertStringNotContainsString(needle: 'Bakkerij', haystack: (string)json_encode($trace));
+
+	}//end testAChatTurnNamesItsModelAndKeepsStepDurations()
+
+	/**
 	 * Redacted text: the answer's API key arrives masked, as RedactionService masks it.
 	 *
 	 * @return void

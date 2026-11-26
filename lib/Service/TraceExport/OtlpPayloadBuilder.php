@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-traces-carry-metadata-by-default-and-never-tool-arguments-or-results-req-trex-002
+ * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#requirement-traces-carry-metadata-by-default-and-never-tool-arguments-or-results-req-trex-002
  */
 
 declare(strict_types=1);
@@ -60,7 +60,7 @@ class OtlpPayloadBuilder {
 	 *
 	 * @return array<string, mixed> The JSON-encodable body.
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-2-the-exporter
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-2-the-exporter
 	 */
 	public function build(array $traces, array $resource = []): array {
 		$resourceAttributes = ['service.name' => 'hermiq'];

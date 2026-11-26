@@ -639,7 +639,7 @@ class SessionController extends Controller {
 			->findAll(
 				config: [
 					'filters' => ['sessionId' => $uuid],
-					'sort' => ['created' => 'ASC'],
+					'sort' => ['_created' => 'ASC'],
 					'limit' => $limit,
 					'offset' => $offset,
 				],
@@ -1683,7 +1683,7 @@ class SessionController extends Controller {
 				->findAll(
 					config: [
 						'filters' => [$field => $userId],
-						'sort' => ['updated' => 'DESC'],
+						'sort' => ['_updated' => 'DESC'],
 						'limit' => self::MAX_CONVERSATION_SCAN,
 					]
 				);

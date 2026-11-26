@@ -5,7 +5,7 @@
  * The chat's waiting line (flows-hand-off-and-wait task 7): where each handoff is
  * shown and what it says while waiting and once it closed.
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
  */
 
 import { describe, expect, it } from 'vitest'
