@@ -11,7 +11,7 @@
  * @license   EUPL-1.2
  * @link      https://github.com/ConductionNL/hermiq
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use Throwable;
  * the request, reads the call log's response, and maps an A2A answer onto
  * three things hermiq needs: the task state, its text and its id.
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
  */
 class A2aClient {
 
@@ -66,7 +66,7 @@ class A2aClient {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
@@ -83,7 +83,7 @@ class A2aClient {
 	 *
 	 * @throws RemoteAgentUnavailableException When the card cannot be fetched.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 	 */
 	public function fetchCard(string $sourceId): array {
 		$card = $this->request(sourceId: $sourceId, endpoint: self::CARD_PATH, method: 'GET', body: null);
@@ -105,7 +105,7 @@ class A2aClient {
 	 *
 	 * @throws RemoteAgentUnavailableException When the remote agent cannot be reached or refuses.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
 	 */
 	public function sendMessage(string $sourceId, string $text, string $messageId): array {
 		$answer = $this->rpc(
@@ -134,7 +134,7 @@ class A2aClient {
 	 *
 	 * @throws RemoteAgentUnavailableException When the remote agent cannot be reached or refuses.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
 	 */
 	public function getTask(string $sourceId, string $taskId): array {
 		return self::readResult(result: $this->rpc(sourceId: $sourceId, method: 'tasks/get', params: ['id' => $taskId]));
@@ -147,7 +147,7 @@ class A2aClient {
 	 *
 	 * @return array{state: string, text: string, taskId: string}
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
 	 */
 	public static function readResult(array $result): array {
 		if (($result['kind'] ?? null) === 'message') {

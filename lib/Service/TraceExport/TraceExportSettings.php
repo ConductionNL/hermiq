@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-an-administrator-configures-trace-export-with-a-brokered-credential-req-trex-001
+ * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#requirement-an-administrator-configures-trace-export-with-a-brokered-credential-req-trex-001
  */
 
 declare(strict_types=1);
@@ -108,7 +108,7 @@ class TraceExportSettings {
 	 *
 	 * @return array<string, mixed> The settings.
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-1-admin-settings-and-the-connection-row
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-1-admin-settings-and-the-connection-row
 	 */
 	public function get(): array {
 		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_KEY, '');
@@ -135,7 +135,7 @@ class TraceExportSettings {
 	 *
 	 * @throws InvalidArgumentException When a value is invalid.
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-1-admin-settings-and-the-connection-row
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-1-admin-settings-and-the-connection-row
 	 */
 	public function save(array $input): array {
 		$known = array_intersect_key($input, self::DEFAULTS);
@@ -153,7 +153,7 @@ class TraceExportSettings {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
 	 */
 	public function exports(string $source): bool {
 		$settings = $this->get();
@@ -169,7 +169,7 @@ class TraceExportSettings {
 	 *
 	 * @return string The notice, or '' when no endpoint is set.
 	 *
-	 * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#scenario-an-administrator-connects-langfuse
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#scenario-an-administrator-connects-langfuse
 	 */
 	public function destinationNotice(array $settings): string {
 		$host = (string)(parse_url((string)$settings['endpoint'], PHP_URL_HOST) ?? '');

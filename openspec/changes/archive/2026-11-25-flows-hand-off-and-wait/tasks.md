@@ -79,7 +79,8 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
   - `RemoteTaskPollJob` runs every minute and wraps `HandoffSweep`. The sweep expires every handoff past its deadline and asks `tasks/get` once for each waiting a2a task.
   - A grant `hermiq.askRemoteAgent?remoteAgent=…` refuses another remote agent with `grant_constraint_violated`.
 - [x] Implement
-- [ ] Test (PHPUnit on descriptor hints, grant constraint, request mapping and polling; a live check against a test A2A peer). The PHPUnit part is done in `RemoteAgentTest` and `FlowHandoffsTest`. The live check against an A2A peer is not.
+- [x] Test (PHPUnit on descriptor hints, grant constraint, request mapping and polling; a live check against a test A2A peer). The PHPUnit part is done in `RemoteAgentTest` and `FlowHandoffsTest`.
+  - 2026-11-25, live against a stub A2A peer behind an integriq source (sandbox Nextcloud 34 on PostgreSQL 16, OpenRegister main, hermiq + integriq development, a stub model that calls a granted tool on command): registering read the card through integriq and kept it, switched off; switched on, an agent granted `hermiq.askRemoteAgent` sent `message/send` through integriq's CallService; the peer answered a `working` task, an `a2a` handoff opened, `RemoteTaskPollJob` asked `tasks/get` until `completed`, the handoff closed `done` with the answer, and `HandoffResultJob` ran the follow-up turn in the same conversation with the answer between the untrusted-result markers.
 
 ### Task 7: The waiting state in the chat
 - **spec_ref**: `openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001`
@@ -96,5 +97,7 @@ Kind: code. Size L. Rows `hermiq:dm-async-flow-step`, `hermiq:dm-remote-agent`, 
 ## Verification
 - [x] `openspec validate flows-hand-off-and-wait --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
-- [ ] PHPUnit, Newman and Playwright run once before push, exit codes read
-- [ ] One live run: an agent starts a flow with a wait node of two minutes and answers on its result in the same conversation
+- [x] PHPUnit, Newman and Playwright run once before push, exit codes read
+  - 2026-11-25: Playwright `hand-off-and-wait.spec.ts` 3/3 live, three runs in a row (spec fixes: locale time, late setup wizard, admin section mount); Newman folder "Handoff result address" 11/11; PHPUnit failing set identical to development's in the same sandbox.
+- [x] One live run: an agent starts a flow with a wait node of two minutes and answers on its result in the same conversation
+  - 2026-11-25: a published flow (manual trigger, `openregister.wait` "2 minutes", set-fields, End) started by an agent through `openregister.runFlow` (with openregister#11267 in the sandbox): a `flow` handoff opened at 22:40:50, the run suspended and resumed at 22:43:00, the handoff closed `done` with `uitkomst: vergunning verleend`, and the follow-up turn ran in the same conversation with the result delimited, answered by the agent. Three reds on the way: on PostgreSQL every flow run that wrote an object failed (OpenRegister `FlowMapper::findWithNodeType` LIKE on a json column aborted the transaction; openregister PR), a run that ended at its End step closed the handoff as failed (`stopped` is OpenRegister's status for a clean End; fixed here, decided on the outcome), and a result job whose handoff was deleted failed instead of skipping (fixed here).

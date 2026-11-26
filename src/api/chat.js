@@ -952,7 +952,7 @@ export async function warmChat(agentUuid, sessionUuid) {
  *
  * @param {string} sessionUuid The session.
  * @return {Promise<Array<object>>} The handoffs, in any order.
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
  */
 export async function listHandoffs(sessionUuid) {
 	const response = await axios.get(generateUrl('/apps/openregister/api/objects/hermiq/agenthandoff'), {

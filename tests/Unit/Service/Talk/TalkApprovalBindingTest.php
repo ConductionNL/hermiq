@@ -154,7 +154,7 @@ final class TalkApprovalBindingTest extends TestCase {
 		$this->objectService->expects(self::once())->method('setSchema')->with('approval')->willReturnSelf();
 		$this->objectService->expects(self::once())
 			->method('findAll')
-			->with(['filters' => ['talkMessageId' => '42'], 'sort' => ['created' => 'DESC'], 'limit' => 1])
+			->with(['filters' => ['talkMessageId' => '42'], 'sort' => ['_created' => 'DESC'], 'limit' => 1])
 			->willReturn(['not-an-entity', $match]);
 
 		self::assertSame($match, $this->binding->findByMessageId('42'));

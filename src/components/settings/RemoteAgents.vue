@@ -11,7 +11,7 @@
   kept. A new remote agent is off until an admin switches it on. Only an admin
   reaches this section, and the routes refuse anyone else.
 
-  @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+  @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 -->
 <template>
 	<div class="remote-agents" data-testid="remote-agents">
@@ -105,7 +105,7 @@ export default {
 		 * Read the registered remote agents.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		async load() {
 			await this.withFlag('loading', async () => {
@@ -129,7 +129,7 @@ export default {
 		 *
 		 * @param {object} agent The remote agent.
 		 * @return {Array<{id: string, name: string, description: string}>} The skills.
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		skillsOf(agent) {
 			const skills = agent?.agentCard?.skills
@@ -141,7 +141,7 @@ export default {
 		 *
 		 * @param {object} agent The remote agent.
 		 * @return {string} The line.
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		cardLine(agent) {
 			const card = agent?.agentCard || {}
@@ -159,7 +159,7 @@ export default {
 		 *
 		 * @param {object|null} agent The remote agent, or null.
 		 * @return {void}
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		edit(agent) {
 			this.editing = agent
@@ -171,7 +171,7 @@ export default {
 		 * @param {object} agent The remote agent.
 		 * @param {boolean} on Whether it is switched on.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		async setEnabled(agent, on) {
 			await this.withFlag('busy', async () => {
@@ -185,7 +185,7 @@ export default {
 		 *
 		 * @param {object} agent The remote agent.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		async remove(agent) {
 			await this.withFlag('busy', async () => {

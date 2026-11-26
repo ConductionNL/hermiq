@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-an-administrator-configures-trace-export-with-a-brokered-credential-req-trex-001
+ * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#requirement-an-administrator-configures-trace-export-with-a-brokered-credential-req-trex-001
  */
 
 declare(strict_types=1);
@@ -66,7 +66,7 @@ class TraceExportSettingsController extends Controller {
 	 *
 	 * @return JSONResponse The settings.
 	 *
-	 * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#scenario-an-administrator-connects-langfuse
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#scenario-an-administrator-connects-langfuse
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function get(): JSONResponse {
@@ -87,7 +87,7 @@ class TraceExportSettingsController extends Controller {
 	 *
 	 * @return JSONResponse The stored settings, or the refusal.
 	 *
-	 * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#scenario-a-non-admin-cannot-change-it
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#scenario-a-non-admin-cannot-change-it
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(): JSONResponse {

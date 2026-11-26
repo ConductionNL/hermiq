@@ -471,7 +471,7 @@ class ConversationManagementHandler {
 			->findAll(
 				config: [
 					'filters' => ['sessionId' => $conversationId],
-					'sort' => ['created' => 'ASC'],
+					'sort' => ['_created' => 'ASC'],
 					'limit' => self::MAX_MESSAGES_FOR_SUMMARY,
 				],
 				_rbac: false
