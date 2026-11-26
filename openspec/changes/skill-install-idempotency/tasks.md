@@ -53,6 +53,7 @@ Acceptance criteria
   - 25 Nov, live (sandbox Nextcloud 34, PostgreSQL 16, OpenRegister main + #11225, hermiq development), `ConductionNL/buildiq-hydra` at ea99b60, whose tree holds 100 `SKILL.md` files (the 94 in test-plan.md is older): counted with `SELECT count(*)` on the agentskill table, not from the response. Before: 5 (seeded skills). First install: 101 (96 new; the 4 that already existed were matched, 2 updated and 2 unchanged). Re-install: 101, every skill `unchanged`, `count(DISTINCT name)` 101, no name twice.
 - [ ] Playwright run on `browser-1` per test-plan.md: install through the UI, assert no duplicate rows appear, a content-changed skill shows as quarantined, and a learnings-ahead skill reports its learnings kept
   - 25 Nov: not run. Step 5 cannot pass as built: the installer returns `learningsKept` per skill (`SkillBundleInstaller`), but no screen shows it (no reference in `src/`). Showing it is UI work that needs its place on the drawn board first.
+  - 2026-11-26: `tests/e2e/skill-install-idempotency.spec.ts` written for steps 1 to 3 of test-plan.md (install the bundle, re-install it, the skill count and names unchanged in the API and on the skills page); steps 4 and 5 are `tests/e2e/skill-provenance.spec.ts`. Not run here: it needs a running Nextcloud that can reach the bundle.
 
 Acceptance criteria
 - Counts compared against the published artifact (94 skill directories), never the installer's own report
