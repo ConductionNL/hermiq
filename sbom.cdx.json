@@ -24883,8 +24883,8 @@
     {
       "type": "library",
       "name": "postcss-resolve-nested-selector",
-      "version": "0.1.6",
-      "bom-ref": "hermiq@0.1.0|postcss-resolve-nested-selector@0.1.6",
+      "version": "0.1.7",
+      "bom-ref": "hermiq@0.1.0|postcss-resolve-nested-selector@0.1.7",
       "licenses": [
         {
           "license": {
@@ -24892,15 +24892,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/postcss-resolve-nested-selector@0.1.6",
+      "purl": "pkg:npm/postcss-resolve-nested-selector@0.1.7",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/postcss-resolve-nested-selector/-/postcss-resolve-nested-selector-0.1.6.tgz",
+          "url": "https://registry.npmjs.org/postcss-resolve-nested-selector/-/postcss-resolve-nested-selector-0.1.7.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "d2c82522cf569a4cdbafc950c04c88ce50ce382f5b1a67d529c2536b1bf7bcc99ddeea38a380deac2dc49f46e79a071e7aa97d05f0bc851929edc8347e3755ab"
+              "content": "94572e8110905d631a9eaee7c99d1d0ed8abe76c1cee029825f5a94aecf81b1be719ceddb65a57719617e00d1ab1ab734eeaa94379e00ddc83f901bfb337975b"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -27992,8 +27992,8 @@
     {
       "type": "library",
       "name": "stylelint-config-recommended-scss",
-      "version": "17.0.1",
-      "bom-ref": "hermiq@0.1.0|stylelint-config-recommended-scss@17.0.1",
+      "version": "18.0.0",
+      "bom-ref": "hermiq@0.1.0|stylelint-config-recommended-scss@18.0.0",
       "licenses": [
         {
           "license": {
@@ -28001,15 +28001,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/stylelint-config-recommended-scss@17.0.1",
+      "purl": "pkg:npm/stylelint-config-recommended-scss@18.0.0",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/stylelint-config-recommended-scss/-/stylelint-config-recommended-scss-17.0.1.tgz",
+          "url": "https://registry.npmjs.org/stylelint-config-recommended-scss/-/stylelint-config-recommended-scss-18.0.0.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "c790d57a1cc9b9d730174a1ddec1a9824967d8f2cbada9c513bb70c1ba7b76a0c8342c99bf0cc590c73a4cb84d3af6b346254125801340ba2e258d313c607c58"
+              "content": "8668cf51a5c207386b9708d8ff83aee48e323de0541dd533c0d808b998129b759aa323da3082abbf3736a07e16895d28fd455c9463af906aa160ea733bc5b609"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -28105,8 +28105,8 @@
     {
       "type": "library",
       "name": "stylelint-config-recommended",
-      "version": "18.0.0",
-      "bom-ref": "hermiq@0.1.0|stylelint-config-recommended@18.0.0",
+      "version": "19.1.0",
+      "bom-ref": "hermiq@0.1.0|stylelint-config-recommended@19.1.0",
       "licenses": [
         {
           "license": {
@@ -28114,15 +28114,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/stylelint-config-recommended@18.0.0",
+      "purl": "pkg:npm/stylelint-config-recommended@19.1.0",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/stylelint-config-recommended/-/stylelint-config-recommended-18.0.0.tgz",
+          "url": "https://registry.npmjs.org/stylelint-config-recommended/-/stylelint-config-recommended-19.1.0.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "9b1813d9763a619dc75967b70e2f2e986e9a0665a61d36e54e0bbf7f5d2ba855e7c96c63296c0d7634969209300adc482a7aa3489cef1663d3e7269b54847166"
+              "content": "0eead7073bf3d9c9955f6accd4930309b3c8abe3112a120f63be379459350e3528cb1ee088b7cdf8747c1e2970fa41369c4e5b95a5e155feba79dbd01a72ddc0"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
@@ -28142,8 +28142,8 @@
     {
       "type": "library",
       "name": "stylelint-scss",
-      "version": "7.2.0",
-      "bom-ref": "hermiq@0.1.0|stylelint-scss@7.2.0",
+      "version": "7.5.0",
+      "bom-ref": "hermiq@0.1.0|stylelint-scss@7.5.0",
       "licenses": [
         {
           "license": {
@@ -28151,15 +28151,15 @@
           }
         }
       ],
-      "purl": "pkg:npm/stylelint-scss@7.2.0",
+      "purl": "pkg:npm/stylelint-scss@7.5.0",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/stylelint-scss/-/stylelint-scss-7.2.0.tgz",
+          "url": "https://registry.npmjs.org/stylelint-scss/-/stylelint-scss-7.5.0.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "e84efd05a721bf4233d20a9151981da9d5c2b22ab6e8358158804d1d8b634e6029df026ee9ca7f237ed57d6ec13e7b66876a6e1776d8d3d5d69781d91ab2e1cf"
+              "content": "a116e14c3bbca1cc966e045fa7b9d60af217d433f9d2a9c3f733ebb4ec6421ab094a219968c58a3f481c765d07ccd5353d17b96537e91edbc122eaed0e3be297"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
