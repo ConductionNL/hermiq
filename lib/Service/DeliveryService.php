@@ -52,6 +52,7 @@ namespace OCA\Hermiq\Service;
 
 use Closure;
 use DateTime;
+use OCA\Hermiq\Service\Approval\ApprovalTaskNotice;
 use OCA\Hermiq\Service\Connection\ConnectionReporter;
 use OCA\Hermiq\Service\Talk\TalkApprovalNotifier;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
@@ -240,6 +241,10 @@ class DeliveryService {
 	 *                                                    webhook delivery met; null when built by hand
 	 *                                                    in a test (adopt-connection-registry).
 	 *
+	 * @param ApprovalTaskNotice|null $approvalTaskNotice Names the reviewer OpenRegister already notifies
+	 *                                                    through an approval's mirror task; null when built
+	 *                                                    by hand in a test (approval-task-convergence 2.2).
+	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct always-present Nextcloud/Hermiq collaborator, not a logic-bearing list.
 	 */
@@ -258,6 +263,7 @@ class DeliveryService {
 		private readonly TalkRoomBinding $talkRoomBinding,
 		private readonly TalkApprovalNotifier $talkApprovalNotifier,
 		private readonly ?ConnectionReporter $connectionReporter = null,
+		private readonly ?ApprovalTaskNotice $approvalTaskNotice = null,
 	) {
 	}//end __construct()
 
@@ -365,7 +371,7 @@ class DeliveryService {
 		$this->talkApprovalNotifier->postRequest(approval: $approval, displayName: $scheduleName);
 
 		return $this->notifyApprovalReviewers(
-			round: new ApprovalRound(approvalUuid: (string)$approval->getUuid(), reviewerUids: $reviewerUids),
+			round: new ApprovalRound(approvalUuid: (string)$approval->getUuid(), reviewerUids: $reviewerUids, taskNotified: $this->taskNotified(approval: $approval)),
 			wording: new ApprovalWording(displayName: $scheduleName, messageParams: ['scheduleId' => (string)$schedule->getUuid()])
 		);
 
@@ -395,7 +401,7 @@ class DeliveryService {
 		$displayName = (string)($flowContext['flowName'] ?? ($data['agentId'] ?? ''));
 
 		return $this->notifyApprovalReviewers(
-			round: new ApprovalRound(approvalUuid: (string)$approval->getUuid(), reviewerUids: $reviewerUids),
+			round: new ApprovalRound(approvalUuid: (string)$approval->getUuid(), reviewerUids: $reviewerUids, taskNotified: $this->taskNotified(approval: $approval)),
 			wording: new ApprovalWording(displayName: $displayName, messageParams: ['correlationId' => (string)($flowContext['correlationId'] ?? '')])
 		);
 
@@ -426,7 +432,7 @@ class DeliveryService {
 		$displayName = (string)($data['agentId'] ?? '');
 
 		return $this->notifyApprovalReviewers(
-			round: new ApprovalRound(approvalUuid: (string)$approval->getUuid(), reviewerUids: $reviewerUids),
+			round: new ApprovalRound(approvalUuid: (string)$approval->getUuid(), reviewerUids: $reviewerUids, taskNotified: $this->taskNotified(approval: $approval)),
 			wording: new ApprovalWording(displayName: $displayName, messageParams: ['correlationId' => (string)($webhookContext['correlationId'] ?? '')])
 		);
 
@@ -456,7 +462,7 @@ class DeliveryService {
 		$data = $approval->getObject();
 
 		return $this->notifyApprovalReviewers(
-			round: new ApprovalRound(approvalUuid: (string)$approval->getUuid(), reviewerUids: $reviewerUids),
+			round: new ApprovalRound(approvalUuid: (string)$approval->getUuid(), reviewerUids: $reviewerUids, taskNotified: $this->taskNotified(approval: $approval)),
 			wording: new ApprovalWording(displayName: $skillName, messageParams: ['draftId' => (string)($data['draftId'] ?? '')])
 		);
 
@@ -561,6 +567,7 @@ class DeliveryService {
 		$displayName = $wording->displayName;
 		$result = $this->notifyRecipients(
 			uids: $round->reviewerUids,
+			taskNotified: $round->taskNotified,
 			notice: new RecipientNotice(
 				configure: $this->approvalConfigure(approvalUuid: $round->approvalUuid, wording: $wording),
 				talkText: static fn (): string => sprintf(
@@ -596,12 +603,20 @@ class DeliveryService {
 	 * one's Note-to-self when Talk is available (best-effort — a bonus channel,
 	 * never required). NEVER throws for a delivery problem.
 	 *
-	 * @param array<int, mixed> $uids The recipient user ids.
-	 * @param RecipientNotice $notice What to tell each of them.
+	 * The recipient named by `$taskNotified` already gets OpenRegister's notice
+	 * for the approval's mirror task, so hermiq raises no Nextcloud notification
+	 * for them and counts them as reached; their Talk message still goes out
+	 * (Talk moves onto the task in approval-task-convergence 2.3).
+	 *
+	 * @param array<int, mixed> $uids         The recipient user ids.
+	 * @param RecipientNotice   $notice       What to tell each of them.
+	 * @param string|null       $taskNotified The recipient OpenRegister's task already notifies, or null.
 	 *
 	 * @return DeliveryResult Delivered when any notification was raised; the joined warnings otherwise.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-a-mirror-task-is-assigned-to-is-notified-once-by-openregister
 	 */
-	private function notifyRecipients(array $uids, RecipientNotice $notice): DeliveryResult {
+	private function notifyRecipients(array $uids, RecipientNotice $notice, ?string $taskNotified = null): DeliveryResult {
 		$talkOk = $this->isTalkAvailable();
 		$failures = [];
 
@@ -611,7 +626,7 @@ class DeliveryService {
 				continue;
 			}
 
-			$failures[] = $this->sendNotification(uid: $uid, configure: $notice->configure);
+			$failures[] = $this->notifyUnlessTaskDid(uid: $uid, configure: $notice->configure, taskNotified: $taskNotified);
 
 			if ($talkOk === true) {
 				$this->tryPostToNoteToSelf(post: new TalkPost(owner: $uid, message: ($notice->talkText)()));
@@ -620,6 +635,43 @@ class DeliveryService {
 
 		return $this->noticeResult(failures: $failures);
 	}//end notifyRecipients()
+
+	/**
+	 * Raise hermiq's notification to $uid, unless OpenRegister's mirror task
+	 * already notified exactly that user.
+	 *
+	 * @param string $uid The recipient.
+	 * @param Closure(INotification): INotification $configure Sets object, subject, message and link.
+	 * @param string|null $taskNotified The recipient OpenRegister's task already notifies, or null.
+	 *
+	 * @return string|null Null when the recipient was reached; the warning when not.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-a-mirror-task-is-assigned-to-is-notified-once-by-openregister
+	 */
+	private function notifyUnlessTaskDid(string $uid, Closure $configure, ?string $taskNotified): ?string {
+		if ($taskNotified !== null && $uid === $taskNotified) {
+			return null;
+		}
+
+		return $this->sendNotification(uid: $uid, configure: $configure);
+	}//end notifyUnlessTaskDid()
+
+	/**
+	 * The reviewer OpenRegister notifies through this approval's mirror task.
+	 *
+	 * @param ObjectEntity $approval The pending approval.
+	 *
+	 * @return string|null That reviewer's uid, or null when hermiq notifies everyone itself.
+	 *
+	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-a-mirror-task-is-assigned-to-is-notified-once-by-openregister
+	 */
+	private function taskNotified(ObjectEntity $approval): ?string {
+		if ($this->approvalTaskNotice === null) {
+			return null;
+		}
+
+		return $this->approvalTaskNotice->notifiedAssignee(approval: $approval);
+	}//end taskNotified()
 
 	/**
 	 * The outcome of a notice round: `notification` channel, delivered when any
@@ -680,7 +732,8 @@ class DeliveryService {
 
 		$result = $this->notifyRecipients(
 			uids: $reviewerUids,
-			notice: $this->toolApprovalNotice(approvalUuid: $approvalUuid, toolId: $toolId)
+			notice: $this->toolApprovalNotice(approvalUuid: $approvalUuid, toolId: $toolId),
+			taskNotified: $this->taskNotified(approval: $approval)
 		);
 
 		$this->logWarning(warning: $result->getWarning(), uuid: $approvalUuid, channel: 'approval');
