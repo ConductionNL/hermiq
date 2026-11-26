@@ -97,7 +97,8 @@ class ApprovalServiceTaskDelegateTest extends TestCase {
 		);
 		$objects->method('saveObject')->willReturnCallback(
 			function (array $object): ObjectEntity {
-				$this->calls[] = 'save ' . (string)($object['status'] ?? '') . ' ' . (string)($object['decidedBy'] ?? '') . ' ' . (string)($object['reason'] ?? '');
+				$this->calls[] = 'save ' . (string)($object['status'] ?? '') . ' '
+					. (string)($object['decidedBy'] ?? '') . ' ' . (string)($object['reason'] ?? '');
 				return new ObjectEntity();
 			}
 		);
@@ -144,16 +145,16 @@ class ApprovalServiceTaskDelegateTest extends TestCase {
 		$userManager->method('get')->willReturn($this->createMock(originalClassName: IUser::class));
 
 		return new ApprovalService(
-			$objects,
-			$this->createMock(originalClassName: IUserSession::class),
-			$userManager,
-			$this->createMock(originalClassName: IGroupManager::class),
-			$this->createMock(originalClassName: DeliveryService::class),
-			$this->createMock(originalClassName: AuditTrailMapper::class),
-			new RedactionService($this->createMock(originalClassName: IConfig::class)),
-			$container,
-			$this->createMock(originalClassName: LoggerInterface::class),
-			$bridge,
+			objectService: $objects,
+			userSession: $this->createMock(originalClassName: IUserSession::class),
+			userManager: $userManager,
+			groupManager: $this->createMock(originalClassName: IGroupManager::class),
+			deliveryService: $this->createMock(originalClassName: DeliveryService::class),
+			auditTrailMapper: $this->createMock(originalClassName: AuditTrailMapper::class),
+			redactionService: new RedactionService(config: $this->createMock(originalClassName: IConfig::class)),
+			container: $container,
+			logger: $this->createMock(originalClassName: LoggerInterface::class),
+			taskBridge: $bridge,
 		);
 	}//end service()
 
@@ -267,7 +268,15 @@ class ApprovalServiceTaskDelegateTest extends TestCase {
 
 		$this->assertSame(expected: ['status' => 'approved', 'ran' => true], actual: $result);
 		$this->assertSame(
-			expected: ['resolve MirrorTaskCompletion', 'task approved bob NULL', 'save approved bob ', 'release approved', 'find sched-1', 'resolve ScheduleService', 'run'],
+			expected: [
+				'resolve MirrorTaskCompletion',
+				'task approved bob NULL',
+				'save approved bob ',
+				'release approved',
+				'find sched-1',
+				'resolve ScheduleService',
+				'run',
+			],
 			actual: $this->calls
 		);
 	}//end testARefusedCompletionApprovesOnHermiqsPath()
@@ -292,7 +301,8 @@ class ApprovalServiceTaskDelegateTest extends TestCase {
 	public function testWhatApproveRefusesNeverReachesTheTask(): void {
 		$service = $this->service();
 
-		$this->assertSame(expected: ['status' => 'denied', 'ran' => false], actual: $service->approve(approval: $this->approval(status: 'denied'), deciderUid: 'bob'));
+		$decided = $service->approve(approval: $this->approval(status: 'denied'), deciderUid: 'bob');
+		$this->assertSame(expected: ['status' => 'denied', 'ran' => false], actual: $decided);
 
 		$question = $this->approval(status: 'pending');
 		$question->setObject(array_merge($question->getObject(), ['sourceType' => 'question']));
@@ -340,7 +350,10 @@ class ApprovalServiceTaskDelegateTest extends TestCase {
 
 		$this->service()->deny(approval: $this->approval(status: 'pending'), deciderUid: 'bob', reason: 'no');
 
-		$this->assertSame(expected: ['resolve MirrorTaskCompletion', "task rejected bob 'no'", 'save denied bob no', 'release denied'], actual: $this->calls);
+		$this->assertSame(
+			expected: ['resolve MirrorTaskCompletion', "task rejected bob 'no'", 'save denied bob no', 'release denied'],
+			actual: $this->calls
+		);
 	}//end testARefusedCompletionDeniesOnHermiqsPath()
 
 	/**
@@ -362,7 +375,8 @@ class ApprovalServiceTaskDelegateTest extends TestCase {
 	public function testTheAppliersDecideWithoutTheTask(): void {
 		$service = $this->service();
 
-		$this->assertSame(expected: ['status' => 'approved', 'ran' => true], actual: $service->applyApproval(approval: $this->approval(status: 'pending'), deciderUid: 'bob'));
+		$applied = $service->applyApproval(approval: $this->approval(status: 'pending'), deciderUid: 'bob');
+		$this->assertSame(expected: ['status' => 'approved', 'ran' => true], actual: $applied);
 		$service->applyDenial(approval: $this->approval(status: 'pending'), deciderUid: 'bob', reason: 'no');
 
 		$this->assertNotContains(needle: 'resolve MirrorTaskCompletion', haystack: $this->calls);
