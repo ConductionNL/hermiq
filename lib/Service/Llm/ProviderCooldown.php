@@ -13,7 +13,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
  */
 
 declare(strict_types=1);
@@ -30,7 +30,7 @@ use Throwable;
  * 600. The entry lives in Nextcloud's distributed cache and expires by itself;
  * without a cache nothing cools down and every turn starts at the first hop.
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
  */
 class ProviderCooldown {
 
@@ -61,7 +61,7 @@ class ProviderCooldown {
 	 *
 	 * @param ICacheFactory $cacheFactory Creates the distributed cache.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
 	 */
 	public function __construct(ICacheFactory $cacheFactory) {
 		try {
@@ -80,7 +80,7 @@ class ProviderCooldown {
 	 *
 	 * @return int The cooldown in seconds, 0 when none was started.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
 	 */
 	public function startFor(string $organisation, string $provider, ProviderCallFailedException $failure): int {
 		if ($this->cache === null || in_array($failure->kind, self::COOLING_KINDS, true) === false) {
@@ -101,7 +101,7 @@ class ProviderCooldown {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
 	 */
 	public function isCooling(string $organisation, string $provider): bool {
 		if ($this->cache === null) {
@@ -118,7 +118,7 @@ class ProviderCooldown {
 	 *
 	 * @return int Between 1 and 600 seconds.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
 	 */
 	public static function secondsFor(?int $retryAfter): int {
 		if ($retryAfter === null || $retryAfter <= 0) {
@@ -136,7 +136,7 @@ class ProviderCooldown {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-failing-provider-cools-down-per-organisation-req-mfail-004
 	 */
 	private static function key(string $organisation, string $provider): string {
 		return 'fallback:'.$organisation.':'.$provider;

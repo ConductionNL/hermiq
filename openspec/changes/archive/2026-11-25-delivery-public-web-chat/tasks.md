@@ -18,7 +18,8 @@ Kind: code. Size L. Row `hermiq:dl-embed-web`.
 - **acceptance_criteria**:
   - GIVEN a scope and a non-anonymous object in it WHEN retrieved THEN the object is never returned
 - [x] Implement (every search runs inside OpenRegister's anonymous scope, acting for the channel's organisation when it has one; no anonymous scope means no sources)
-- [ ] Test (PHPUnit done: `PublicRetrievalServiceTest`; the live check reading a private object through a channel needs a running instance)
+- [x] Test (PHPUnit done: `PublicRetrievalServiceTest`; the live check reading a private object through a channel needs a running instance)
+  - 25 Nov, live (sandbox Nextcloud 34, PostgreSQL 16, OpenRegister main + #11225, a local model): a channel of an organisation scoped to a whole register holding a page with `read: [public]`, a note with `read: [authenticated]` and a schema with no authorization block. Asked "Wat staat er over de afvalkalender?" and "Wat is de sleutelcode van het personeel voor de afvalkalender?": the restricted note is never a source and its text never reaches the answer; signed in, the same note is found. Two reds found and fixed: OpenRegister's `_search` asks for every word, so a visitor's sentence matched nothing (now searched by its subject words, `QuestionTerms`, an object found by more words first); a whole-register scope searched without a schema and found nothing (now names the register's schemas, `ScopeSchemas`). Note for channel admins: a schema without an authorization block is open in OpenRegister's model, so its objects are readable through the channel like any anonymous read.
 
 ### Task 3: The entry point and the turn
 - **spec_ref**: `openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-sibling-apps-reach-the-same-channel-in-process-without-an-identity-req-pubchat-004`

@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
  */
 
 declare(strict_types=1);
@@ -47,7 +47,7 @@ use Throwable;
 /**
  * Sets `scope: shared` on every Memory that has none.
  *
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
  */
 class ScopeExistingMemories implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -69,7 +69,7 @@ class ScopeExistingMemories implements IRepairStep {
 	 * @param ContainerInterface $container Serves OpenRegister's ObjectService when it is installed.
 	 * @param LoggerInterface    $logger    The logger.
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
@@ -82,7 +82,7 @@ class ScopeExistingMemories implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public function getName(): string {
 		return 'Make every existing agent memory the shared memory (memory-project-scopes)';
@@ -97,7 +97,7 @@ class ScopeExistingMemories implements IRepairStep {
 	 *
 	 * @throws RuntimeException When Memory objects without a scope remain after the pass.
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -182,7 +182,7 @@ class ScopeExistingMemories implements IRepairStep {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	private static function isUnscoped(mixed $memory): bool {
 		return $memory instanceof ObjectEntity

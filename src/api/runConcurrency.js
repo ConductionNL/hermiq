@@ -17,7 +17,7 @@ const RUN_CONCURRENCY = '/apps/hermiq/api/settings/run-concurrency'
  * The limits in force.
  *
  * @return {Promise<{maxParallel: number, maxParallelPerOrganisation: number, maximum: number}>}
- * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+ * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
  */
 export async function getRunConcurrency() {
 	const response = await axios.get(generateUrl(RUN_CONCURRENCY))
@@ -30,7 +30,7 @@ export async function getRunConcurrency() {
  * @param {number} maxParallel The limit for the instance.
  * @param {number} maxParallelPerOrganisation The limit per organisation.
  * @return {Promise<{maxParallel: number, maxParallelPerOrganisation: number, maximum: number}>}
- * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+ * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
  */
 export async function setRunConcurrency(maxParallel, maxParallelPerOrganisation) {
 	const response = await axios.put(generateUrl(RUN_CONCURRENCY), {

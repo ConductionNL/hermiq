@@ -6,7 +6,7 @@
  * each answer with its sources as links; the embed script frames the chat
  * page of its own channel.
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'

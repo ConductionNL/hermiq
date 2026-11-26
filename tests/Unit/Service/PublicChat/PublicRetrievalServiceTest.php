@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
  */
 
 declare(strict_types=1);
@@ -25,6 +25,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\PublicChat;
 
 use OCA\Hermiq\Service\PublicChat\PublicRetrievalService;
+use OCA\Hermiq\Service\PublicChat\QuestionTerms;
+use OCA\Hermiq\Service\PublicChat\ScopeSchemas;
+use OCA\OpenRegister\Db\Register;
+use OCA\OpenRegister\Db\RegisterMapper;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IURLGenerator;
 use PHPUnit\Framework\TestCase;
@@ -33,6 +37,8 @@ use RuntimeException;
 
 /**
  * @covers \OCA\Hermiq\Service\PublicChat\PublicRetrievalService
+ * @covers \OCA\Hermiq\Service\PublicChat\QuestionTerms
+ * @covers \OCA\Hermiq\Service\PublicChat\ScopeSchemas
  */
 class PublicRetrievalServiceTest extends TestCase {
 
@@ -128,11 +134,15 @@ class PublicRetrievalServiceTest extends TestCase {
 		);
 
 		self::assertSame(['page-1'], array_column($sources, 'id'));
-		self::assertCount(1, $this->searches);
-		self::assertTrue($this->searches[0]['anonymous']);
+		// One search per subject word, longest first; every one of them anonymous.
 		self::assertSame(
-			['_search' => 'When is bulky waste collected?', '_limit' => 5, '_register' => 'publication', '_schema' => 'page'],
-			$this->searches[0]['query']
+			expected: ['collected', 'bulky', 'waste'],
+			actual: array_map(callback: static fn (array $s): string => $s['query']['_search'], array: $this->searches)
+		);
+		self::assertSame(expected: [true, true, true], actual: array_column(array: $this->searches, column_key: 'anonymous'));
+		self::assertSame(
+			expected: ['_search' => 'collected', '_limit' => 5, '_register' => 'publication', '_schema' => 'page'],
+			actual: $this->searches[0]['query']
 		);
 		self::assertSame(
 			['id' => 'page-1', 'register' => 'publication', 'schema' => 'page', 'title' => 'Bulky waste', 'url' => 'https://www.example.nl/bulky-waste', 'excerpt' => 'Collected on the first Monday.'],
@@ -151,7 +161,115 @@ class PublicRetrievalServiceTest extends TestCase {
 		self::assertSame('org-1', $this->searches[0]['organisation']);
 		self::assertTrue($this->searches[0]['anonymous']);
 		self::assertNull($this->searches[0]['query']['_schema']);
+		self::assertArrayNotHasKey(key: '_schemas', array: $this->searches[0]['query']);
 	}//end testAnOrganisationsChannelReadsActingForIt()
+
+	/**
+	 * A visitor's sentence is searched by its subject words, because OpenRegister's search asks for every word.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 */
+	public function testAQuestionIsSearchedByItsSubjectWords(): void {
+		$terms = new QuestionTerms();
+
+		$cases = [
+			'Wat staat er over de afvalkalender?'                         => ['afvalkalender'],
+			'Wat zijn de openingstijden van het gemeentehuis op zaterdag?' => ['openingstijden', 'gemeentehuis', 'zaterdag'],
+			'Kan ik een parkeervergunning aanvragen voor mijn woonboot?'  => ['parkeervergunning', 'aanvragen', 'woonboot'],
+			'Één Straße!'                                                 => ['straße', 'één'],
+			// At most MAX_TERMS words, longest first, each once.
+			'ccc dddd eeeee ccc fff ggg'                                  => ['eeeee', 'dddd', 'ccc', 'fff'],
+			// A question of only question words is searched as it was asked.
+			' Wat is dat? '                                               => ['Wat is dat?'],
+		];
+		foreach ($cases as $question => $expected) {
+			self::assertSame(expected: $expected, actual: $terms->termsOf(question: $question), message: $question);
+		}
+	}//end testAQuestionIsSearchedByItsSubjectWords()
+
+	/**
+	 * An object found by more of the question's words ranks first; each object is a source once.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 */
+	public function testAnObjectFoundByMoreWordsRanksFirst(): void {
+		$byTerm  = [
+			'parkeervergunning' => [['id' => 'a', 'title' => 'Parking in general']],
+			'woonboot'          => [['id' => 'b', 'title' => 'Houseboat parking permit']],
+			'aanvragen'         => [['id' => 'b', 'title' => 'Houseboat parking permit']],
+		];
+		$objects = $this->createMock(originalClassName: ObjectService::class);
+		$objects->method('runAsAnonymous')->willReturnCallback(callback: fn (callable $op): mixed => $op());
+		$objects->method('searchObjectsPaginated')->willReturnCallback(
+			callback: static fn (array $query): array => ['results' => ($byTerm[$query['_search']] ?? [])]
+		);
+		$service = new PublicRetrievalService(
+			objectService: $objects,
+			urls: $this->createMock(originalClassName: IURLGenerator::class),
+			logger: $this->createMock(originalClassName: LoggerInterface::class)
+		);
+
+		$sources = $service->retrieve(
+			scope: [['register' => 'pub', 'schema' => 'page']],
+			question: 'Kan ik een parkeervergunning aanvragen voor mijn woonboot?'
+		);
+
+		self::assertSame(expected: ['b', 'a'], actual: array_column(array: $sources, column_key: 'id'));
+	}//end testAnObjectFoundByMoreWordsRanksFirst()
+
+	/**
+	 * A whole-register scope searches the register's schemas; a register that cannot be read leaves them out.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-a-visitor-chats-without-signing-in-and-gets-answers-only-from-public-content-req-pubchat-002
+	 */
+	public function testAWholeRegisterScopeSearchesItsSchemas(): void {
+		$objects = $this->createMock(originalClassName: ObjectService::class);
+		$objects->method('runAsAnonymous')->willReturnCallback(callback: fn (callable $op): mixed => $op());
+		$objects->method('searchObjectsPaginated')->willReturnCallback(
+			callback: function (array $query): array {
+				$this->searches[] = ['query' => $query, 'anonymous' => true, 'organisation' => null];
+				return ['results' => []];
+			}
+		);
+		$register = $this->createMock(originalClassName: Register::class);
+		$register->method('getSchemas')->willReturn(value: [91, 92]);
+		$registers = $this->createMock(originalClassName: RegisterMapper::class);
+		$registers->method('find')->willReturnCallback(
+			callback: static function (string|int $id) use ($register): Register {
+				if ($id === 'pub') {
+					return $register;
+				}
+
+				throw new RuntimeException(message: 'no such register');
+			}
+		);
+		$logger  = $this->createMock(originalClassName: LoggerInterface::class);
+		$service = new PublicRetrievalService(
+			objectService: $objects,
+			urls: $this->createMock(originalClassName: IURLGenerator::class),
+			logger: $logger,
+			scopeSchemas: new ScopeSchemas(registers: $registers, logger: $logger)
+		);
+
+		$service->retrieve(
+			scope: [['register' => 'pub', 'schema' => ''], ['register' => 'gone', 'schema' => ''], ['register' => 'pub', 'schema' => 'page']],
+			question: 'afvalkalender'
+		);
+
+		self::assertSame(
+			expected: ['_search' => 'afvalkalender', '_limit' => 5, '_register' => 'pub', '_schema' => null, '_schemas' => [91, 92]],
+			actual: $this->searches[0]['query']
+		);
+		self::assertArrayNotHasKey(key: '_schemas', array: $this->searches[1]['query']);
+		self::assertArrayNotHasKey(key: '_schemas', array: $this->searches[2]['query']);
+		self::assertSame(expected: 'page', actual: $this->searches[2]['query']['_schema']);
+	}//end testAWholeRegisterScopeSearchesItsSchemas()
 
 	/**
 	 * When the anonymous scope cannot be opened nothing is read as the session instead.

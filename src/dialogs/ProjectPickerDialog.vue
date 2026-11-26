@@ -79,7 +79,7 @@ const NONE = '__none__'
  * `start` with `{ projectKey }`, `{ projectName }` or `null`, or `close`; the
  * caller starts the session.
  *
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
  */
 export default {
 	name: 'ProjectPickerDialog',
@@ -115,7 +115,7 @@ export default {
 		 * Whether the choice is complete: a new project needs a name.
 		 *
 		 * @return {boolean} True when the session can start.
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		canStart() {
 			return this.choice !== NEW || this.newName.trim() !== ''
@@ -127,7 +127,7 @@ export default {
 		 * Emit the chosen project.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		start() {
 			if (!this.canStart) {

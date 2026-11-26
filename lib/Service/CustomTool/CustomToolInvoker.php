@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+ * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
@@ -46,7 +46,7 @@ use Throwable;
  * tool provider answers with. Hermiq opens no HTTP connection here; an
  * integriq target leaves the instance only through integriq's `CallService`.
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+ * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
  *
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with this batch's feature work; splitting it
  * is follow-up work, not part of this merge.
@@ -128,7 +128,7 @@ class CustomToolInvoker {
 	 *
 	 * @return array<string, mixed> The answer, or an error envelope.
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
 	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
@@ -171,7 +171,7 @@ class CustomToolInvoker {
 	 *
 	 * @return array<string, mixed> The answer, or an error envelope, with the `customTool` record.
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
 	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
@@ -225,7 +225,7 @@ class CustomToolInvoker {
 	 *
 	 * @return string|null The refusal naming the field, or null.
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#scenario-wrong-input-is-refused-before-the-call
+	 * @spec openspec/specs/custom-tools/spec.md#scenario-wrong-input-is-refused-before-the-call
 	 */
 	public static function invalidArgument(array $schema, array $arguments): ?string {
 		$properties = ($schema['properties'] ?? []);
@@ -289,7 +289,7 @@ class CustomToolInvoker {
 	 *
 	 * @return mixed The decoded body.
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
 	 */
 	public static function renderBody(string $template, array $arguments): mixed {
 		$out      = '';
@@ -330,7 +330,7 @@ class CustomToolInvoker {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
 	 */
 	public static function renderPath(string $path, array $arguments): string {
 		return (string)preg_replace_callback(
@@ -347,7 +347,7 @@ class CustomToolInvoker {
 	 *
 	 * @return array{content: string, truncated: bool}
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
 	 */
 	public static function delimited(string $text): array {
 		$truncated = (strlen($text) > self::MAX_ANSWER_BYTES);
@@ -394,8 +394,33 @@ class CustomToolInvoker {
 			return self::error(code: 'tool_failed', message: 'The flow could not be run.');
 		}
 
-		return ['result' => ($envelope['result'] ?? [])];
+		// OpenRegister's flow tool reports a refused run (an unpublished flow, a
+		// missing right) inside an envelope that is not itself an error.
+		$result = ($envelope['result'] ?? []);
+		if (is_array($result) === true && ($result['isError'] ?? false) === true) {
+			return self::error(code: 'tool_failed', message: self::flowRefusal(result: $result));
+		}
+
+		return ['result' => $result];
 	}//end runFlow()
+
+	/**
+	 * The message for a flow run OpenRegister refused, with its own reason when it gave one.
+	 *
+	 * @param array<string, mixed> $result The flow tool's result.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 */
+	private static function flowRefusal(array $result): string {
+		$reason = trim((string)($result['message'] ?? ''));
+		if ($reason === '') {
+			return 'The flow could not be run.';
+		}
+
+		return 'The flow could not be run: ' . $reason;
+	}//end flowRefusal()
 
 	/**
 	 * Call an integriq target; a tool that waits for its workflow's result first opens

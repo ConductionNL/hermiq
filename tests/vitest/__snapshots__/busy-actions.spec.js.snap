@@ -891,7 +891,12 @@ exports[`SkillFormModal.importPastedPackage > succeeds behind the busy flag 1`] 
 
 exports[`SkillFormModal.save (edit) > falls back to the translated message 1`] = `
 {
-  "emitted": [],
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
   "trace": [
     "saving=true",
     "error=""",
@@ -905,7 +910,12 @@ exports[`SkillFormModal.save (edit) > falls back to the translated message 1`] =
 
 exports[`SkillFormModal.save (edit) > reports the server error 1`] = `
 {
-  "emitted": [],
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
   "trace": [
     "saving=true",
     "error=""",
@@ -919,7 +929,12 @@ exports[`SkillFormModal.save (edit) > reports the server error 1`] = `
 
 exports[`SkillFormModal.save (edit) > reports the thrown message 1`] = `
 {
-  "emitted": [],
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
   "trace": [
     "saving=true",
     "error=""",
@@ -933,7 +948,12 @@ exports[`SkillFormModal.save (edit) > reports the thrown message 1`] = `
 
 exports[`SkillFormModal.save (edit) > succeeds behind the busy flag 1`] = `
 {
-  "emitted": [],
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
   "trace": [
     "saving=true",
     "error=""",
@@ -947,7 +967,12 @@ exports[`SkillFormModal.save (edit) > succeeds behind the busy flag 1`] = `
 
 exports[`SkillFormModal.save (new) > falls back to the translated message 1`] = `
 {
-  "emitted": [],
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
   "trace": [
     "saving=true",
     "error=""",
@@ -961,7 +986,12 @@ exports[`SkillFormModal.save (new) > falls back to the translated message 1`] = 
 
 exports[`SkillFormModal.save (new) > reports the server error 1`] = `
 {
-  "emitted": [],
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
   "trace": [
     "saving=true",
     "error=""",
@@ -975,7 +1005,12 @@ exports[`SkillFormModal.save (new) > reports the server error 1`] = `
 
 exports[`SkillFormModal.save (new) > reports the thrown message 1`] = `
 {
-  "emitted": [],
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
   "trace": [
     "saving=true",
     "error=""",
@@ -989,7 +1024,12 @@ exports[`SkillFormModal.save (new) > reports the thrown message 1`] = `
 
 exports[`SkillFormModal.save (new) > succeeds behind the busy flag 1`] = `
 {
-  "emitted": [],
+  "emitted": [
+    [
+      "cn:page:refresh",
+      {},
+    ],
+  ],
   "trace": [
     "saving=true",
     "error=""",

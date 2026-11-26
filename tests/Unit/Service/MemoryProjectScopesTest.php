@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
+ * @spec openspec/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * The shared memory and one memory per project.
  *
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
  */
 #[CoversClass(MemoryService::class)]
 #[UsesClass(MemoryLookup::class)]
@@ -246,7 +246,7 @@ class MemoryProjectScopesTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function testAppendInAProjectWritesTheProjectMemory(): void {
 		$this->service()->appendMemoryEntry(agentId: 'agent-1', text: 'De raad behandelt het ontwerp op 14 november 2026.', projectKey: 'omgevingsvisie-2040');
@@ -262,7 +262,7 @@ class MemoryProjectScopesTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function testAppendWithoutAProjectWritesTheSharedMemory(): void {
 		$this->service()->appendMemoryEntry(agentId: 'agent-1', text: 'Een naamconventie.');
@@ -276,7 +276,7 @@ class MemoryProjectScopesTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function testForgetInAProjectSearchesTheProjectThenShared(): void {
 		$service = $this->service();
@@ -293,7 +293,7 @@ class MemoryProjectScopesTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function testForgetNeverReachesAnotherProject(): void {
 		$service = $this->service();
@@ -308,7 +308,7 @@ class MemoryProjectScopesTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public function testListProjectsByName(): void {
 		$this->stored[1]->setObject($this->stored[1]->getObject() + ['projectName' => 'Omgevingsvisie 2040']);
@@ -328,7 +328,7 @@ class MemoryProjectScopesTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public function testEnsureProjectMemoryNamesTheProject(): void {
 		$this->service()->ensureProjectMemory(agentId: 'agent-1', projectKey: 'begroting-wijk-oost', projectName: ' Begroting 2027 ');
@@ -350,7 +350,7 @@ class MemoryProjectScopesTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	public function testMoveToSharedLeavesTheProject(): void {
 		$this->stored[1]->setObject(
@@ -375,7 +375,7 @@ class MemoryProjectScopesTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	public function testAMoveThatCannotHappenChangesNothing(): void {
 		$service = $this->service();
@@ -395,7 +395,7 @@ class MemoryProjectScopesTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	public function testCorrectInAProjectEditsTheProject(): void {
 		$memory = $this->service()->correctMemoryEntry(agentId: 'agent-1', entryId: 'mem-visie-e1', text: 'De raad behandelt het ontwerp op 21 november 2026.', projectKey: 'omgevingsvisie-2040');
@@ -410,7 +410,7 @@ class MemoryProjectScopesTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public function testIsProjectKey(): void {
 		$this->assertTrue(MemoryService::isProjectKey(key: 'omgevingsvisie-2040'));

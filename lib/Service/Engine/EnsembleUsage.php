@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
  */
 
 declare(strict_types=1);
@@ -30,7 +30,7 @@ namespace OCA\Hermiq\Service\Engine;
 /**
  * Sum the usage of several model calls.
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
+ * @spec openspec/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
  */
 final class EnsembleUsage {
 
@@ -44,7 +44,7 @@ final class EnsembleUsage {
 	 *
 	 * @return array<string, mixed> The summed usage, with `usageByModel` listing each call.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
 	 */
 	public static function sum(array $calls): array {
 		$total = [];

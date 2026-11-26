@@ -13,7 +13,7 @@
  * Pure: the URL builder and the navigation are passed in, so the module runs
  * under plain node with nothing mocked.
  *
- * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-the-integrations-page-lists-hermiqs-rows-from-integriq-req-hermiq-conn-002
+ * @spec openspec/specs/app-connections/spec.md#requirement-the-integrations-page-lists-hermiqs-rows-from-integriq-req-hermiq-conn-002
  */
 
 /**
@@ -31,7 +31,7 @@ export const INTEGRIQ_CONNECTIONS_PATH =
  *
  * @param {{generateUrl: function(string): string, assign: function(string): void}} deps Builds the instance URL and navigates to it.
  * @return {{openIntegriqConnections: function(): void}} The handler, keyed by its manifest name.
- * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-the-integrations-page-lists-hermiqs-rows-from-integriq-req-hermiq-conn-002
+ * @spec openspec/specs/app-connections/spec.md#requirement-the-integrations-page-lists-hermiqs-rows-from-integriq-req-hermiq-conn-002
  */
 export function createConnectionHandlers({ generateUrl, assign }) {
 	return {
@@ -39,7 +39,7 @@ export function createConnectionHandlers({ generateUrl, assign }) {
 		 * Open integriq's Connections overview on the link-a-source dialog.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-the-integrations-page-lists-hermiqs-rows-from-integriq-req-hermiq-conn-002
+		 * @spec openspec/specs/app-connections/spec.md#requirement-the-integrations-page-lists-hermiqs-rows-from-integriq-req-hermiq-conn-002
 		 */
 		openIntegriqConnections() {
 			assign(generateUrl(INTEGRIQ_CONNECTIONS_PATH))

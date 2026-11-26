@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
+ * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-2
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use Throwable;
  * so every existing catch and every message a person reads is unchanged; the
  * kind is what the fallback loop reads.
  *
- * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
+ * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
  */
 class ProviderCallFailedException extends Exception {
 
@@ -78,7 +78,7 @@ class ProviderCallFailedException extends Exception {
 	 * @param int|null       $retryAfterSeconds The provider's retry-after, when it sent one.
 	 * @param Throwable|null $previous          The underlying failure.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-2
 	 */
 	public function __construct(
 		string $message,
@@ -100,7 +100,7 @@ class ProviderCallFailedException extends Exception {
 	 *
 	 * @return self
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-refusal-or-a-configuration-error-never-triggers-a-fallback-req-mfail-003
 	 */
 	public static function fromHttpStatus(int $status, string $message, ?string $retryAfter = null, ?string $kind = null): self {
 		return new self(
@@ -118,8 +118,8 @@ class ProviderCallFailedException extends Exception {
 	 *
 	 * @return self
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-2
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	public static function fromThrowable(Throwable $failure): self {
 		if ($failure instanceof self) {
@@ -153,7 +153,7 @@ class ProviderCallFailedException extends Exception {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	public function movesTurn(): bool {
 		return in_array($this->kind, self::TEMPORARY, true);
@@ -166,7 +166,7 @@ class ProviderCallFailedException extends Exception {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-2
 	 */
 	public static function kindForStatus(int $status): string {
 		return match (true) {
@@ -207,7 +207,7 @@ class ProviderCallFailedException extends Exception {
 	/**
 	 * The HTTP status a client failure carries, through its response or its message.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 *
 	 * @param Throwable $failure The failure.
 	 *

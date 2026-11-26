@@ -6,7 +6,7 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+ * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
  */
 
 declare(strict_types=1);
@@ -35,6 +35,13 @@ final class CustomToolInvokerTest extends TestCase {
 
 	/** @var list<array{toolId: string, arguments: array<string, mixed>}> */
 	private array $facadeCalls = [];
+
+	/**
+	 * What OpenRegister's tool facade answers a runFlow call.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private array $facadeAnswer = ['result' => ['runUuid' => 'run-1', 'queued' => true], 'isError' => false];
 
 	/** @var list<array<string, mixed>> */
 	private array $sourceCalls = [];
@@ -123,7 +130,7 @@ final class CustomToolInvokerTest extends TestCase {
 		$facade->method('invokeTool')->willReturnCallback(
 			function (string $toolId, array $arguments): array {
 				$this->facadeCalls[] = ['toolId' => $toolId, 'arguments' => $arguments];
-				return ['result' => ['runUuid' => 'run-1', 'queued' => true], 'isError' => false];
+				return $this->facadeAnswer;
 			}
 		);
 
@@ -242,6 +249,33 @@ final class CustomToolInvokerTest extends TestCase {
 		$this->assertSame('owner_unresolved', $answer['error']['code']);
 		$this->assertSame([], $this->facadeCalls);
 	}//end testAFlowTargetWithoutAnOwnerIsRefused()
+
+	/**
+	 * A flow OpenRegister refuses to run is a failed call, not a result: the facade
+	 * reports the flow's own refusal inside an envelope that is not itself an error.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 */
+	public function testAFlowOpenRegisterRefusesIsAFailedCall(): void {
+		$this->tool = CustomToolDefinition::normalise(payload: CustomToolDefinitionTest::vergunningcheck());
+		$this->facadeAnswer = [
+			'result' => ['isError' => true, 'error' => 'internal_error', 'message' => 'This flow has no published version, so it cannot back a run.'],
+			'isError' => false,
+		];
+
+		$answer = $this->invoker()->invoke(
+			toolId: 'hermiq.custom_vergunningcheck',
+			arguments: ['adres' => 'Markt 3', 'activiteit' => 'terras', 'triggeredBy' => 'behandelaar']
+		);
+
+		$this->assertSame(
+			expected: ['code' => 'tool_failed', 'message' => 'The flow could not be run: This flow has no published version, so it cannot back a run.'],
+			actual: $answer['error']
+		);
+		$this->assertArrayNotHasKey(key: 'result', array: $answer);
+	}//end testAFlowOpenRegisterRefusesIsAFailedCall()
 
 	/**
 	 * Wrong input is refused, naming the field, before any call.

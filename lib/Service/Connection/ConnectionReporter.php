@@ -20,7 +20,7 @@
  * SPDX-License-Identifier: EUPL-1.2
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  *
- * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+ * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use Throwable;
 /**
  * Sends connection reports to integriq, at once or throttled.
  *
- * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+ * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
  */
 class ConnectionReporter implements ConnectionReporterInterface {
 
@@ -125,7 +125,7 @@ class ConnectionReporter implements ConnectionReporterInterface {
 	 *
 	 * @return bool True when the report was sent.
 	 *
-	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	public function report(string $key, string $status, string $message=''): bool {
 		$report = new ConnectionStatus(key: $key, status: $status, message: $message);
@@ -153,7 +153,7 @@ class ConnectionReporter implements ConnectionReporterInterface {
 	 *
 	 * @return bool True when a report was sent.
 	 *
-	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	public function reportThrottled(string $key, string $status, string $message=''): bool {
 		$report = new ConnectionStatus(key: $key, status: $status, message: $message);
@@ -180,7 +180,7 @@ class ConnectionReporter implements ConnectionReporterInterface {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	private function eventClassFor(ConnectionStatus $report): ?string {
 		if ($this->isValid(key: $report->key, status: $report->status) === false) {
@@ -198,7 +198,7 @@ class ConnectionReporter implements ConnectionReporterInterface {
 	 *
 	 * @return bool True when a report was sent.
 	 *
-	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	private function sendIfDue(ConnectionStatus $report, string $eventClass): bool {
 		$now = $this->timeFactory->getTime();
@@ -221,7 +221,7 @@ class ConnectionReporter implements ConnectionReporterInterface {
 	 *
 	 * @return string|null The class name to instantiate, or null when absent.
 	 *
-	 * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+	 * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
 	 */
 	protected function resolveEventClass(string $eventClass): ?string {
 		$qualified = '\\' . $eventClass;

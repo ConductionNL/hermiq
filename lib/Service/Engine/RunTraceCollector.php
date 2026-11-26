@@ -94,7 +94,7 @@ class RunTraceCollector {
 	 *
 	 * @var array<int, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
 	 */
 	private array $providerAttempts = [];
 
@@ -308,7 +308,7 @@ class RunTraceCollector {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
 	 */
 	public function recordProviderAttempt(string $provider, string $model, string $outcome, string $reason, int $durationMs, bool $received): void {
 		$this->providerAttempts[] = [
@@ -326,7 +326,7 @@ class RunTraceCollector {
 	 *
 	 * @return array<int, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
 	 */
 	public function providerAttempts(): array {
 		return $this->providerAttempts;
@@ -337,7 +337,7 @@ class RunTraceCollector {
 	 *
 	 * @return array<int, array{provider: string, model: string}>
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
 	 */
 	public function receivedBy(): array {
 		$seen = [];
@@ -358,7 +358,7 @@ class RunTraceCollector {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	public function recordFallbackNote(string $note, string $outcome): void {
 		$this->endStep(token: $this->startStep(type: 'fallback', name: $note), outcome: $outcome);
@@ -372,7 +372,7 @@ class RunTraceCollector {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
 	 */
 	public function recordEnsembleNote(string $note, string $outcome): void {
 		$this->endStep(token: $this->startStep(type: 'ensemble', name: $note), outcome: $outcome);
@@ -387,7 +387,7 @@ class RunTraceCollector {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
 	 */
 	public function recordReferenceAnswer(string $provider, string $model, string $text): void {
 		$this->referenceAnswers[] = ['provider' => $provider, 'model' => $model, 'text' => $text];
@@ -398,7 +398,7 @@ class RunTraceCollector {
 	 *
 	 * @return array<int, array{provider: string, model: string, text: string}>
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
 	 */
 	public function referenceAnswers(): array {
 		return $this->referenceAnswers;
@@ -409,7 +409,7 @@ class RunTraceCollector {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	public function hasToolStep(): bool {
 		foreach (array_merge($this->steps, array_values($this->pending)) as $step) {

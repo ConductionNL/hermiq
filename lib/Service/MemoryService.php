@@ -175,7 +175,7 @@ class MemoryService implements MemoryServiceInterface {
 	 * @throws Throwable When the create fails for any other reason.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-1
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public function getMemory(string $agentId, ?string $projectKey = null): ObjectEntity {
 		$layer    = self::layerFilters(agentId: $agentId, projectKey: $projectKey);
@@ -216,7 +216,7 @@ class MemoryService implements MemoryServiceInterface {
 	 *
 	 * @return bool True when it is one.
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public static function isProjectKey(string $key): bool {
 		return preg_match('/^[a-z0-9][a-z0-9-]{0,63}$/', $key) === 1;
@@ -234,7 +234,7 @@ class MemoryService implements MemoryServiceInterface {
 	 *
 	 * @return array<string,string>
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public static function layerFilters(string $agentId, ?string $projectKey): array {
 		$key = trim((string)$projectKey);
@@ -294,7 +294,7 @@ class MemoryService implements MemoryServiceInterface {
 	 * @return ObjectEntity The persisted Memory object.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-2-2
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function appendMemoryEntry(string $agentId, string $text, ?string $projectKey = null): ObjectEntity {
 		$memory = $this->getMemory(agentId: $agentId, projectKey: $projectKey);
@@ -504,7 +504,7 @@ class MemoryService implements MemoryServiceInterface {
 	 * @return array{memoryEntries: array<int, array<string, string>>, userProfileEntries: array<int, array<string, string>>}
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-4
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
 	 */
 	public function recallEntries(string $agentId, ?string $subjectUid, string $query, int $limit = 20, ?string $projectKey = null): array {
 		$lookup = new MemoryLookup(filters: ['agentId' => $agentId], limit: $limit);
@@ -551,14 +551,25 @@ class MemoryService implements MemoryServiceInterface {
 	/**
 	 * The live entries matching the read's search term in every object the read finds.
 	 *
+	 * The objects are found by the read's FILTERS only; the term is matched on
+	 * the entries here. OpenRegister's search reads only a schema's searchable
+	 * properties (title-like ones), never the text inside `entries`, so asking
+	 * it for the term found an entry by its content in no layer at all. A layer
+	 * is one Memory (or one UserProfile) object, bounded by its character
+	 * budget, so reading it whole costs one small read.
+	 *
 	 * @param string       $schema The schema slug.
 	 * @param MemoryLookup $lookup The read.
 	 *
 	 * @return array<int, array<string, string>>
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
 	 */
 	private function recalledEntries(string $schema, MemoryLookup $lookup): array {
+		$objectLookup = new MemoryLookup(filters: $lookup->filters, limit: $lookup->limit);
+
 		$entries = [];
-		foreach ($this->findMany(schema: $schema, lookup: $lookup) as $object) {
+		foreach ($this->findMany(schema: $schema, lookup: $objectLookup) as $object) {
 			$entries = array_merge($entries, $this->matchingEntries(object: $object, query: (string)$lookup->search));
 		}
 
@@ -588,7 +599,7 @@ class MemoryService implements MemoryServiceInterface {
 	 *                                                  in which object ('memory'|'userProfile') when it was.
 	 *
 	 * @spec openspec/changes/archive/2026-07-13-agent-memory-tools/tasks.md#task-3
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	public function forgetEntry(string $agentId, ?string $subjectUid, string $entryId, ?string $projectKey = null): array {
 		if (trim($entryId) === '') {
@@ -650,7 +661,7 @@ class MemoryService implements MemoryServiceInterface {
 	 *
 	 * @return array<string, string|null> The project key of each layer, keyed by layer.
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
 	 */
 	private static function layersOf(?string $projectKey): array {
 		if (trim((string)$projectKey) === '') {
@@ -723,7 +734,7 @@ class MemoryService implements MemoryServiceInterface {
 	 *
 	 * @return array<int, array{projectKey: string, projectName: string}> The projects, by name.
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public function listProjects(string $agentId): array {
 		$lookup  = new MemoryLookup(filters: ['agentId' => $agentId, 'scope' => self::SCOPE_PROJECT], limit: 200);
@@ -758,7 +769,7 @@ class MemoryService implements MemoryServiceInterface {
 	 *
 	 * @return ObjectEntity The project's Memory object.
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	public function ensureProjectMemory(string $agentId, string $projectKey, string $projectName): ObjectEntity {
 		$memory = $this->getMemory(agentId: $agentId, projectKey: $projectKey);
@@ -788,7 +799,7 @@ class MemoryService implements MemoryServiceInterface {
 	 *
 	 * @return ObjectEntity|null The memory the entry is now in, or null when the source holds no live entry with that id.
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	public function moveMemoryEntry(string $agentId, string $entryId, ?string $from, ?string $to): ?ObjectEntity {
 		$fromKey = trim((string)$from);
@@ -824,7 +835,7 @@ class MemoryService implements MemoryServiceInterface {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	private function liveEntryText(ObjectEntity $object, string $entryId): ?string {
 		foreach ($this->normaliseEntries(entries: ($object->getObject()['entries'] ?? [])) as $entry) {
@@ -963,7 +974,7 @@ class MemoryService implements MemoryServiceInterface {
 				continue;
 			}
 
-			if ($query !== '' && stripos($entry['text'], $query) === false) {
+			if (self::entryMatches(text: (string)$entry['text'], query: $query) === false) {
 				continue;
 			}
 
@@ -972,6 +983,33 @@ class MemoryService implements MemoryServiceInterface {
 
 		return $out;
 	}//end matchingEntries()
+
+	/**
+	 * Whether an entry's text answers a recall query: every word of the query
+	 * appears in it, in any order and case. An empty query matches every entry.
+	 *
+	 * @param string $text  The entry's text.
+	 * @param string $query The recall query.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
+	 */
+	public static function entryMatches(string $text, string $query): bool {
+		$words = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($query), -1, PREG_SPLIT_NO_EMPTY);
+		if (is_array($words) === false) {
+			return true;
+		}
+
+		$haystack = mb_strtolower($text);
+		foreach ($words as $word) {
+			if (mb_strpos($haystack, $word) === false) {
+				return false;
+			}
+		}
+
+		return true;
+	}//end entryMatches()
 
 	/**
 	 * Total character count across all NON-SOFT-DELETED entry texts.
@@ -1116,7 +1154,7 @@ class MemoryService implements MemoryServiceInterface {
 	 *
 	 * @return ObjectEntity The saved object.
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 	 */
 	private function saveInPlace(array $data, ObjectEntity $object, string $schema): ObjectEntity {
 		return $this->objectService->saveObject(

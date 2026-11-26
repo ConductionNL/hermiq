@@ -69,7 +69,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 /**
- * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md
+ * @spec openspec/specs/agent-schedule/spec.md
  */
 #[CoversClass(ScheduleService::class)]
 #[UsesClass(OccurrenceClaim::class)]
@@ -285,7 +285,7 @@ final class ScheduleServiceParallelRunsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
 	 */
 	public function testTheTickQueuesADueOccurrenceInsteadOfRunningIt(): void {
 		$this->schedule('sched-1', ['nextRun' => '2000-01-01T00:00:00+00:00', 'repeat' => ['times' => 5, 'completed' => 0]]);
@@ -311,7 +311,7 @@ final class ScheduleServiceParallelRunsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
 	 */
 	public function testASecondTickQueuesNothingForAnOccurrenceInFlight(): void {
 		// A pending retry stays due by its retry state, even after its commit.
@@ -334,7 +334,7 @@ final class ScheduleServiceParallelRunsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 */
 	public function testAWorkerWithAStaleOccurrenceDoesNothing(): void {
 		$this->schedule('sched-1', ['pendingOccurrence' => 'sched-1:later', 'lastStatus' => 'queued', 'pendingSince' => self::ago('1 minute')]);
@@ -350,7 +350,7 @@ final class ScheduleServiceParallelRunsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 */
 	public function testAWorkerThatLosesTheClaimDoesNotRun(): void {
 		$this->schedule('sched-1', ['pendingOccurrence' => 'sched-1:k', 'lastStatus' => 'queued', 'pendingSince' => self::ago('1 minute')]);
@@ -366,7 +366,7 @@ final class ScheduleServiceParallelRunsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 */
 	public function testAKillSwitchEngagedAfterQueueingSkipsTheRun(): void {
 		$this->schedule('sched-1', ['pendingOccurrence' => 'sched-1:k', 'lastStatus' => 'queued', 'pendingSince' => self::ago('1 minute'), 'nextRun' => '2999-01-01T00:00:00+00:00']);
@@ -386,7 +386,7 @@ final class ScheduleServiceParallelRunsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp
 	 */
 	public function testTheClaimingWorkerRunsAndRecordsTheOccurrence(): void {
 		// No agent bound: the turn fails, which is an outcome like any other.
@@ -416,7 +416,7 @@ final class ScheduleServiceParallelRunsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-an-administrator-limits-how-many-runs-go-at-once-req-prun-003
 	 */
 	public function testAWorkerOverTheOrganisationLimitRequeuesTheOccurrence(): void {
 		$this->schedule('run-1', ['pendingOccurrence' => 'run-1:k', 'lastStatus' => 'running', 'pendingSince' => self::ago('1 minute')]);
@@ -441,7 +441,7 @@ final class ScheduleServiceParallelRunsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
 	 */
 	public function testTheSweepFailsALostOccurrenceAndRetriesUnderANewKey(): void {
 		$this->schedule('sched-1', [
@@ -477,7 +477,7 @@ final class ScheduleServiceParallelRunsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-a-lost-worker-is-recorded-as-a-failed-run-req-prun-002
 	 */
 	public function testTheSweepLeavesALiveWorkerAlone(): void {
 		$this->schedule('young', ['pendingOccurrence' => 'young:k', 'lastStatus' => 'running', 'pendingSince' => self::ago('5 minutes'), 'nextRun' => '2999-01-01T00:00:00+00:00']);
@@ -495,7 +495,7 @@ final class ScheduleServiceParallelRunsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
+	 * @spec openspec/specs/agent-schedule/spec.md#requirement-each-occurrence-is-claimed-once-whatever-the-number-of-workers-req-prun-001
 	 */
 	public function testRunNowTakesTheSameClaim(): void {
 		$schedule = $this->schedule('sched-1', ['nextRun' => '2000-01-01T00:00:00+00:00']);

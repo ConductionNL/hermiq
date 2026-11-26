@@ -1480,7 +1480,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return array<string, mixed> Arguments, with `projectKey` set or removed for a memory tool.
 	 *
-	 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
 	private function withProjectKey(string $name, array $arguments): array {
 		if (in_array($this->resolveToolId(name: $name), self::MEMORY_TOOL_IDS, true) === false) {
@@ -1781,7 +1781,7 @@ class FacadeToolInvoker {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-passes-the-same-governance-as-every-tool-req-custool-004
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-passes-the-same-governance-as-every-tool-req-custool-004
 	 */
 	private static function customToolTrace(string $toolId, mixed $result): array {
 		$meta = [];

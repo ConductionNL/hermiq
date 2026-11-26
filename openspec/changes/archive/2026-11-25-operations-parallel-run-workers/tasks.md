@@ -11,8 +11,9 @@ Kind: code. Size M. Row `hermiq:op-scale`.
   - GIVEN two processes locking one schedule at once through `ObjectService::lockObject()` WHEN both try THEN exactly one holds the lock; if both do, the change stops and the lane raises an atomic lock with OpenRegister
   - GIVEN an expired lock and an unchanged `lastStatus` older than the time-to-live WHEN the sweep asks THEN the occurrence is reported as lost
 - [x] Implement
-- [ ] Test (a race test with two PHP processes against the dev instance; PHPUnit on the stale check)
+- [x] Test (a race test with two PHP processes against the dev instance; PHPUnit on the stale check)
   - Built 17 Nov: `OccurrenceClaim` claims through OpenRegister main's ADVISORY lock (`lockObject(LockRequest, advisory: true)`), not the object lock. Reason: the object lock lets the holder's own user extend it, and every worker impersonates the schedule owner, so two workers would both hold it; the advisory lock is taken by compare-and-swap and refuses any second holder. `Schedule.pendingOccurrence` and `pendingSince` added (register 0.65.0, Schedule 0.5.0). PHPUnit on the claim and the stale check: `OccurrenceClaimTest`. Left: the two-process race against a live instance.
+  - 25 Nov, live (sandbox Nextcloud 34, PostgreSQL 16, OpenRegister main + #11225): `tests/live/occurrence-claim-race.php` starts two PHP processes that claim the same occurrence at the same moment, 100 rounds: exactly one winner every round (45/55 between the processes), exit 0. The advisory lock holds; no atomic lock needs raising with OpenRegister.
 
 ### Task 2: The tick enqueues instead of running
 - **spec_ref**: `openspec/changes/operations-parallel-run-workers/specs/agent-schedule/spec.md#requirement-fire-due-schedules-and-run-the-agent-mvp`
@@ -60,12 +61,13 @@ Kind: code. Size M. Row `hermiq:op-scale`.
 - **acceptance_criteria**:
   - GIVEN the docs WHEN an operator follows "Running agents in parallel" THEN two workers run two due schedules at the same time on the dev instance
 - [x] Implement
-- [ ] Test (a live check with two `occ background-job:worker` processes, run times written into the PR body)
-  - `docs/Installation/parallel-runs.md`. Left: the live check.
+- [x] Test (a live check with two `occ background-job:worker` processes, run times written into the PR body)
+  - `docs/Installation/parallel-runs.md`. 25 Nov, live: ten due `once` schedules, one tick queued ten `ScheduleRunJob`s; one worker finished them in 44.5 s, two workers in 21.2 s (5 jobs each), each schedule `ok` with exactly one run. Model: an Ollama-compatible endpoint with a fixed 3 s answer, so the number measures the workers, not the CPU. With a real local model (qwen2.5:1.5b on the same 4-CPU box) the runs were 32.5 s vs 44.2 s: the model is CPU-bound and two runs share the same cores, which the docs already warn about. Cron and interval schedules whose clock is delegated to the engine (`engineFlowId`) are fired by OpenRegister and do not pass through this queue.
 
 ## Verification
 - [x] `openspec validate operations-parallel-run-workers --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
-- [ ] PHPUnit runs, exit code read, including the race test
-  - The unit suite runs green (5767 tests); the race test needs a live instance.
-- [ ] A live check on the dev instance with two workers: ten due schedules finish in about half the single-worker time, each run once
+- [x] PHPUnit runs, exit code read, including the race test
+  - The unit suite runs green (5767 tests); the race test passed live on 25 Nov (100/100 rounds, exit 0).
+- [x] A live check on the dev instance with two workers: ten due schedules finish in about half the single-worker time, each run once
+  - 25 Nov: 21.2 s with two workers vs 44.5 s with one (0.48), ten runs, each once.

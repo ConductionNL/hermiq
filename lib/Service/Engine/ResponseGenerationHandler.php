@@ -258,7 +258,7 @@ class ResponseGenerationHandler {
 	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-model-receives-the-users-turn-once
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
 	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	public function generateResponse(
@@ -315,7 +315,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @return string|null The no-match sentence.
 	 *
-	 * @spec openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003
 	 */
 	private static function scopedNoMatchReply(array $context): ?string {
 		$reply = (string)($context['noMatch'] ?? '');
@@ -498,7 +498,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @return array<int, array{provider: string, model: string, usage: array<string, mixed>}> What each reference call cost.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
 	 */
 	private function askReferenceModels(ResponseTurnRun $run): array {
 		$references = ReferenceAnswerRound::referencesOf(agentData: $run->agentData());
@@ -526,7 +526,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @return array{text: string, usage: array<string, mixed>} Its answer and what it cost.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-reference-models-answer-without-tools-and-the-agents-own-model-merges-req-mens-002
 	 */
 	private function answerAsReference(ResponseTurnRun $run, ChatDriver $driver): array {
 		$reference = new ResponseTurnRun(userMessage: $run->userMessage, context: $run->context);
@@ -557,7 +557,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
+	 * @spec openspec/specs/model-ensemble/spec.md#requirement-an-ensemble-counts-every-call-against-the-budget-req-mens-004
 	 */
 	private function addReferenceUsage(array $usages, ResponseTurnRun $run): void {
 		if ($usages === []) {
@@ -579,7 +579,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @throws Exception The first provider's failure when the turn may not move.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	private function answerTurn(ResponseTurnRun $run): string {
 		$history = $run->messageHistory;
@@ -622,7 +622,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @return ProviderFallbackLoop
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	private function fallbackLoop(ResponseTurnRun $run): ProviderFallbackLoop {
 		return new ProviderFallbackLoop(
@@ -640,7 +640,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @return ChatDriver
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	private function hopDriver(ResponseTurnRun $run, string $provider, string $model): ChatDriver {
 		$inputs = new ChatDriverInputs(run: $run);
@@ -668,7 +668,7 @@ class ResponseGenerationHandler {
 	 *
 	 * @return string The answer.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-a-temporary-provider-failure-moves-the-turn-to-the-next-allowed-hop-req-mfail-002
 	 */
 	private function answerWith(ResponseTurnRun $run, ChatDriver $driver, array $history): string {
 		$run->progress->driver = $driver;

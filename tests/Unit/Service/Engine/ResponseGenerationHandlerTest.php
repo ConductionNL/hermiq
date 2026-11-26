@@ -714,7 +714,7 @@ class ResponseGenerationHandlerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
 	 */
 	public function testHostedTurnsRecordTheirTokens(): void {
 		$drivers = [
@@ -741,7 +741,7 @@ class ResponseGenerationHandlerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
 	 */
 	public function testAnOpenAiTurnRecordsTheTokensOfTheCall(): void {
 		$last = CreateResponse::from(
@@ -779,7 +779,7 @@ class ResponseGenerationHandlerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-3-the-fallback-loop-with-the-same-gates-per-hop
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-3-the-fallback-loop-with-the-same-gates-per-hop
 	 */
 	public function testARateLimitedTurnIsAnsweredByTheNextHop(): void {
 		$overrides = [];

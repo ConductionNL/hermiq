@@ -6,7 +6,7 @@
  * channel saves what the form shows and keeps what it does not, and a saved
  * website channel shows a script and an iframe snippet.
  *
- * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
+ * @spec openspec/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
  */
 
 import { describe, expect, it } from 'vitest'

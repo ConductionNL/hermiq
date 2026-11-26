@@ -529,7 +529,7 @@ class AnalyticsServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
 	 */
 	public function testARunRowShowsItsProviderAttempts(): void {
 		$schedules = [$this->schedule('s1', 'agentA')];

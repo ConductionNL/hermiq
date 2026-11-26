@@ -94,8 +94,7 @@
                         "agentId": "agent-1",
                         "scope": "shared"
                     },
-                    "limit": 7,
-                    "search": "tea"
+                    "limit": 7
                 }
             ],
             [
@@ -105,8 +104,7 @@
                         "agentId": "agent-1",
                         "subjectUid": "bob"
                     },
-                    "limit": 7,
-                    "search": "tea"
+                    "limit": 7
                 }
             ],
             [
@@ -126,8 +124,7 @@
                         "agentId": "agent-1",
                         "scope": "shared"
                     },
-                    "limit": 20,
-                    "search": "coffee"
+                    "limit": 20
                 }
             ],
             [
@@ -190,8 +187,7 @@
                         "agentId": "agent-1",
                         "scope": "shared"
                     },
-                    "limit": 7,
-                    "search": "tea"
+                    "limit": 7
                 }
             ],
             [
@@ -201,8 +197,7 @@
                         "agentId": "agent-1",
                         "subjectUid": "bob"
                     },
-                    "limit": 7,
-                    "search": "tea"
+                    "limit": 7
                 }
             ],
             [
@@ -222,8 +217,7 @@
                         "agentId": "agent-1",
                         "scope": "shared"
                     },
-                    "limit": 20,
-                    "search": "coffee"
+                    "limit": 20
                 }
             ],
             [

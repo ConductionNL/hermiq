@@ -82,7 +82,7 @@ final class LlphantChatCall {
 	 *
 	 * @return array<string, int|float>
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
 	 */
 	public function usage(): array {
 		if ($this->chat instanceof OllamaChat) {
@@ -109,7 +109,7 @@ final class LlphantChatCall {
 	 * @return array<string, int> `promptTokens` and `completionTokens`, plus `cacheReadTokens` when
 	 *                            the last response reported its cached prompt tokens; or `[]`.
 	 *
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-7-the-ensemble-turn-and-its-budget
 	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/provider-prompt-caching/spec.md#requirement-the-run-reports-cache-tokens-req-pcache-003
 	 */
 	private function openAiUsage(OpenAIChat $chat, int $tokensBefore): array {
@@ -159,7 +159,7 @@ final class LlphantChatCall {
 	 * @return string The assistant's textual response.
 	 *
 	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
-	 * @spec openspec/changes/models-several-models-per-turn/tasks.md#task-2
+	 * @spec openspec/changes/archive/2026-11-25-models-several-models-per-turn/tasks.md#task-2
 	 */
 	private function invokeChat(OpenAIChat|OllamaChat $chat, ResponseTurnRun $run): string {
 		try {

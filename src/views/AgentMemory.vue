@@ -17,7 +17,7 @@
   @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-4-1
   @spec openspec/specs/agent-memory/spec.md
   @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
-  @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+  @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 
   memory-project-scopes: an agent with projects gets a tab per layer, "Shared"
   first; the panel below shows the chosen layer and moves entries between them.
@@ -140,7 +140,7 @@ export default {
 		 * The tabs: "Shared", then one per project.
 		 *
 		 * @return {Array<{key: string, label: string}>} The tabs; key '' is the shared memory.
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 		 */
 		layerTabs() {
 			return [
@@ -157,7 +157,7 @@ export default {
 		/**
 		 * Back to the shared layer and reload the projects when another agent is chosen.
 		 *
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 		 */
 		selectedAgent() {
 			this.layer = ''
@@ -181,7 +181,7 @@ export default {
 		 * shows the shared memory only.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 		 */
 		async loadProjects() {
 			const agentId = this.selectedAgent?.value

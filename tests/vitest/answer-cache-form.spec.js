@@ -95,10 +95,13 @@ describe('the agent\'s Configuration card', () => {
 
 		expect(cards).toContain('agentAnswerCache')
 		expect(card.content.include).toContain('answerCache')
+		// An object property is left out of the card unless its override names a widget.
 		expect(card.content.overrides.answerCache).toEqual({
 			label: 'Reuse answers to repeated questions',
+			widget: 'json',
 			formatter: 'agentAnswerCache',
 			editable: false,
 		})
+		expect(card.content.overrides.ensemble.widget).toBe('json')
 	})
 })

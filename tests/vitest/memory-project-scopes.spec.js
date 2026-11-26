@@ -6,7 +6,7 @@
  * helpers, the picker and naming helpers, the project picker dialog, the
  * memory panel's moves and the Memory page's layer tabs.
  *
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
  */
 
 import axios from '@nextcloud/axios'

@@ -39,7 +39,7 @@ function projectConfig(project) {
  * @param {string} agentId The agent UUID.
  * @param {string} [project] The project key; omitted or '' for the shared memory.
  * @return {Promise<object>} The Memory payload ({ entries, charBudget, needsConsolidation, … }).
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
  */
 export async function getMemory(agentId, project = '') {
 	const response = await axios.get(
@@ -54,7 +54,7 @@ export async function getMemory(agentId, project = '') {
  *
  * @param {string} agentId The agent UUID.
  * @return {Promise<Array<{projectKey: string, projectName: string}>>} The projects, by name.
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
  */
 export async function listMemoryProjects(agentId) {
 	const response = await axios.get(
@@ -72,7 +72,7 @@ export async function listMemoryProjects(agentId) {
  * @param {string} from The project the entry is in, or '' for the shared memory.
  * @param {string} to The project to move it to, or '' for the shared memory.
  * @return {Promise<object>} The memory the entry is now in.
- * @spec openspec/changes/memory-project-scopes/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
  */
 export async function moveMemoryEntry(agentId, entryId, from, to) {
 	const response = await axios.post(
