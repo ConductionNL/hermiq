@@ -7252,11 +7252,11 @@
 			"built": {
 				"state": "specified",
 				"owner": "ConductionNL/hermiq",
-				"evidence": "Searched lib/, src/, openspec/specs for 'Langfuse', 'langfuse', 'OpenTelemetry', 'otel', 'external trac*': zero hits anywhere in the app. Specified in openspec/changes/observability-export-traces/ (OpenSpec pass 2026-09-27).",
-				"change": "openspec/changes/observability-export-traces",
+				"evidence": "Searched lib/, src/, openspec/specs for 'Langfuse', 'langfuse', 'OpenTelemetry', 'otel', 'external trac*': zero hits anywhere in the app. Specified in openspec/changes/archive/2026-11-25-observability-export-traces/ (OpenSpec pass 2026-09-27).",
+				"change": "openspec/changes/archive/2026-11-25-observability-export-traces",
 				"requirement": [
-					"openspec/changes/observability-export-traces/specs/trace-export :: An administrator configures trace export with a brokered credential (REQ-TREX-001)",
-					"openspec/changes/observability-export-traces/specs/trace-export :: Traces carry metadata by default and never tool arguments or results (REQ-TREX-002)"
+					"openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export :: An administrator configures trace export with a brokered credential (REQ-TREX-001)",
+					"openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export :: Traces carry metadata by default and never tool arguments or results (REQ-TREX-002)"
 				]
 			},
 			"reachedOn": "nothing",
