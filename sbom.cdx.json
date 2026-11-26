@@ -16396,22 +16396,22 @@
     {
       "type": "library",
       "name": "dompurify",
-      "version": "3.4.18",
-      "bom-ref": "hermiq@0.1.0|dompurify@3.4.18",
+      "version": "3.5.0",
+      "bom-ref": "hermiq@0.1.0|dompurify@3.5.0",
       "licenses": [
         {
           "expression": "(MPL-2.0 OR Apache-2.0)"
         }
       ],
-      "purl": "pkg:npm/dompurify@3.4.18",
+      "purl": "pkg:npm/dompurify@3.5.0",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/dompurify/-/dompurify-3.4.18.tgz",
+          "url": "https://registry.npmjs.org/dompurify/-/dompurify-3.5.0.tgz",
           "type": "distribution",
           "hashes": [
             {
               "alg": "SHA-512",
-              "content": "a1f7b7c08fee366ebc1c89c005814962a431470d4468a02335dac554aaa3518f9466eaef35dd8bfc7b907b4f7bb3fe118af5a26723fab53edaa13f1ab637e1c2"
+              "content": "2d80b466413c3f5578d89b11613c0c7667bfd844fc4a939ce4003678e1633ff21a76f45dd9fc224f84d5cf9be47f2d17531d76692d946919139df54f34ebfdbf"
             }
           ],
           "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
