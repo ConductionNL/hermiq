@@ -134,20 +134,34 @@ class MirrorTaskCompletionTest extends TestCase {
 	}//end approval()
 
 	/**
+	 * Complete the mirror task `task-1` of a pending approval.
+	 *
+	 * @param MirrorTaskCompletion $completion The completion under test.
+	 * @param string               $outcome    The outcome.
+	 * @param string               $decider    The deciding reviewer.
+	 * @param string|null          $comment    The comment.
+	 *
+	 * @return bool
+	 */
+	private function completeMirror(MirrorTaskCompletion $completion, string $outcome, string $decider, ?string $comment = null): bool {
+		return $completion->complete(approval: $this->approval(data: ['taskUuid' => 'task-1']), outcome: $outcome, deciderUid: $decider, comment: $comment);
+	}//end completeMirror()
+
+	/**
 	 * An assigned mirror task is completed directly, with the outcome and comment.
 	 *
 	 * @return void
 	 */
 	public function testTheAssigneeCompletesTheTask(): void {
 		$completion = $this->completion();
-		$approved = $completion->complete(approval: $this->approval(data: ['taskUuid' => 'task-1']), outcome: 'approved', deciderUid: 'bob', comment: null);
+		$approved = $this->completeMirror(completion: $completion, outcome: 'approved', decider: 'bob');
 
 		$this->assertTrue(condition: $approved);
 		$this->assertSame(expected: ['complete task-1 bob approved '], actual: $this->calls);
 		$this->assertSame(expected: [ApprovalTaskBridge::TASK_SERVICE_CLASS], actual: $this->resolved);
 
 		$completion = $this->completion();
-		$rejected = $completion->complete(approval: $this->approval(data: ['taskUuid' => 'task-1']), outcome: 'rejected', deciderUid: 'bob', comment: 'Denied by reaction in Talk');
+		$rejected = $this->completeMirror(completion: $completion, outcome: 'rejected', decider: 'bob', comment: 'Denied by reaction in Talk');
 
 		$this->assertTrue(condition: $rejected);
 		$this->assertSame(expected: ['complete task-1 bob rejected Denied by reaction in Talk'], actual: $this->calls);
@@ -160,7 +174,7 @@ class MirrorTaskCompletionTest extends TestCase {
 	 */
 	public function testAnOfferedTaskIsClaimedThenCompleted(): void {
 		$completion = $this->completion(refuse: ['complete']);
-		$done = $completion->complete(approval: $this->approval(data: ['taskUuid' => 'task-1']), outcome: 'approved', deciderUid: 'carol', comment: null);
+		$done = $this->completeMirror(completion: $completion, outcome: 'approved', decider: 'carol');
 
 		$this->assertTrue(condition: $done);
 		$this->assertSame(
@@ -176,11 +190,11 @@ class MirrorTaskCompletionTest extends TestCase {
 	 */
 	public function testARefusedTaskFallsBack(): void {
 		$completion = $this->completion(refuse: ['complete', 'claim']);
-		$this->assertFalse(condition: $completion->complete(approval: $this->approval(data: ['taskUuid' => 'task-1']), outcome: 'approved', deciderUid: 'carol', comment: null));
+		$this->assertFalse(condition: $this->completeMirror(completion: $completion, outcome: 'approved', decider: 'carol'));
 		$this->assertSame(expected: ['complete task-1 carol approved ', 'claim task-1 carol'], actual: $this->calls);
 
 		$completion = $this->completion(refuse: ['complete-always']);
-		$this->assertFalse(condition: $completion->complete(approval: $this->approval(data: ['taskUuid' => 'task-1']), outcome: 'approved', deciderUid: 'carol', comment: null));
+		$this->assertFalse(condition: $this->completeMirror(completion: $completion, outcome: 'approved', decider: 'carol'));
 	}//end testARefusedTaskFallsBack()
 
 	/**
@@ -191,16 +205,17 @@ class MirrorTaskCompletionTest extends TestCase {
 	public function testNothingToCompleteAnswersFalse(): void {
 		$completion = $this->completion();
 		$this->assertFalse(condition: $completion->complete(approval: $this->approval(data: []), outcome: 'approved', deciderUid: 'bob', comment: null));
-		$this->assertFalse(condition: $completion->complete(approval: $this->approval(data: ['taskUuid' => ' ']), outcome: 'approved', deciderUid: 'bob', comment: null));
-		$this->assertFalse(condition: $completion->complete(approval: $this->approval(data: ['taskUuid' => 'task-1']), outcome: 'approved', deciderUid: '', comment: null));
+		$blank = $this->approval(data: ['taskUuid' => ' ']);
+		$this->assertFalse(condition: $completion->complete(approval: $blank, outcome: 'approved', deciderUid: 'bob', comment: null));
+		$this->assertFalse(condition: $this->completeMirror(completion: $completion, outcome: 'approved', decider: ''));
 		$this->assertSame(expected: [], actual: $this->resolved);
 
 		$completion = $this->completion(service: new stdClass());
-		$this->assertFalse(condition: $completion->complete(approval: $this->approval(data: ['taskUuid' => 'task-1']), outcome: 'approved', deciderUid: 'bob', comment: null));
+		$this->assertFalse(condition: $this->completeMirror(completion: $completion, outcome: 'approved', decider: 'bob'));
 
 		$container = $this->createMock(originalClassName: ContainerInterface::class);
 		$container->method('get')->willThrowException(new RuntimeException('no task service'));
 		$completion = new MirrorTaskCompletion(container: $container, logger: $this->createMock(originalClassName: LoggerInterface::class));
-		$this->assertFalse(condition: $completion->complete(approval: $this->approval(data: ['taskUuid' => 'task-1']), outcome: 'approved', deciderUid: 'bob', comment: null));
+		$this->assertFalse(condition: $this->completeMirror(completion: $completion, outcome: 'approved', decider: 'bob'));
 	}//end testNothingToCompleteAnswersFalse()
 }//end class

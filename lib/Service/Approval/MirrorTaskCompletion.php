@@ -127,7 +127,7 @@ class MirrorTaskCompletion {
 	}//end claimAndComplete()
 
 	/**
-	 * OpenRegister's TaskService when it ships the completing verbs, else null.
+	 * OpenRegister's TaskService, or null when it is absent.
 	 *
 	 * @return TaskService|null
 	 */
@@ -143,7 +143,8 @@ class MirrorTaskCompletion {
 			return null;
 		}
 
-		if (($service instanceof TaskService) === false || method_exists($service, 'completeWithAnswer') === false) {
+		// An OpenRegister without the completing verbs throws on the call, which complete() catches.
+		if (($service instanceof TaskService) === false) {
 			return null;
 		}
 
