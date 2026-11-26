@@ -13,7 +13,8 @@
 
 ## Phase 2: one inbox (staged, next change)
 
-- [ ] 2.1 `ApprovalController::index()` reads pending work through OpenRegister's `TaskInboxService` (mirror tasks joined onto Approval payloads), retiring the app-local pending query as the inbox source
+- [x] 2.1 `ApprovalController::index()` reads pending work through OpenRegister's `TaskInboxService` (mirror tasks joined onto Approval payloads), retiring the app-local pending query as the inbox source
+      - `ApprovalTaskInbox` reads the reviewer's assigned and pooled open tasks requested by `hermiq:approval-gate` (FQN-resolved, null without the surface); `ApprovalInbox::listPendingForReviewer()` lists those approvals in task order with `taskUuid`, drops a mirror the task inbox does not route, and keeps hermiq's own routing only for un-mirrored approvals and for an OpenRegister without the task inbox. Tests: `ApprovalTaskInboxTest`, `ApprovalInboxTest::testTheTaskInboxRoutesMirroredApprovals`, `testATaskRowNeverWidensTheReviewerCheck`, `testAnUnreadableTaskInboxFallsBackToHermiqRouting`.
 - [ ] 2.2 Retire `DeliveryService`'s reviewer notification fan-out for approvals in favour of OpenRegister task notifications (Talk delivery stays until 2.3)
 - [ ] 2.3 Repoint `TalkApprovalReactionListener` and `Talk/TalkApprovalBinding` onto the mirror task (a Talk reaction completes the TASK, so both surfaces converge on one decision path)
 - [ ] 2.4 Flip authority: the task becomes the record of the decision, the Approval keeps only hermiq-specific resume context

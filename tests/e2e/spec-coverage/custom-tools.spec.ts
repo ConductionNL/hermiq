@@ -73,7 +73,7 @@
  *     PLAYWRIGHT_BASE_URL=<your rig> NC_USER=admin NC_PASS=admin \
  *       npx playwright test -c tests/e2e/spec-coverage/playwright.config.ts custom-tools
  *
- * Covers openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md
+ * Covers openspec/specs/custom-tools/spec.md
  */
 
 import type { APIRequestContext, Page } from '@playwright/test'
