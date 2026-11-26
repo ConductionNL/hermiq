@@ -17,7 +17,7 @@ const TRACE_EXPORT = '/apps/hermiq/api/settings/trace-export'
  * Read the trace export settings and their notices.
  *
  * @return {Promise<object>} `{settings, destinationNotice, copyNotice}`.
- * @spec openspec/changes/observability-export-traces/tasks.md#task-1-admin-settings-and-the-connection-row
+ * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-1-admin-settings-and-the-connection-row
  */
 export async function getTraceExport() {
 	const response = await axios.get(generateUrl(TRACE_EXPORT))
@@ -29,7 +29,7 @@ export async function getTraceExport() {
  *
  * @param {object} settings The settings to store.
  * @return {Promise<object>} `{settings, destinationNotice, copyNotice}` as stored.
- * @spec openspec/changes/observability-export-traces/tasks.md#task-1-admin-settings-and-the-connection-row
+ * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-1-admin-settings-and-the-connection-row
  */
 export async function setTraceExport(settings) {
 	const response = await axios.put(generateUrl(TRACE_EXPORT), settings)

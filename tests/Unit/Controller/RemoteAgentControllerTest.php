@@ -11,7 +11,7 @@
  * @license   EUPL-1.2
  * @link      https://github.com/ConductionNL/hermiq
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
  */
 
 declare(strict_types=1);

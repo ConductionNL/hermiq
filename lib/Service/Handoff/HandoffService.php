@@ -11,7 +11,7 @@
  * @license   EUPL-1.2
  * @link      https://github.com/ConductionNL/hermiq
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
  */
 
 declare(strict_types=1);
@@ -46,7 +46,7 @@ use Psr\Log\LoggerInterface;
  * which runs the follow-up turn (HandoffDelivery), so the request that
  * closed it never waits on an agent.
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
  */
 class HandoffService {
 
@@ -134,7 +134,7 @@ class HandoffService {
 	 *
 	 * @throws InvalidArgumentException When a required field is missing or the kind is unknown.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 	 * @spec openspec/changes/tools-deep-research-report/specs/deep-research/spec.md#requirement-a-user-can-start-deep-research-and-sees-the-plan-req-research-001
 	 */
 	public function open(array $handoff): array {
@@ -184,7 +184,7 @@ class HandoffService {
 	 *
 	 * @throws InvalidArgumentException When a required field is missing or the kind is unknown.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 	 */
 	private function assertOpenable(array $handoff): void {
 		foreach (self::REQUIRED as $field) {
@@ -212,7 +212,7 @@ class HandoffService {
 	 *
 	 * @throws InvalidArgumentException When the status is not one a close may set.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 	 */
 	public function close(string $handoffId, string $status, mixed $result): bool {
 		if (in_array($status, self::CLOSE_STATUSES, true) === false) {
@@ -267,7 +267,7 @@ class HandoffService {
 	 *
 	 * @return array<string, mixed>|null
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 	 */
 	private function asObject(mixed $result): ?array {
 		if ($result === null) {
@@ -288,7 +288,7 @@ class HandoffService {
 	 *
 	 * @return array<string, mixed>|null
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 	 */
 	public function find(string $handoffId): ?array {
 		if ($handoffId === '') {
@@ -317,7 +317,7 @@ class HandoffService {
 	 *
 	 * @return array<string, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 	 */
 	public function allWaiting(int $limit = 500): array {
 		$found   = $this->objectService->setRegister(self::REGISTER_SLUG)->setSchema(self::SCHEMA_SLUG)->findAll(
@@ -343,7 +343,7 @@ class HandoffService {
 	 *
 	 * @return string|null
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
 	 */
 	public function waitingFor(string $kind, string $externalRef): ?string {
 		if ($externalRef === '') {
@@ -377,7 +377,7 @@ class HandoffService {
 	 *
 	 * @return bool True when this call expired the handoff.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 	 */
 	public function expireIfDue(string $handoffId): bool {
 		$handoff = $this->waiting(handoffId: $handoffId);
@@ -406,7 +406,7 @@ class HandoffService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
 	 */
 	private function queueDelivery(string $handoffId): void {
 		$this->jobList->add(HandoffResultJob::class, ['handoffId' => $handoffId]);
