@@ -14,7 +14,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-passes-the-same-governance-as-every-tool-req-custool-004
+ * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-passes-the-same-governance-as-every-tool-req-custool-004
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
@@ -96,7 +96,7 @@ final class FacadeToolInvokerCustomToolTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	public function testACustomToolCarriesTheRunsAgentAndConversation(): void {
 		$invoker = new FacadeToolInvoker(
@@ -117,7 +117,7 @@ final class FacadeToolInvokerCustomToolTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	public function testWithoutAnOwnerAModelSuppliedTurnIsDropped(): void {
 		$invoker = new FacadeToolInvoker(facade: $this->facade(), mcpIdByName: [self::NAME => self::TOOL_ID]);

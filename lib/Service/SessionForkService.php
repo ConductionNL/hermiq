@@ -190,7 +190,7 @@ class SessionForkService implements SessionForkServiceInterface {
 			->findAll(
 				config: [
 					'filters' => ['sessionId' => $uuid],
-					'sort' => ['created' => 'ASC'],
+					'sort' => ['_created' => 'ASC'],
 					'limit' => self::MAX_TURNS,
 				],
 				_rbac: false

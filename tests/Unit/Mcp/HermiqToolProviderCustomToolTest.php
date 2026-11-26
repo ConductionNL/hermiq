@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+ * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
  */
 
 declare(strict_types=1);

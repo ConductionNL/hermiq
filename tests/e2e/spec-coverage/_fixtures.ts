@@ -394,6 +394,13 @@ export async function dismissTour(page: Page): Promise<void> {
 	}
 
 	const wizard = page.locator('[data-testid-modal="cn-wizard-dialog"]')
+	// The wizard mounts after the app's first settings read, often after this
+	// function was called on domcontentloaded; a single look then misses it and
+	// the next click lands on its overlay. Wait a moment for it to appear.
+	await wizard
+		.first()
+		.waitFor({ state: 'visible', timeout: 3_000 })
+		.catch(() => undefined)
 	if (
 		(await wizard.count()) > 0
 		&& (await wizard
