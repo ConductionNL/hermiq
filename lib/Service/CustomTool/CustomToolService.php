@@ -15,7 +15,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
@@ -42,7 +42,7 @@ use Throwable;
  * caller administers the organisation; the object API only reads. Reads for
  * the catalogue run as the acting user, so each organisation sees its own.
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  */
 class CustomToolService {
 
@@ -75,7 +75,7 @@ class CustomToolService {
 	 *
 	 * @return ObjectEntity|null
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 	 */
 	public function findById(string $uuid): ?ObjectEntity {
 		if ($uuid === '') {
@@ -97,7 +97,7 @@ class CustomToolService {
 	 *
 	 * @return list<array<string, mixed>> Each tool with its id and tool id.
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 	 */
 	public function listForOrganisation(string $organisation): array {
 		$tools = [];
@@ -121,7 +121,7 @@ class CustomToolService {
 	 *
 	 * @throws InvalidArgumentException When the payload is invalid or the slug is taken.
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDefinition is used through its static API (a pure
 	 * helper or named constructor) with no state to inject.
@@ -158,7 +158,7 @@ class CustomToolService {
 	 *
 	 * @return array<string, mixed>|null The stored tool with its id, or null.
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-validates-its-input-and-calls-only-through-the-flow-tool-or-integriq-req-custool-003
 	 */
 	public function findEnabledForActingUser(string $slug): ?array {
 		try {
@@ -187,7 +187,7 @@ class CustomToolService {
 	 *
 	 * @return list<array<string, mixed>>
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-a-custom-tool-is-offered-under-a-two-segment-id-and-only-by-exact-grant-req-custool-002
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) CustomToolDescriptors is used through its static API (a pure
 	 * helper or named constructor) with no state to inject.

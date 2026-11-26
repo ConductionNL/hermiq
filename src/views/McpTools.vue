@@ -137,7 +137,7 @@ export default {
 		 * Open the Custom tools page, where an organisation admin adds a tool of their own.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+		 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 		 */
 		openCustomTools() {
 			this.$router.push({ path: '/custom-tools' }).catch(() => {})

@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
+ * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
  */
 
 declare(strict_types=1);
@@ -103,7 +103,7 @@ class TraceExportQueue {
 	 *
 	 * @return bool Whether the run was queued.
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
 	 */
 	public function enqueueRun(array $context, string $trigger, string $organisation = ''): bool {
 		try {
@@ -128,7 +128,7 @@ class TraceExportQueue {
 	 *
 	 * @return bool Whether the turn was queued.
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
 	 */
 	public function enqueueChatTurn(array $turn, string $organisation = ''): bool {
 		try {
@@ -150,7 +150,7 @@ class TraceExportQueue {
 	 *
 	 * @return string|null The batch name, or null when nothing waits.
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
 	 */
 	public function takeBatch(): ?string {
 		$pending = $this->folder(name: self::PENDING_FOLDER);
@@ -182,7 +182,7 @@ class TraceExportQueue {
 	 *
 	 * @return list<array<string, mixed>>|null The traces, or null when the batch is gone.
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
 	 */
 	public function readBatch(string $name): ?array {
 		try {
@@ -206,7 +206,7 @@ class TraceExportQueue {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
 	 */
 	public function dropBatch(string $name): void {
 		try {
@@ -222,7 +222,7 @@ class TraceExportQueue {
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
 	 */
 	public function hasPending(): bool {
 		return ($this->folder(name: self::PENDING_FOLDER)->getDirectoryListing() !== []);
@@ -236,7 +236,7 @@ class TraceExportQueue {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
 	 */
 	public function requeue(array $argument): void {
 		$this->jobList->add(TraceExportJob::class, $argument);

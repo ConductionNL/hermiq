@@ -11,7 +11,7 @@
  * @license   EUPL-1.2
  * @link      https://github.com/ConductionNL/hermiq
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use Throwable;
  * OpenRegister has no such event, no handoff is opened and the model is told
  * the result will not come back; the flow still runs.
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
  */
 class FlowHandoffs {
 
@@ -59,6 +59,14 @@ class FlowHandoffs {
 	private const COMPLETED = 'completed';
 
 	/**
+	 * OpenRegister's terminal status for a run that ended at an End step or was
+	 * stopped by an oversight check; its `outcome` tells the two apart.
+	 *
+	 * @var string
+	 */
+	private const STOPPED = 'stopped';
+
+	/**
 	 * Whether OpenRegister's terminal event exists; injected so a test can answer both ways.
 	 *
 	 * @var bool
@@ -75,7 +83,7 @@ class FlowHandoffs {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
 	 */
 	public function __construct(
 		private readonly HandoffService $handoffs,
@@ -99,7 +107,7 @@ class FlowHandoffs {
 	 *
 	 * @return mixed The result, with `handoff` and `note` when it was a queued run.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
 	 */
 	public function afterRunFlow(array $arguments, mixed $result, FlowTurn $turn): mixed {
 		$runUuid = self::runUuidOf(result: $result);
@@ -143,7 +151,7 @@ class FlowHandoffs {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
 	 */
 	private static function runUuidOf(mixed $result): string {
 		if (is_array($result) === false) {
@@ -164,7 +172,7 @@ class FlowHandoffs {
 	 *
 	 * @return bool True when this call closed a handoff.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
 	 */
 	public function closeForRun(string $runUuid, string $status): bool {
 		$handoffId = $this->handoffs->waitingFor(kind: 'flow', externalRef: $runUuid);
@@ -173,8 +181,16 @@ class FlowHandoffs {
 		}
 
 		$run = $this->runOf(runUuid: $runUuid);
-		if ($status === self::COMPLETED) {
+		if ($status === self::COMPLETED || ($run['outcome'] ?? null) === self::COMPLETED) {
 			return $this->handoffs->close(handoffId: $handoffId, status: 'done', result: ['items' => ($run['items'] ?? [])]);
+		}
+
+		if ($status === self::STOPPED && self::stopIsUnsettled(run: $run) === true) {
+			// The first terminal write of a run that reaches an End step carries
+			// `stopped` before the step's log entry is saved; the next write
+			// (and its event) tells a clean End from an oversight veto.
+			$this->logger->info('[FlowHandoffs] A stopped run has no stop entry yet; the handoff keeps waiting', ['runUuid' => $runUuid]);
+			return false;
 		}
 
 		return $this->handoffs->close(
@@ -183,6 +199,35 @@ class FlowHandoffs {
 			result: ['status' => $status, 'outcome' => ($run['outcome'] ?? null)]
 		);
 	}//end closeForRun()
+
+	/**
+	 * Whether a stopped run's log does not yet say how it stopped.
+	 *
+	 * OpenRegister reads a stopped run as `completed` once its log holds the
+	 * End step's stop entry without a `checkId` (FlowRun::getOutcome()). With
+	 * no stop entry yet, the outcome is not settled; a run that could not be
+	 * read at all is settled as it is (closed as failed), so a handoff never
+	 * waits on a run nobody can see.
+	 *
+	 * @param array<string, mixed> $run The run as flowRunStatus answers it.
+	 *
+	 * @return bool True when the stop is not in the log yet.
+	 *
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-flow-started-by-an-agent-closes-its-handoff-when-the-flow-run-ends-req-handoff-003
+	 */
+	private static function stopIsUnsettled(array $run): bool {
+		if ($run === [] || is_array($run['log'] ?? null) === false) {
+			return false;
+		}
+
+		foreach ($run['log'] as $entry) {
+			if (is_array($entry) === true && ($entry['status'] ?? '') === self::STOPPED) {
+				return false;
+			}
+		}
+
+		return true;
+	}//end stopIsUnsettled()
 
 	/**
 	 * The run as OpenRegister's flowRunStatus tool answers it, empty when it cannot be read.

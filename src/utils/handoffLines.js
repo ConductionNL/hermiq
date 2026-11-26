@@ -7,7 +7,7 @@
 // it was requested but not which message asked for it, so it is placed under the
 // last message written at or before that moment.
 //
-// @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+// @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 
 /** The statuses a handoff ends in; only `waiting` is not terminal. */
 export const HANDOFF_STATUSES = ['waiting', 'done', 'failed', 'expired']
@@ -31,7 +31,7 @@ function timeOf(value) {
  * @param {Array<object>} handoffs The session's handoffs.
  * @param {Array<object>} messages The session's messages, oldest first.
  * @return {Object<string, Array<object>>} Message id → its handoffs, oldest first.
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
  */
 export function handoffsByMessage(handoffs, messages) {
 	const list = Array.isArray(messages) ? messages.filter((message) => message && message.id) : []
@@ -56,7 +56,7 @@ export function handoffsByMessage(handoffs, messages) {
  * @param {object} handoff The handoff.
  * @param {Array<object>} list The messages with an id, oldest first; not empty.
  * @return {object} The owning message.
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
  */
 function ownerOf(handoff, list) {
 	const at = timeOf(handoff.requestedAt)
@@ -71,7 +71,7 @@ function ownerOf(handoff, list) {
  * @param {Function} t The translate function, called as t(app, text, vars).
  * @param {Function} clock Formats a date-time as the time of day the person reads.
  * @return {string} The line.
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
  */
 export function handoffLine(handoff, t, clock) {
 	const label = String(handoff?.label || '')
@@ -92,7 +92,7 @@ export function handoffLine(handoff, t, clock) {
  *
  * @param {string|undefined} value An ISO date-time.
  * @return {string} For example 14:02.
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
  */
 export function clockTime(value) {
 	const at = timeOf(value)
