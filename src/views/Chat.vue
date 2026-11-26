@@ -1556,7 +1556,7 @@ export default {
 		 * The session's handoffs under the message each one belongs to.
 		 *
 		 * @return {Object<string, Array<object>>} Message id → handoffs.
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 		 */
 		handoffGroups() {
 			return handoffsByMessage(this.handoffs, this.messages)
@@ -1904,7 +1904,7 @@ export default {
 		 *
 		 * @param {string} uuid The session.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
 		 */
 		async loadHandoffs(uuid) {
 			let handoffs

@@ -11,7 +11,7 @@ Kind: code. Size M. A research runner that drives the existing tools in phases, 
 - `lib/Service/Engine/ResponseGenerationHandler.php:358` the citation instruction.
 - `lib/Service/NcNative/AgentArtefactMarker.php` `TAG_NAME` "Agent authored", `markFile()`; `lib/Service/NcNative/NotesWriteService.php:223-248` marks in the same operation and reports a failed mark as a failed write.
 - `lib/Service/BudgetService.php:189` `isBlocked()`; `lib/Flow/TenantKillSwitchCheck.php` and `ScheduleService::isOrganisationEngaged()` for the kill switch.
-- `openspec/changes/flows-hand-off-and-wait/design.md` D1 and D2, the handoff and its delivery into the conversation.
+- `openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/design.md` D1 and D2, the handoff and its delivery into the conversation.
 
 ## D1. A research run is a handoff, not a long turn
 
