@@ -67,3 +67,35 @@ On upgrade, a repair step SHALL mirror every already-pending Approval that has n
 - **THEN** every mirror task for a still-pending Approval is terminal and every pending Approval's `taskUuid` is cleared
 
 @e2e exclude {occ path, unit-covered in RollbackApprovalTaskMirrorTest}
+
+### Requirement: the reviewer inbox reads pending work from the OpenRegister task inbox
+
+hermiq's approval inbox (`GET /api/approvals`) SHALL take its routing from OpenRegister's `TaskInboxService`: a mirrored pending Approval SHALL be listed for a user when its open mirror task, requested by hermiq's approval gate, is assigned to that user or offered to a group they are in, in the task inbox's order and carrying the mirror's `taskUuid`. A mirrored Approval whose task the inbox does not route to the user SHALL NOT be listed for them. A pending Approval without a mirror SHALL still be listed by hermiq's own reviewer routing, after the routed ones. When the task inbox cannot be resolved or read, the whole inbox SHALL fall back to hermiq's own reviewer routing and log why. A task row SHALL never widen hermiq's reviewer check: an Approval that is no longer pending, or whose reviewer is not the user, is not listed whatever its task says.
+
+#### Scenario: a routed mirror task lists its approval
+
+- **WHEN** a reviewer opens the approval inbox and their task inbox holds an open mirror task for a pending Approval routed to them
+- **THEN** that Approval is listed with the mirror's `taskUuid`, in the task inbox's order
+
+@e2e exclude {cross-app read; unit-covered in ApprovalInboxTest and ApprovalTaskInboxTest, and the task inbox itself lives in openregister}
+
+#### Scenario: a mirror the task inbox does not route is not listed
+
+- **WHEN** a pending Approval carries a `taskUuid` and the reviewer's task inbox does not hold that task
+- **THEN** the Approval is not listed for that reviewer
+
+@e2e exclude {cross-app read, unit-covered in ApprovalInboxTest}
+
+#### Scenario: an unmirrored approval stays visible
+
+- **WHEN** a pending Approval has no `taskUuid` because the bridge could not mirror it
+- **THEN** it is listed for its reviewer by hermiq's own routing, after the routed approvals
+
+@e2e exclude {degraded branch, unit-covered in ApprovalInboxTest}
+
+#### Scenario: no task inbox
+
+- **WHEN** OpenRegister does not ship `TaskInboxService`, or reading it throws
+- **THEN** the inbox lists every pending Approval routed to the user by hermiq's own routing, and the failure is logged
+
+@e2e exclude {degraded-install branch, unit-covered in ApprovalTaskInboxTest}

@@ -35,6 +35,7 @@ use OCA\Hermiq\Service\Engine\ResponseTurnRun;
 use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Db\OrganisationMapper;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
@@ -80,14 +81,15 @@ class AnswerCacheService {
 	/**
 	 * Constructor.
 	 *
-	 * @param ObjectService                  $objects  OpenRegister's single read and write path.
-	 * @param AgentVersionService            $versions The agent's current version.
-	 * @param OrganisationModelPolicyService $policy   The effective model policy.
-	 * @param IUserSession                   $session  The person asking.
-	 * @param ITimeFactory                   $time     The clock.
-	 * @param LoggerInterface                $logger   The logger.
-	 * @param SimilarQuestionSearch|null     $similar  OpenRegister's vector search, for the similarity layer.
-	 * @param RedactionService|null          $redactor Redacts the question stored for the similarity layer.
+	 * @param ObjectService                  $objects       OpenRegister's single read and write path.
+	 * @param AgentVersionService            $versions      The agent's current version.
+	 * @param OrganisationModelPolicyService $policy        The effective model policy.
+	 * @param IUserSession                   $session       The person asking.
+	 * @param ITimeFactory                   $time          The clock.
+	 * @param LoggerInterface                $logger        The logger.
+	 * @param SimilarQuestionSearch|null     $similar       OpenRegister's vector search, for the similarity layer.
+	 * @param RedactionService|null          $redactor      Redacts the question stored for the similarity layer.
+	 * @param OrganisationMapper|null        $organisations Resolves the person's active organisation.
 	 */
 	public function __construct(
 		private readonly ObjectService $objects,
@@ -98,8 +100,37 @@ class AnswerCacheService {
 		private readonly LoggerInterface $logger,
 		private readonly ?SimilarQuestionSearch $similar=null,
 		private readonly ?RedactionService $redactor=null,
+		private readonly ?OrganisationMapper $organisations=null,
 	) {
 	}//end __construct()
+
+	/**
+	 * The organisation the turn runs in: the person's active organisation, else the agent's.
+	 *
+	 * The entry is keyed on it and OpenRegister stamps it on the entry when it is
+	 * saved. Keying on the agent's organisation alone let a person acting in
+	 * another organisation read the agent's entries (seen live: one agent, two
+	 * active organisations, the second served the first one's answer).
+	 *
+	 * @param ResponseTurnRun $run The turn.
+	 *
+	 * @return string The organisation identifier, or ''.
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-an-exact-repeat-within-one-organisation-gets-the-stored-answer-req-acache-002
+	 */
+	private function organisationOf(ResponseTurnRun $run): string {
+		$uid = (string)$this->session->getUser()?->getUID();
+		if ($uid !== '' && $this->organisations !== null) {
+			// A failing read throws to lookup()/store(), which treat it as a miss.
+			$active = (string)($this->organisations->getActiveOrganisationWithFallback(userId: $uid) ?? '');
+			if ($active !== '') {
+				return $active;
+			}
+		}
+
+		return (string)($run->progress->organisation ?? '');
+	}//end organisationOf()
+
 
 	/**
 	 * Whether the turn may read or write the cache.
@@ -148,7 +179,7 @@ class AnswerCacheService {
 			'sha256',
 			(string)json_encode(
 				[
-					(string)($run->progress->organisation ?? ''),
+					$this->organisationOf(run: $run),
 					(string)$run->agent?->getUuid(),
 					(string)$versionId,
 					$run->progress->driver->provider,
@@ -548,7 +579,7 @@ class AnswerCacheService {
 			return null;
 		}
 
-		if ((string)($entry->getOrganisation() ?? '') !== (string)($run->progress->organisation ?? '')) {
+		if ((string)($entry->getOrganisation() ?? '') !== $this->organisationOf(run: $run)) {
 			return null;
 		}
 
@@ -605,7 +636,7 @@ class AnswerCacheService {
 			}
 
 			// The organisation is in the key, and the stored row must say the same.
-			if ((string)($entry->getOrganisation() ?? '') !== (string)($run->progress->organisation ?? '')) {
+			if ((string)($entry->getOrganisation() ?? '') !== $this->organisationOf(run: $run)) {
 				continue;
 			}
 

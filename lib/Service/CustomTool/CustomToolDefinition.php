@@ -14,7 +14,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
@@ -31,7 +31,7 @@ use InvalidArgumentException;
  * an input schema of simple types, what it changes, and a target that is an
  * OpenRegister flow or an endpoint of a system connected through integriq.
  *
- * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+ * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
  */
 final class CustomToolDefinition {
 
@@ -77,7 +77,7 @@ final class CustomToolDefinition {
 	 *
 	 * @throws InvalidArgumentException Naming the field that is wrong.
 	 *
-	 * @spec openspec/changes/tools-custom-tools-without-code/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
+	 * @spec openspec/specs/custom-tools/spec.md#requirement-an-organisation-admin-can-define-a-custom-tool-without-code-req-custool-001
 	 */
 	public static function normalise(array $payload): array {
 		$slug = self::text(payload: $payload, field: 'slug');
@@ -271,7 +271,7 @@ final class CustomToolDefinition {
 	 *
 	 * @throws InvalidArgumentException When it is incomplete.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	private static function integriqTarget(array $raw): array {
 		$source = self::text(payload: $raw, field: 'source');
@@ -312,7 +312,7 @@ final class CustomToolDefinition {
 	 *
 	 * @throws InvalidArgumentException When a waiting tool uses a method without a body.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	private static function callback(array $raw, string $method): array {
 		if (($raw['waitForCallback'] ?? false) !== true) {

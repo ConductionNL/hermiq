@@ -234,7 +234,7 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 			->findAll(
 				config: [
 					'filters' => $filters,
-					'sort' => ['created' => 'DESC'],
+					'sort' => ['_created' => 'DESC'],
 					'limit' => 1,
 				],
 				_rbac: false

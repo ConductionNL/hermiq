@@ -1329,7 +1329,7 @@ class ChatController extends Controller {
 			->findAll(
 				config: [
 					'filters' => ['sessionId' => $conversationId],
-					'sort' => ['created' => 'ASC'],
+					'sort' => ['_created' => 'ASC'],
 					'limit' => $limit,
 					'offset' => $offset,
 				],
