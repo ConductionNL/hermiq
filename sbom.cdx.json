@@ -211,10 +211,10 @@
       ]
     },
     {
-      "bom-ref": "guzzlehttp/guzzle-7.16.3.0",
+      "bom-ref": "guzzlehttp/guzzle-7.17.0.0",
       "type": "library",
       "name": "guzzle",
-      "version": "7.16.3",
+      "version": "7.17.0",
       "group": "guzzlehttp",
       "description": "Guzzle is a PHP HTTP client library",
       "author": "Graham Campbell, Michael Dowling, Jeremy Lindblom, George Mponos, Tobias Nyholm, Márk Sági-Kazár, Tobias Schultze",
@@ -225,17 +225,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/guzzlehttp/guzzle@7.16.3",
+      "purl": "pkg:composer/guzzlehttp/guzzle@7.17.0",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/guzzle/guzzle/zipball/c88a78082757dd5a0c44191651535259fcb6e605",
-          "comment": "dist reference: c88a78082757dd5a0c44191651535259fcb6e605"
+          "url": "https://api.github.com/repos/guzzle/guzzle/zipball/f61ba5ea0a55032a55ddbb72cab7d307c1043654",
+          "comment": "dist reference: f61ba5ea0a55032a55ddbb72cab7d307c1043654"
         },
         {
           "type": "vcs",
           "url": "https://github.com/guzzle/guzzle.git",
-          "comment": "source reference: c88a78082757dd5a0c44191651535259fcb6e605"
+          "comment": "source reference: f61ba5ea0a55032a55ddbb72cab7d307c1043654"
         },
         {
           "type": "issue-tracker",
@@ -244,18 +244,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/guzzle/guzzle/tree/7.16.3",
+          "url": "https://github.com/guzzle/guzzle/tree/7.17.0",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "c88a78082757dd5a0c44191651535259fcb6e605"
+          "value": "f61ba5ea0a55032a55ddbb72cab7d307c1043654"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "c88a78082757dd5a0c44191651535259fcb6e605"
+          "value": "f61ba5ea0a55032a55ddbb72cab7d307c1043654"
         },
         {
           "name": "cdx:composer:package:type",
@@ -264,10 +264,10 @@
       ]
     },
     {
-      "bom-ref": "guzzlehttp/promises-2.6.0.0",
+      "bom-ref": "guzzlehttp/promises-2.6.2.0",
       "type": "library",
       "name": "promises",
-      "version": "2.6.0",
+      "version": "2.6.2",
       "group": "guzzlehttp",
       "description": "Guzzle promises library",
       "author": "Graham Campbell, Michael Dowling, Tobias Nyholm, Tobias Schultze",
@@ -278,17 +278,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/guzzlehttp/promises@2.6.0",
+      "purl": "pkg:composer/guzzlehttp/promises@2.6.2",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/guzzle/promises/zipball/3d88c829bd5f13d13847b39067dbf09a60af2154",
-          "comment": "dist reference: 3d88c829bd5f13d13847b39067dbf09a60af2154"
+          "url": "https://api.github.com/repos/guzzle/promises/zipball/72e93ed2b1f3d8c09d1460c950bd5726face7ccd",
+          "comment": "dist reference: 72e93ed2b1f3d8c09d1460c950bd5726face7ccd"
         },
         {
           "type": "vcs",
           "url": "https://github.com/guzzle/promises.git",
-          "comment": "source reference: 3d88c829bd5f13d13847b39067dbf09a60af2154"
+          "comment": "source reference: 72e93ed2b1f3d8c09d1460c950bd5726face7ccd"
         },
         {
           "type": "issue-tracker",
@@ -297,18 +297,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/guzzle/promises/tree/2.6.0",
+          "url": "https://github.com/guzzle/promises/tree/2.6.2",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "3d88c829bd5f13d13847b39067dbf09a60af2154"
+          "value": "72e93ed2b1f3d8c09d1460c950bd5726face7ccd"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "3d88c829bd5f13d13847b39067dbf09a60af2154"
+          "value": "72e93ed2b1f3d8c09d1460c950bd5726face7ccd"
         },
         {
           "name": "cdx:composer:package:type",
@@ -317,10 +317,10 @@
       ]
     },
     {
-      "bom-ref": "guzzlehttp/psr7-2.13.4.0",
+      "bom-ref": "guzzlehttp/psr7-2.13.6.0",
       "type": "library",
       "name": "psr7",
-      "version": "2.13.4",
+      "version": "2.13.6",
       "group": "guzzlehttp",
       "description": "PSR-7 message implementation that also provides common utility methods",
       "author": "Graham Campbell, Michael Dowling, George Mponos, Tobias Nyholm, Márk Sági-Kazár, Tobias Schultze, Márk Sági-Kazár",
@@ -331,17 +331,17 @@
           }
         }
       ],
-      "purl": "pkg:composer/guzzlehttp/psr7@2.13.4",
+      "purl": "pkg:composer/guzzlehttp/psr7@2.13.6",
       "externalReferences": [
         {
           "type": "distribution",
-          "url": "https://api.github.com/repos/guzzle/psr7/zipball/ad5e3f872690e1151e1171de2963150fc45ea1e3",
-          "comment": "dist reference: ad5e3f872690e1151e1171de2963150fc45ea1e3"
+          "url": "https://api.github.com/repos/guzzle/psr7/zipball/2bd3dccf56e99cdacf74b1ad5e06a08a5a7739f2",
+          "comment": "dist reference: 2bd3dccf56e99cdacf74b1ad5e06a08a5a7739f2"
         },
         {
           "type": "vcs",
           "url": "https://github.com/guzzle/psr7.git",
-          "comment": "source reference: ad5e3f872690e1151e1171de2963150fc45ea1e3"
+          "comment": "source reference: 2bd3dccf56e99cdacf74b1ad5e06a08a5a7739f2"
         },
         {
           "type": "issue-tracker",
@@ -350,18 +350,18 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/guzzle/psr7/tree/2.13.4",
+          "url": "https://github.com/guzzle/psr7/tree/2.13.6",
           "comment": "as detected from Composer manifest 'support.source'"
         }
       ],
       "properties": [
         {
           "name": "cdx:composer:package:distReference",
-          "value": "ad5e3f872690e1151e1171de2963150fc45ea1e3"
+          "value": "2bd3dccf56e99cdacf74b1ad5e06a08a5a7739f2"
         },
         {
           "name": "cdx:composer:package:sourceReference",
-          "value": "ad5e3f872690e1151e1171de2963150fc45ea1e3"
+          "value": "2bd3dccf56e99cdacf74b1ad5e06a08a5a7739f2"
         },
         {
           "name": "cdx:composer:package:type",
@@ -30762,23 +30762,23 @@
       "ref": "dragonmantank/cron-expression-3.6.1.0"
     },
     {
-      "ref": "guzzlehttp/guzzle-7.16.3.0",
+      "ref": "guzzlehttp/guzzle-7.17.0.0",
       "dependsOn": [
-        "guzzlehttp/promises-2.6.0.0",
-        "guzzlehttp/psr7-2.13.4.0",
+        "guzzlehttp/promises-2.6.2.0",
+        "guzzlehttp/psr7-2.13.6.0",
         "psr/http-client-1.0.3.0",
         "symfony/deprecation-contracts-3.8.1.0",
         "symfony/polyfill-php80-1.43.0.0"
       ]
     },
     {
-      "ref": "guzzlehttp/promises-2.6.0.0",
+      "ref": "guzzlehttp/promises-2.6.2.0",
       "dependsOn": [
         "symfony/deprecation-contracts-3.8.1.0"
       ]
     },
     {
-      "ref": "guzzlehttp/psr7-2.13.4.0",
+      "ref": "guzzlehttp/psr7-2.13.6.0",
       "dependsOn": [
         "psr/http-factory-1.1.0.0",
         "psr/http-message-2.0.0.0",
@@ -30856,8 +30856,8 @@
     {
       "ref": "theodo-group/llphant-1.10.11.0",
       "dependsOn": [
-        "guzzlehttp/guzzle-7.16.3.0",
-        "guzzlehttp/psr7-2.13.4.0",
+        "guzzlehttp/guzzle-7.17.0.0",
+        "guzzlehttp/psr7-2.13.6.0",
         "openai-php/client-0.19.2.0",
         "php-http/multipart-stream-builder-1.4.2.0",
         "phpoffice/phpword-1.4.0.0",

@@ -161,7 +161,7 @@ class SessionSearchService {
 				config: [
 					'filters' => ['@self' => ['owner' => $userId]],
 					'search' => $term,
-					'sort' => ['created' => 'ASC'],
+					'sort' => ['_created' => 'ASC'],
 					'limit' => self::MAX_TURN_SCAN,
 				]
 			);

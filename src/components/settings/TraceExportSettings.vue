@@ -11,7 +11,7 @@
 
   All strings via t(); server data comes from the admin-gated API, never a DOM read.
 
-  @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-an-administrator-configures-trace-export-with-a-brokered-credential-req-trex-001
+  @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#requirement-an-administrator-configures-trace-export-with-a-brokered-credential-req-trex-001
 -->
 <template>
 	<div class="trace-export">
@@ -160,7 +160,7 @@ export default {
 		 * The credential types, after OpenRegister's inject-only generic providers.
 		 *
 		 * @return {Array<{id: string, label: string}>} The options.
-		 * @spec openspec/changes/observability-export-traces/tasks.md#task-1-admin-settings-and-the-connection-row
+		 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-1-admin-settings-and-the-connection-row
 		 */
 		authSchemes() {
 			return [
@@ -176,7 +176,7 @@ export default {
 		 * Read the settings and the destination notice.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#scenario-an-administrator-connects-langfuse
+		 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#scenario-an-administrator-connects-langfuse
 		 */
 		async load() {
 			await this.withFlag('loading', async () => {
@@ -188,7 +188,7 @@ export default {
 		 * Save the settings. A refusal (422) names what is missing and is shown.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-an-administrator-configures-trace-export-with-a-brokered-credential-req-trex-001
+		 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#requirement-an-administrator-configures-trace-export-with-a-brokered-credential-req-trex-001
 		 */
 		async save() {
 			await this.withFlag('busy', async () => {
@@ -201,7 +201,7 @@ export default {
 		 *
 		 * @param {object} data `{settings, destinationNotice}`.
 		 * @return {void}
-		 * @spec openspec/changes/observability-export-traces/tasks.md#task-1-admin-settings-and-the-connection-row
+		 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-1-admin-settings-and-the-connection-row
 		 */
 		apply(data) {
 			this.form = { ...this.form, ...data.settings }

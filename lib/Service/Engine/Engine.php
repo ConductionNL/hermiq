@@ -784,7 +784,7 @@ class Engine implements EngineInterface {
 	 *
 	 * @return array<string, mixed> The envelope, unchanged.
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-4-every-run-writer-and-the-chat-turn-enqueue
 	 */
 	private function exportTurn(array $turn, array $envelope, array $timings): array {
 		if ($this->traceExportQueue === null || ($turn['dryRun'] ?? false) === true) {
@@ -800,6 +800,9 @@ class Engine implements EngineInterface {
 				'prompt' => (string)($turn['userMessage'] ?? ''),
 				'message' => (string)($envelope['message'] ?? ''),
 				'usage' => (array)($envelope['usage'] ?? []),
+				// The model that answered (provider, model, residency, feature), so the
+				// model span carries gen_ai.system and gen_ai.request.model.
+				'providerDisclosure' => (array)($envelope['provenance']['model'] ?? []),
 				'steps' => (array)($envelope['steps'] ?? []),
 				'startedAt' => ($endedAt - (float)array_sum($timings)),
 				'endedAt' => $endedAt,
