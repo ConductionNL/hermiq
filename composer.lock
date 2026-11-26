@@ -1597,16 +1597,16 @@
         },
         {
             "name": "theodo-group/llphant",
-            "version": "1.10.11",
+            "version": "1.10.12",
             "source": {
                 "type": "git",
                 "url": "https://github.com/LLPhant/LLPhant.git",
-                "reference": "b6b99e48f364248e5f980fe91e1f71bacbf0ef64"
+                "reference": "9f03e7de0cf1b3957d0a3d93954028884d3c11ab"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/LLPhant/LLPhant/zipball/b6b99e48f364248e5f980fe91e1f71bacbf0ef64",
-                "reference": "b6b99e48f364248e5f980fe91e1f71bacbf0ef64",
+                "url": "https://api.github.com/repos/LLPhant/LLPhant/zipball/9f03e7de0cf1b3957d0a3d93954028884d3c11ab",
+                "reference": "9f03e7de0cf1b3957d0a3d93954028884d3c11ab",
                 "shasum": ""
             },
             "require": {
@@ -1638,7 +1638,7 @@
                 "pestphp/pest": "^3.0",
                 "pestphp/pest-plugin-arch": "^3.0",
                 "pestphp/pest-plugin-type-coverage": "^3.0",
-                "phpstan/phpstan": "^2",
+                "phpstan/phpstan": "^2.1.19 <2.3.6",
                 "predis/predis": "^2.4",
                 "rector/rector": "^2",
                 "scotteuser/pinecone-php": "^1.0.4",
@@ -1730,10 +1730,10 @@
                 "vectorstore"
             ],
             "support": {
-                "source": "https://github.com/LLPhant/LLPhant/tree/1.10.11",
+                "source": "https://github.com/LLPhant/LLPhant/tree/1.10.12",
                 "issues": "https://github.com/LLPhant/LLPhant/issues"
             },
-            "time": "2026-11-15T15:28:33+00:00"
+            "time": "2026-11-18T22:40:06+00:00"
         },
         {
             "name": "yethee/tiktoken",
