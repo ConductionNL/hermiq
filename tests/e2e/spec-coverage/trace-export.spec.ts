@@ -5,7 +5,7 @@
  * Spec-coverage e2e — trace export over OpenTelemetry
  * (observability-export-traces, Tasks 1 and 5).
  *
- * Browser scenarios of openspec/changes/observability-export-traces:
+ * Browser scenarios of openspec/changes/archive/2026-11-25-observability-export-traces:
  *  - REQ-TREX-001 "An administrator connects Langfuse": in the "Trace export"
  *    section of hermiq's admin settings the administrator enters the Langfuse
  *    OTLP endpoint, names the credential by its broker reference, switches
@@ -53,7 +53,7 @@
  *     PLAYWRIGHT_BASE_URL=<your rig> NC_USER=admin NC_PASS=admin \
  *       npx playwright test -c tests/e2e/spec-coverage/playwright.config.ts trace-export
  *
- * Covers openspec/changes/observability-export-traces/specs/trace-export/spec.md
+ * Covers openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md
  */
 
 import type { APIRequestContext, Page } from '@playwright/test'

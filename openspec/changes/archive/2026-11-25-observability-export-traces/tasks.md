@@ -48,11 +48,14 @@ Kind: code. Size M. Row `hermiq:ob-external-tracing`.
 - **acceptance_criteria**:
   - GIVEN the settings section WHEN it is opened THEN the copy notice is shown, and switching export off leaves the run list unchanged
 - [x] Implement
-- [ ] Test (Playwright under `tests/e2e/spec-coverage/trace-export.spec.ts`; a live check against a local OTLP collector)
+- [x] Test (Playwright under `tests/e2e/spec-coverage/trace-export.spec.ts`; a live check against a local OTLP collector)
+  - 2026-11-25: Playwright `trace-export.spec.ts` 2/2 live (sandbox Nextcloud 34 on PostgreSQL 16; "switching export off loses no record" needs openregister#11174 on PostgreSQL, where the run list's audit search otherwise answers 500). Live check against Jaeger: see Verification.
   - 2026-11-21: `tests/e2e/spec-coverage/trace-export.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
 
 ## Verification
 - [x] `openspec validate observability-export-traces --type change --strict` passes
   - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
-- [ ] PHPUnit and the Playwright file run, exit codes read
-- [ ] A live check on the dev instance: a local Jaeger or Langfuse receives one run's trace with metadata only
+- [x] PHPUnit and the Playwright file run, exit codes read
+  - 2026-11-25: Playwright 2/2; PHPUnit `tests/Unit/Service/TraceExport/` green (new `testAChatTurnNamesItsModelAndKeepsStepDurations`); the full suite's failing set is identical to development's in the same sandbox.
+- [x] A live check on the dev instance: a local Jaeger or Langfuse receives one run's trace with metadata only
+  - 2026-11-25, Jaeger all-in-one 1.62 (OTLP/HTTP on 127.0.0.1:4318) in the sandbox, export on with an organisation-scoped `generic-bearer` broker credential and "allow private endpoint": one chat turn with a remote-agent tool call arrived as one trace: `hermiq.run` (trigger chat, agent id, conversation id, hashed user), `chat stub:latest` (gen_ai.system ollama, request model, token counts, residency) and a span per step (context, history, the tool, generation). No prompt, answer, tool argument or result text in the stored trace (searched for the question's and the answer's words). Two reds fixed on the way: the chat turn's model span had an empty gen_ai.system and model, and step spans took their length from second-precise times (a 141 ms tool call as 0 µs). Sandbox notes, not app reds: a background export needs an organisation-scoped credential (a personal one fails the broker's owner check without a session, as designed), and the egress guard resolves the host through DNS, so `localhost` does not resolve where 127.0.0.1 does.
