@@ -12,7 +12,7 @@
   fixed after that; the name and description can be changed. The credential lives
   behind the source in the broker, never here. A refusal is shown in place.
 
-  @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+  @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 -->
 <template>
 	<NcModal :show="show" size="normal" :name="heading" @close="$emit('close')">
@@ -119,7 +119,7 @@ export default {
 		 * The modal heading.
 		 *
 		 * @return {string} The heading.
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		heading() {
 			return this.form.id ? this.t('hermiq', 'Edit remote agent') : this.t('hermiq', 'Add remote agent')
@@ -128,14 +128,14 @@ export default {
 		/**
 		 * The chosen source as a select option, kept in step with `form.source`.
 		 *
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		selectedSource: {
 			/**
 			 * The option whose id is `form.source`, or null.
 			 *
 			 * @return {object|null} The selected source option.
-			 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+			 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 			 */
 			get() {
 				return this.sources.find((source) => source.id === this.form.source) ?? null
@@ -145,7 +145,7 @@ export default {
 			 * Keep `form.source` in step with the chosen option.
 			 *
 			 * @param {object|null} option The chosen source option.
-			 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+			 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 			 */
 			set(option) {
 				this.form.source = option?.id ?? ''
@@ -156,7 +156,7 @@ export default {
 		 * Whether the form may be saved: a name, and a source for a new one.
 		 *
 		 * @return {boolean} True when it may be saved.
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		canSave() {
 			return this.form.name.trim() !== '' && (this.form.id !== '' || this.form.source !== '')
@@ -168,14 +168,14 @@ export default {
 		 * Fill the form, and read the sources for a new one, each time the modal opens.
 		 *
 		 * @param {boolean} open Whether it opened.
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		show: {
 			/**
 			 * Fill the form when the modal opens.
 			 *
 			 * @param {boolean} open Whether it opened.
-			 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+			 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 			 */
 			handler(open) {
 				if (open) {
@@ -196,7 +196,7 @@ export default {
 		 * Read the integriq sources to choose from.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		async loadSources() {
 			this.loadingSources = true
@@ -213,7 +213,7 @@ export default {
 		 * Register the remote agent, or save its changes, and hand it to the parent.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 		 */
 		async submit() {
 			if (!this.canSave) {

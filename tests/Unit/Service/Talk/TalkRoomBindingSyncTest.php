@@ -258,7 +258,7 @@ class TalkRoomBindingSyncTest extends TestCase {
 		$this->assertNull($binding->findByRoomToken(roomToken: 'room-2'));
 		$this->assertNull($binding->findByRoomToken(roomToken: 'room-3'));
 
-		$config = static fn (string $token): array => ['filters' => ['talkRoomToken' => $token], 'sort' => ['created' => 'DESC'], 'limit' => 1];
+		$config = static fn (string $token): array => ['filters' => ['talkRoomToken' => $token], 'sort' => ['_created' => 'DESC'], 'limit' => 1];
 		$this->assertSame([$config('room-1'), $config('room-2'), $config('room-3')], $configs);
 		$this->assertSame(
 			[['[TalkRoomBinding] Could not resolve the conversation bound to the room', ['roomToken' => 'room-3', 'error' => 'store down']]],
