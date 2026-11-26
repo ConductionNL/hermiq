@@ -98,7 +98,7 @@ class SessionSearchServiceTest extends TestCase {
 		$this->assertSame('a2', $hits[0]['session']->getUuid());
 		$this->assertSame(['turnUuid' => 't1', 'excerpt' => 'eerste monument'], $hits[0]['match']);
 		$this->assertSame(
-			[['filters' => ['@self' => ['owner' => 'alice']], 'search' => 'monument', 'sort' => ['created' => 'ASC'], 'limit' => 1000]],
+			[['filters' => ['@self' => ['owner' => 'alice']], 'search' => 'monument', 'sort' => ['_created' => 'ASC'], 'limit' => 1000]],
 			$configs
 		);
 	}//end testTheFirstOwnTurnPerSessionMatches()
