@@ -287,7 +287,7 @@ export default {
 		 * What to add to the n8n workflow so its result comes back.
 		 *
 		 * @return {string}
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 		 */
 		n8nSteps() {
 			return this.t(
@@ -435,7 +435,7 @@ export default {
 		 * Fill the target in for an n8n workflow: POST to its webhook path, waiting for its result.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 		 */
 		applyN8nPreset() {
 			this.form.method = 'POST'

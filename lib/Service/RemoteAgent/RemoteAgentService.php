@@ -11,7 +11,7 @@
  * @license   EUPL-1.2
  * @link      https://github.com/ConductionNL/hermiq
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ use OCA\OpenRegister\Service\ObjectService;
  * and is never copied here. A new remote agent is switched off. Callers check
  * that the caller is an admin; the record is read and written as the system.
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
  */
 class RemoteAgentService {
 
@@ -62,7 +62,7 @@ class RemoteAgentService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -80,7 +80,7 @@ class RemoteAgentService {
 	 * @throws InvalidArgumentException        When the name or source is missing, or the slug is taken.
 	 * @throws RemoteAgentUnavailableException When the card cannot be fetched through the source.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 	 */
 	public function register(array $input): array {
 		$name   = trim((string) ($input['name'] ?? ''));
@@ -120,7 +120,7 @@ class RemoteAgentService {
 	 *
 	 * @return array<int, array<string, mixed>>
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 	 */
 	public function list(): array {
 		$found = $this->objectService->setRegister(self::REGISTER)->setSchema(self::SCHEMA)->findAll(
@@ -145,7 +145,7 @@ class RemoteAgentService {
 	 *
 	 * @return array<string, mixed>|null The stored remote agent, or null when it does not exist.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 	 */
 	public function update(string $id, array $input): ?array {
 		$object = $this->find(id: $id);
@@ -182,7 +182,7 @@ class RemoteAgentService {
 	 *
 	 * @return bool False when it does not exist.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 	 */
 	public function delete(string $id): bool {
 		$object = $this->find(id: $id);
@@ -209,7 +209,7 @@ class RemoteAgentService {
 	 *
 	 * @return array<string, mixed>|null
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-asking-a-remote-agent-is-a-default-denied-external-tool-req-a2a-002
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-asking-a-remote-agent-is-a-default-denied-external-tool-req-a2a-002
 	 */
 	public function findBySlug(string $slug): ?array {
 		if ($slug === '') {

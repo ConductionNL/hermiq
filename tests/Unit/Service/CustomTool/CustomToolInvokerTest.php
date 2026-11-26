@@ -384,7 +384,7 @@ final class CustomToolInvokerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	public function testAWaitingToolHandsTheWorkflowItsResultAddressAndToken(): void {
 		$this->tool = self::bagTool(
@@ -426,7 +426,7 @@ final class CustomToolInvokerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	public function testAWaitingToolWhoseCallFailsClosesItsHandoff(): void {
 		$this->tool    = self::bagTool(target: ['method' => 'POST', 'path' => '/webhook/bag', 'waitForCallback' => true]);
@@ -453,7 +453,7 @@ final class CustomToolInvokerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	public function testAWaitingToolOutsideAConversationCallsNothing(): void {
 		$this->tool = self::bagTool(target: ['method' => 'POST', 'path' => '/webhook/bag', 'waitForCallback' => true]);
@@ -481,7 +481,7 @@ final class CustomToolInvokerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-webhook-workflow-returns-its-result-to-a-one-time-address-req-handoff-004
 	 */
 	public function testABodyThatIsNotAnObjectIsKeptUnderPayload(): void {
 		$this->tool = self::bagTool(
