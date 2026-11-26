@@ -2,7 +2,7 @@
     "openapi": "3.0.3",
     "info": {
         "title": "Hermiq",
-        "version": "0.2.33-unstable.20261125152435",
+        "version": "0.2.34-unstable.20261126230925",
         "description": "The JSON API of Hermiq, the AI assistant app for Nextcloud: agents and agent templates, skills, chat and conversations, sessions and schedules, approvals and guardrail policies, model policy, budgets, evaluations and the settings behind them. The records themselves are stored in OpenRegister and read and written through its API; this document covers the endpoints Hermiq adds on top.\n\nEvery path is served under `/api/v1/`, the version this document describes. The unversioned `/api/` paths keep working, are deprecated, and name their `/api/v1/` successor in a `Link` header next to a `Deprecation` header. Errors are RFC 9457 problem details (`application/problem+json`), and every response carries an `API-Version` header. Paths that implement an external standard keep the formats of that standard and are not described here.",
         "contact": {
             "name": "Conduction B.V.",
