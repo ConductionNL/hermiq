@@ -25,9 +25,11 @@ namespace OCA\Hermiq\Tests\Unit\Listener;
 
 use OCA\Hermiq\Listener\TalkApprovalReactionListener;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
+use OCA\Hermiq\Service\Approval\MirrorTaskCompletion;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Talk\TalkApprovalBinding;
 use OCA\Hermiq\Service\Talk\TalkBridge;
+use OCA\Hermiq\Service\Talk\TalkReactionDecider;
 use OCP\EventDispatcher\Event;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -103,7 +105,10 @@ class TalkApprovalReactionListenerEdgeTest extends TestCase {
 		$this->listener = new TalkApprovalReactionListener(
 			bridge: $this->bridge,
 			approvalBinding: $this->binding,
-			approvalService: $this->approvals,
+			reactionDecider: new TalkReactionDecider(
+				approvalService: $this->approvals,
+				taskCompletion: $this->createMock(originalClassName: MirrorTaskCompletion::class)
+			),
 			logger: $this->logger,
 			approvalInbox: $this->inbox
 		);
