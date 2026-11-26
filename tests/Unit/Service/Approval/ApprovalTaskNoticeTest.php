@@ -56,8 +56,9 @@ class ApprovalTaskNoticeTest extends TestCase {
 	public function testAMirroredUserApprovalIsNotifiedByTheTask(): void {
 		$notice = new ApprovalTaskNotice(notifierClass: stdClass::class);
 
-		$this->assertSame('bob', $notice->notifiedAssignee($this->approval(['taskUuid' => 't-1', 'reviewer' => 'bob', 'reviewerType' => 'user'])));
-		$this->assertSame('bob', $notice->notifiedAssignee($this->approval(['taskUuid' => 't-1', 'reviewer' => 'bob'])));
+		$user = ['taskUuid' => 't-1', 'reviewer' => 'bob', 'reviewerType' => 'user'];
+		$this->assertSame(expected: 'bob', actual: $notice->notifiedAssignee(approval: $this->approval(data: $user)));
+		$this->assertSame(expected: 'bob', actual: $notice->notifiedAssignee(approval: $this->approval(data: ['taskUuid' => 't-1', 'reviewer' => 'bob'])));
 	}//end testAMirroredUserApprovalIsNotifiedByTheTask()
 
 	/**
@@ -76,11 +77,11 @@ class ApprovalTaskNoticeTest extends TestCase {
 			'non-string reviewer' => ['taskUuid' => 't-1', 'reviewer' => ['bob']],
 		];
 		foreach ($cases as $name => $data) {
-			$this->assertNull($notice->notifiedAssignee($this->approval($data)), $name);
+			$this->assertNull(actual: $notice->notifiedAssignee(approval: $this->approval(data: $data)), message: $name);
 		}
 
 		$absent = new ApprovalTaskNotice(notifierClass: 'OCA\\Nowhere\\TaskNotificationListener');
-		$this->assertNull($absent->notifiedAssignee($this->approval(['taskUuid' => 't-1', 'reviewer' => 'bob'])));
+		$this->assertNull(actual: $absent->notifiedAssignee(approval: $this->approval(data: ['taskUuid' => 't-1', 'reviewer' => 'bob'])));
 	}//end testHermiqKeepsNotifyingOtherwise()
 
 	/**
@@ -89,6 +90,6 @@ class ApprovalTaskNoticeTest extends TestCase {
 	 * @return void
 	 */
 	public function testTheDefaultProbeIsOpenRegistersTaskNotifier(): void {
-		$this->assertSame('OCA\\OpenRegister\\Listener\\TaskNotificationListener', ApprovalTaskNotice::TASK_NOTIFIER);
+		$this->assertSame(expected: 'OCA\\OpenRegister\\Listener\\TaskNotificationListener', actual: ApprovalTaskNotice::TASK_NOTIFIER);
 	}//end testTheDefaultProbeIsOpenRegistersTaskNotifier()
 }//end class

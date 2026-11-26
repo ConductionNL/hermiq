@@ -241,10 +241,6 @@ class DeliveryService {
 	 *                                                    webhook delivery met; null when built by hand
 	 *                                                    in a test (adopt-connection-registry).
 	 *
-	 * @param ApprovalTaskNotice|null $approvalTaskNotice Names the reviewer OpenRegister already notifies
-	 *                                                    through an approval's mirror task; null when built
-	 *                                                    by hand in a test (approval-task-convergence 2.2).
-	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct always-present Nextcloud/Hermiq collaborator, not a logic-bearing list.
 	 */
@@ -263,7 +259,6 @@ class DeliveryService {
 		private readonly TalkRoomBinding $talkRoomBinding,
 		private readonly TalkApprovalNotifier $talkApprovalNotifier,
 		private readonly ?ConnectionReporter $connectionReporter = null,
-		private readonly ?ApprovalTaskNotice $approvalTaskNotice = null,
 	) {
 	}//end __construct()
 
@@ -371,7 +366,11 @@ class DeliveryService {
 		$this->talkApprovalNotifier->postRequest(approval: $approval, displayName: $scheduleName);
 
 		return $this->notifyApprovalReviewers(
-			round: new ApprovalRound(approvalUuid: (string)$approval->getUuid(), reviewerUids: $reviewerUids, taskNotified: $this->taskNotified(approval: $approval)),
+			round: new ApprovalRound(
+				approvalUuid: (string)$approval->getUuid(),
+				reviewerUids: $reviewerUids,
+				taskNotified: $this->taskNotified(approval: $approval)
+			),
 			wording: new ApprovalWording(displayName: $scheduleName, messageParams: ['scheduleId' => (string)$schedule->getUuid()])
 		);
 
@@ -401,7 +400,11 @@ class DeliveryService {
 		$displayName = (string)($flowContext['flowName'] ?? ($data['agentId'] ?? ''));
 
 		return $this->notifyApprovalReviewers(
-			round: new ApprovalRound(approvalUuid: (string)$approval->getUuid(), reviewerUids: $reviewerUids, taskNotified: $this->taskNotified(approval: $approval)),
+			round: new ApprovalRound(
+				approvalUuid: (string)$approval->getUuid(),
+				reviewerUids: $reviewerUids,
+				taskNotified: $this->taskNotified(approval: $approval)
+			),
 			wording: new ApprovalWording(displayName: $displayName, messageParams: ['correlationId' => (string)($flowContext['correlationId'] ?? '')])
 		);
 
@@ -432,7 +435,11 @@ class DeliveryService {
 		$displayName = (string)($data['agentId'] ?? '');
 
 		return $this->notifyApprovalReviewers(
-			round: new ApprovalRound(approvalUuid: (string)$approval->getUuid(), reviewerUids: $reviewerUids, taskNotified: $this->taskNotified(approval: $approval)),
+			round: new ApprovalRound(
+				approvalUuid: (string)$approval->getUuid(),
+				reviewerUids: $reviewerUids,
+				taskNotified: $this->taskNotified(approval: $approval)
+			),
 			wording: new ApprovalWording(displayName: $displayName, messageParams: ['correlationId' => (string)($webhookContext['correlationId'] ?? '')])
 		);
 
@@ -462,7 +469,11 @@ class DeliveryService {
 		$data = $approval->getObject();
 
 		return $this->notifyApprovalReviewers(
-			round: new ApprovalRound(approvalUuid: (string)$approval->getUuid(), reviewerUids: $reviewerUids, taskNotified: $this->taskNotified(approval: $approval)),
+			round: new ApprovalRound(
+				approvalUuid: (string)$approval->getUuid(),
+				reviewerUids: $reviewerUids,
+				taskNotified: $this->taskNotified(approval: $approval)
+			),
 			wording: new ApprovalWording(displayName: $skillName, messageParams: ['draftId' => (string)($data['draftId'] ?? '')])
 		);
 
@@ -659,6 +670,10 @@ class DeliveryService {
 	/**
 	 * The reviewer OpenRegister notifies through this approval's mirror task.
 	 *
+	 * Only an approval that carries a mirror `taskUuid` is asked about; the
+	 * decision itself is resolved from the container like the Talk services,
+	 * and a container that cannot build it leaves hermiq notifying everyone.
+	 *
 	 * @param ObjectEntity $approval The pending approval.
 	 *
 	 * @return string|null That reviewer's uid, or null when hermiq notifies everyone itself.
@@ -666,11 +681,23 @@ class DeliveryService {
 	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-a-mirror-task-is-assigned-to-is-notified-once-by-openregister
 	 */
 	private function taskNotified(ObjectEntity $approval): ?string {
-		if ($this->approvalTaskNotice === null) {
+		$taskUuid = $approval->getObject()['taskUuid'] ?? null;
+		if (is_string($taskUuid) === false || $taskUuid === '') {
 			return null;
 		}
 
-		return $this->approvalTaskNotice->notifiedAssignee(approval: $approval);
+		try {
+			$notice = $this->container->get(ApprovalTaskNotice::class);
+		} catch (Throwable $e) {
+			$this->logger->debug('Hermiq notifies the approval reviewer itself: ' . $e->getMessage());
+			return null;
+		}
+
+		if (($notice instanceof ApprovalTaskNotice) === false) {
+			return null;
+		}
+
+		return $notice->notifiedAssignee(approval: $approval);
 	}//end taskNotified()
 
 	/**

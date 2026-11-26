@@ -11,6 +11,9 @@
  * @copyright 2026 Conduction B.V.
  * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  *
+ * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
+ * SPDX-License-Identifier: EUPL-1.2
+ *
  * @link https://conduction.nl
  *
  * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-a-mirror-task-is-assigned-to-is-notified-once-by-openregister
@@ -20,7 +23,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
-use DateTime;
 use OCA\Hermiq\Service\Approval\ApprovalTaskNotice;
 use OCA\Hermiq\Service\ApprovalPreviewBuilder;
 use OCA\Hermiq\Service\DeliveryResult;
@@ -53,99 +55,121 @@ use stdClass;
  * DeliveryService leaves the assigned reviewer of a mirrored approval to OpenRegister.
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) The service's own collaborator set.
+ *
+ * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-a-mirror-task-is-assigned-to-is-notified-once-by-openregister
  */
 class DeliveryServiceApprovalTaskNoticeTest extends TestCase {
 
 	/**
-	 * Every notification setter call, per notification, in order.
-	 *
-	 * @var array<int, array<int, array<int, mixed>>>
-	 */
-	private array $notifications = [];
-
-	/**
-	 * Every notify() outcome: the uid it was for, or 'FAILED:<uid>'.
+	 * The users hermiq raised a notification for, in order.
 	 *
 	 * @var array<int, string>
 	 */
 	private array $notified = [];
 
 	/**
-	 * Every Note-to-self post, as `<owner>: <text>`.
+	 * The Talk Note-to-self posts, as "uid: text".
 	 *
 	 * @var array<int, string>
 	 */
 	private array $posted = [];
 
 	/**
-	 * Every logger call, as `<level>: <message>`.
-	 *
-	 * @var array<int, string>
-	 */
-	private array $logged = [];
-
-	/**
-	 * Every container id resolved.
+	 * The container ids resolved.
 	 *
 	 * @var array<int, string>
 	 */
 	private array $resolved = [];
 
 	/**
-	 * The service, with Talk up or down and notify() failing for $failFor.
+	 * A DeliveryService whose container hands out $notice, or nothing for null.
 	 *
-	 * @param bool $talk Whether Talk is available.
-	 * @param array<int, string> $failFor Users whose notification fails.
+	 * @param bool                    $talk   Whether Talk is available.
+	 * @param ApprovalTaskNotice|null $notice The notice the container resolves, or null for none.
 	 *
 	 * @return DeliveryService
 	 */
-	private function service(bool $talk, array $failFor = [], ?ApprovalTaskNotice $taskNotice = null): DeliveryService {
-		$this->notifications = [];
+	private function service(bool $talk, ?ApprovalTaskNotice $notice): DeliveryService {
 		$this->notified = [];
 		$this->posted = [];
-		$this->logged = [];
 		$this->resolved = [];
 
-		$manager = $this->createMock(INotificationManager::class);
+		$manager = $this->createMock(originalClassName: INotificationManager::class);
 		$manager->method('createNotification')->willReturnCallback(fn (): INotification => $this->recordingNotification());
 		$manager->method('notify')->willReturnCallback(
-			function (INotification $notification) use ($failFor): void {
-				$user = (string)$notification->getUser();
-				if (in_array($user, $failFor, true) === true) {
-					$this->notified[] = 'FAILED:' . $user;
-					throw new RuntimeException('push down for ' . $user);
-				}
-
-				$this->notified[] = $user;
+			function (INotification $notification): void {
+				$this->notified[] = (string)$notification->getUser();
 			}
 		);
 
-		$broker = $this->createMock(IBroker::class);
+		$broker = $this->createMock(originalClassName: IBroker::class);
 		$broker->method('hasBackend')->willReturn($talk);
 
-		$urls = $this->createMock(IURLGenerator::class);
+		$urls = $this->createMock(originalClassName: IURLGenerator::class);
 		$urls->method('getAbsoluteURL')->willReturnCallback(fn (string $url): string => 'https://nc' . $url);
 
-		$noteToSelf = $this->createMock(NoteToSelfService::class);
-		$noteToSelf->method('ensureNoteToSelfExistsForUser')->willReturn($this->createMock(Room::class));
-		$participants = $this->createMock(ParticipantService::class);
-		$participants->method('getParticipant')->willReturn($this->createMock(Participant::class));
-		$chat = $this->createMock(ChatManager::class);
+		$config = $this->createMock(originalClassName: IConfig::class);
+		$config->method('getAppValue')->willReturn('yes');
+
+		return new DeliveryService(
+			notificationManager: $manager,
+			talkBroker: $broker,
+			urlGenerator: $urls,
+			container: $this->container(services: $this->talkServices(), notice: $notice),
+			config: $config,
+			userManager: $this->createMock(originalClassName: IUserManager::class),
+			mailer: $this->createMock(originalClassName: IMailer::class),
+			clientService: $this->createMock(originalClassName: IClientService::class),
+			redactionService: new RedactionService(config: $config),
+			scheduleWebhookSecretService: $this->createMock(originalClassName: ScheduleWebhookSecretService::class),
+			logger: $this->createMock(originalClassName: LoggerInterface::class),
+			talkRoomBinding: $this->createMock(originalClassName: TalkRoomBinding::class),
+			talkApprovalNotifier: $this->createMock(originalClassName: TalkApprovalNotifier::class),
+		);
+	}//end service()
+
+	/**
+	 * The Talk services a Note-to-self post resolves, recording each post.
+	 *
+	 * @return array<string, object>
+	 */
+	private function talkServices(): array {
+		$noteToSelf = $this->createMock(originalClassName: NoteToSelfService::class);
+		$noteToSelf->method('ensureNoteToSelfExistsForUser')->willReturn($this->createMock(originalClassName: Room::class));
+		$participants = $this->createMock(originalClassName: ParticipantService::class);
+		$participants->method('getParticipant')->willReturn($this->createMock(originalClassName: Participant::class));
+		$chat = $this->createMock(originalClassName: ChatManager::class);
 		$chat->method('sendMessage')->willReturnCallback(
 			function (...$args) {
 				$this->posted[] = (string)$args[3] . ': ' . (string)$args[4];
 				return null;
 			}
 		);
-		$preview = $this->createMock(ApprovalPreviewBuilder::class);
-		$preview->method('toolLine')->willReturnCallback(fn (string $toolId): string => 'Line for ' . $toolId . '.');
-		$services = [
+		$preview = $this->createMock(originalClassName: ApprovalPreviewBuilder::class);
+		$preview->method('toolLine')->willReturn('A line.');
+
+		return [
 			NoteToSelfService::class => $noteToSelf,
 			ParticipantService::class => $participants,
 			ChatManager::class => $chat,
 			ApprovalPreviewBuilder::class => $preview,
 		];
-		$container = $this->createMock(ContainerInterface::class);
+	}//end talkServices()
+
+	/**
+	 * A container over $services, plus the notice when one is given.
+	 *
+	 * @param array<string, object>   $services The services by id.
+	 * @param ApprovalTaskNotice|null $notice   The notice, or null for none.
+	 *
+	 * @return ContainerInterface
+	 */
+	private function container(array $services, ?ApprovalTaskNotice $notice): ContainerInterface {
+		if ($notice !== null) {
+			$services[ApprovalTaskNotice::class] = $notice;
+		}
+
+		$container = $this->createMock(originalClassName: ContainerInterface::class);
 		$container->method('get')->willReturnCallback(
 			function (string $id) use ($services): object {
 				$this->resolved[] = $id;
@@ -157,81 +181,35 @@ class DeliveryServiceApprovalTaskNoticeTest extends TestCase {
 			}
 		);
 
-		$logger = $this->createMock(LoggerInterface::class);
-		foreach (['warning', 'debug', 'error', 'info'] as $level) {
-			$logger->method($level)->willReturnCallback(
-				function (string $message) use ($level): void {
-					$this->logged[] = $level . ': ' . $message;
-				}
-			);
-		}
-
-		$config = $this->createMock(IConfig::class);
-		$config->method('getAppValue')->willReturn('yes');
-
-		return new DeliveryService(
-			notificationManager: $manager,
-			talkBroker: $broker,
-			urlGenerator: $urls,
-			container: $container,
-			config: $config,
-			userManager: $this->createMock(IUserManager::class),
-			mailer: $this->createMock(IMailer::class),
-			clientService: $this->createMock(IClientService::class),
-			redactionService: new RedactionService(config: $config),
-			scheduleWebhookSecretService: $this->createMock(ScheduleWebhookSecretService::class),
-			logger: $logger,
-			talkRoomBinding: $this->createMock(TalkRoomBinding::class),
-			talkApprovalNotifier: $this->createMock(TalkApprovalNotifier::class),
-			approvalTaskNotice: $taskNotice,
-		);
-	}//end service()
+		return $container;
+	}//end container()
 
 	/**
-	 * A notification that records every setter call and answers getUser().
+	 * A notification that answers getUser() with the user it was set up for.
 	 *
 	 * @return INotification
 	 */
 	private function recordingNotification(): INotification {
-		$index = count($this->notifications);
-		$this->notifications[$index] = [];
-		$notification = $this->createMock(INotification::class);
+		$notification = $this->createMock(originalClassName: INotification::class);
 		$user = '';
-		foreach (['setApp', 'setUser', 'setDateTime', 'setObject', 'setSubject', 'setMessage', 'setLink'] as $setter) {
-			$notification->method($setter)->willReturnCallback(
-				function (...$args) use ($setter, $index, $notification, &$user): INotification {
-					if ($setter === 'setUser') {
-						$user = $args[0];
-					}
-
-					if ($setter === 'setDateTime') {
-						$args = [($args[0] instanceof DateTime) === true ? 'DateTime' : 'other'];
-					}
-
-					$this->notifications[$index][] = array_merge([$setter], $args);
-					return $notification;
-				}
-			);
+		foreach (['setApp', 'setDateTime', 'setObject', 'setSubject', 'setMessage', 'setLink'] as $setter) {
+			$notification->method($setter)->willReturn($notification);
 		}
 
-		$notification->method('getUser')->willReturnCallback(function () use (&$user): string {
-			return $user;
-		});
+		$notification->method('setUser')->willReturnCallback(
+			function (string $uid) use ($notification, &$user): INotification {
+				$user = $uid;
+				return $notification;
+			}
+		);
+		$notification->method('getUser')->willReturnCallback(
+			function () use (&$user): string {
+				return $user;
+			}
+		);
 
 		return $notification;
 	}//end recordingNotification()
-
-	/**
-	 * The setter calls of a notification for $uid about $object.
-	 *
-	 * @param string $uid The recipient.
-	 * @param array<int, mixed> $tail The setObject/setSubject/setMessage/setLink calls.
-	 *
-	 * @return array<int, array<int, mixed>>
-	 */
-	private function calls(string $uid, array $tail): array {
-		return array_merge([['setApp', 'hermiq'], ['setUser', $uid], ['setDateTime', 'DateTime']], $tail);
-	}//end calls()
 
 	/**
 	 * The DeliveryResult as a comparable list.
@@ -259,26 +237,18 @@ class DeliveryServiceApprovalTaskNoticeTest extends TestCase {
 	}//end approval()
 
 	/**
-	 * The approval tail for a display name and message params.
+	 * A notice that sees OpenRegister's task notifications as installed.
 	 *
-	 * @param string $name The display name.
-	 * @param array<string, string> $params The message params.
-	 *
-	 * @return array<int, array<int, mixed>>
+	 * @return ApprovalTaskNotice
 	 */
-	private function approvalTail(string $name, array $params): array {
-		return [
-			['setObject', 'approval', 'appr-1'],
-			['setSubject', 'approval_requested', ['name' => $name]],
-			['setMessage', 'approval_summary', $params],
-			['setLink', 'https://nc/index.php/apps/hermiq/approvals/appr-1'],
-		];
-	}//end approvalTail()
+	private function presentNotice(): ApprovalTaskNotice {
+		return new ApprovalTaskNotice(notifierClass: stdClass::class);
+	}//end presentNotice()
 
 	/**
 	 * A mirrored approval routed to one user: OpenRegister's task notifies that
 	 * reviewer, so hermiq raises no notification of its own, still posts the
-	 * Talk line, and reports the reviewer as reached.
+	 * Talk line, and reports the reviewer as reached. Every approval flavour.
 	 *
 	 * @return void
 	 *
@@ -291,23 +261,31 @@ class DeliveryServiceApprovalTaskNoticeTest extends TestCase {
 		$mirrored = ['taskUuid' => 'task-1', 'reviewer' => 'bob', 'reviewerType' => 'user', 'agentId' => 'agent-1'];
 
 		$cases = [
-			'schedule' => fn (DeliveryService $s) => $s->deliverApprovalRequest($schedule, $this->approval($mirrored), ['bob']),
-			'flow' => fn (DeliveryService $s) => $s->deliverApprovalRequestForFlowRun($this->approval($mirrored), ['bob']),
-			'webhook' => fn (DeliveryService $s) => $s->deliverApprovalRequestForWebhookRun($this->approval($mirrored), ['bob']),
-			'skill draft' => fn (DeliveryService $s) => $s->deliverApprovalRequestForSkillDraft($this->approval($mirrored), ['bob'], 'Tender summary'),
-			'tool' => fn (DeliveryService $s) => $s->deliverApprovalRequestForToolInvocation($this->approval($mirrored + ['toolId' => 'files.delete']), ['bob']),
+			'schedule' => fn (DeliveryService $s) => $s->deliverApprovalRequest(
+				schedule: $schedule,
+				approval: $this->approval(data: $mirrored),
+				reviewerUids: ['bob']
+			),
+			'flow' => fn (DeliveryService $s) => $s->deliverApprovalRequestForFlowRun(approval: $this->approval(data: $mirrored), reviewerUids: ['bob']),
+			'webhook' => fn (DeliveryService $s) => $s->deliverApprovalRequestForWebhookRun(approval: $this->approval(data: $mirrored), reviewerUids: ['bob']),
+			'skill draft' => fn (DeliveryService $s) => $s->deliverApprovalRequestForSkillDraft(
+				approval: $this->approval(data: $mirrored),
+				reviewerUids: ['bob'],
+				skillName: 'Tender summary'
+			),
+			'tool' => fn (DeliveryService $s) => $s->deliverApprovalRequestForToolInvocation(
+				approval: $this->approval(data: $mirrored + ['toolId' => 'files.delete']),
+				reviewerUids: ['bob']
+			),
 		];
 
 		foreach ($cases as $name => $deliver) {
-			$service = $this->service(talk: true, taskNotice: new ApprovalTaskNotice(notifierClass: stdClass::class));
-			$result = $deliver($service);
+			$result = $deliver($this->service(talk: true, notice: $this->presentNotice()));
 
-			$this->assertSame([true, 'notification', false, null], $this->outcome($result), $name);
-			$this->assertSame([], $this->notified, $name);
-			$this->assertSame([], $this->notifications, $name);
-			$this->assertCount(1, $this->posted, $name);
-			$this->assertStringStartsWith('bob: ', $this->posted[0], $name);
-			$this->assertSame([], $this->logged, $name);
+			$this->assertSame(expected: [true, 'notification', false, null], actual: $this->outcome(result: $result), message: $name);
+			$this->assertSame(expected: [], actual: $this->notified, message: $name);
+			$this->assertCount(expectedCount: 1, haystack: $this->posted, message: $name);
+			$this->assertStringStartsWith(prefix: 'bob: ', string: $this->posted[0], message: $name);
 		}
 	}//end testTheMirrorTaskNotifiesTheAssignedReviewer()
 
@@ -320,41 +298,47 @@ class DeliveryServiceApprovalTaskNoticeTest extends TestCase {
 	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-a-mirror-task-is-assigned-to-is-notified-once-by-openregister
 	 */
 	public function testOtherRecipientsAreStillNotified(): void {
-		$service = $this->service(talk: false, taskNotice: new ApprovalTaskNotice(notifierClass: stdClass::class));
-		$approval = $this->approval(['taskUuid' => 'task-1', 'reviewer' => 'bob', 'toolId' => 'files.delete']);
+		$service = $this->service(talk: false, notice: $this->presentNotice());
+		$approval = $this->approval(data: ['taskUuid' => 'task-1', 'reviewer' => 'bob', 'toolId' => 'files.delete']);
 
-		$result = $service->deliverApprovalRequestForToolInvocation($approval, ['bob', 'carol']);
+		$result = $service->deliverApprovalRequestForToolInvocation(approval: $approval, reviewerUids: ['bob', 'carol']);
 
-		$this->assertSame([true, 'notification', false, null], $this->outcome($result));
-		$this->assertSame(['carol'], $this->notified);
-		$this->assertSame([], $this->posted);
+		$this->assertSame(expected: [true, 'notification', false, null], actual: $this->outcome(result: $result));
+		$this->assertSame(expected: ['carol'], actual: $this->notified);
+		$this->assertSame(expected: [], actual: $this->posted);
 	}//end testOtherRecipientsAreStillNotified()
 
 	/**
-	 * Hermiq notifies every reviewer itself for a group-routed mirror, for an
-	 * approval without a mirror, without OpenRegister's task notifications, and
-	 * when built without the notice.
+	 * Hermiq notifies every reviewer itself for a group-routed mirror, without
+	 * OpenRegister's task notifications, and when the container cannot build the
+	 * notice; an approval without a mirror never asks the container at all.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/approval-task-convergence/specs/approval-task-convergence/spec.md#requirement-the-reviewer-a-mirror-task-is-assigned-to-is-notified-once-by-openregister
 	 */
 	public function testHermiqNotifiesWhenTheTaskDoesNot(): void {
-		$present = new ApprovalTaskNotice(notifierClass: stdClass::class);
 		$cases = [
-			'group mirror' => [$present, ['taskUuid' => 'task-1', 'reviewer' => 'admins', 'reviewerType' => 'group'], ['bob', 'carol']],
-			'no mirror' => [$present, ['reviewer' => 'bob'], ['bob']],
-			'no task notifications' => [new ApprovalTaskNotice(notifierClass: 'OCA\\Nowhere\\Listener'), ['taskUuid' => 'task-1', 'reviewer' => 'bob'], ['bob']],
-			'built without the notice' => [null, ['taskUuid' => 'task-1', 'reviewer' => 'bob'], ['bob']],
+			'group mirror' => [$this->presentNotice(), ['taskUuid' => 'task-1', 'reviewer' => 'admins', 'reviewerType' => 'group'], ['bob', 'carol']],
+			'no task notifications' => [
+				new ApprovalTaskNotice(notifierClass: 'OCA\\Nowhere\\Listener'),
+				['taskUuid' => 'task-1', 'reviewer' => 'bob'],
+				['bob'],
+			],
+			'no notice in the container' => [null, ['taskUuid' => 'task-1', 'reviewer' => 'bob'], ['bob']],
 		];
 
 		foreach ($cases as $name => [$notice, $data, $uids]) {
-			$service = $this->service(talk: false, taskNotice: $notice);
-			$result = $service->deliverApprovalRequestForFlowRun($this->approval($data + ['agentId' => 'agent-1']), $uids);
+			$service = $this->service(talk: false, notice: $notice);
+			$result = $service->deliverApprovalRequestForFlowRun(approval: $this->approval(data: $data + ['agentId' => 'agent-1']), reviewerUids: $uids);
 
-			$this->assertSame([true, 'notification', false, null], $this->outcome($result), $name);
-			$this->assertSame($uids, $this->notified, $name);
+			$this->assertSame(expected: [true, 'notification', false, null], actual: $this->outcome(result: $result), message: $name);
+			$this->assertSame(expected: $uids, actual: $this->notified, message: $name);
 		}
-	}//end testHermiqNotifiesWhenTheTaskDoesNot()
 
+		$service = $this->service(talk: false, notice: $this->presentNotice());
+		$service->deliverApprovalRequestForFlowRun(approval: $this->approval(data: ['reviewer' => 'bob']), reviewerUids: ['bob']);
+		$this->assertSame(expected: ['bob'], actual: $this->notified);
+		$this->assertSame(expected: [], actual: $this->resolved);
+	}//end testHermiqNotifiesWhenTheTaskDoesNot()
 }//end class
