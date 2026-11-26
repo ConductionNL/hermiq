@@ -11,7 +11,7 @@
  * @license   EUPL-1.2
  * @link      https://github.com/ConductionNL/hermiq
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use Throwable;
  * owner) opens an `a2a` handoff for it. `poll()` asks `tasks/get` through the
  * same source until the task ends or the handoff's deadline passes.
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
  */
 class RemoteTasks {
 
@@ -51,7 +51,7 @@ class RemoteTasks {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
 	 */
 	public function __construct(
 		private readonly RemoteAgentService $remoteAgents,
@@ -70,7 +70,7 @@ class RemoteTasks {
 	 * @return array<string, mixed> `{status: completed, answer}`, `{status: working, taskId, remoteAgent, label}`,
 	 *                              or `{error, message}`.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
 	 */
 	public function ask(string $remoteAgent, string $task): array {
 		$agent   = $this->remoteAgents->findBySlug(slug: trim($remoteAgent));
@@ -101,7 +101,7 @@ class RemoteTasks {
 	 *
 	 * @return array<string, string>|null `{error, message}`, or null.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
 	 */
 	private function refusal(?array $agent, string $remoteAgent, string $task): ?array {
 		if ($agent === null || ($agent['enabled'] ?? false) !== true) {
@@ -123,7 +123,7 @@ class RemoteTasks {
 	 *
 	 * @return array<string, mixed> `{status: completed, answer}`, `{status: working, ...}` or `{error, message}`.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
 	 */
 	private function outcome(array $agent, array $answer): array {
 		if ($answer['state'] === 'completed') {
@@ -150,7 +150,7 @@ class RemoteTasks {
 	 *
 	 * @return mixed The result, with `handoff` and `note` for a working task.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
 	 */
 	public function afterAsk(mixed $result, FlowTurn $turn): mixed {
 		if (is_array($result) === false || ($result['status'] ?? null) !== 'working' || $turn->isComplete() === false) {
@@ -188,7 +188,7 @@ class RemoteTasks {
 	 *
 	 * @return string `done`, `failed`, `waiting`, or `unreachable` when the remote agent could not be asked.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-a-remote-task-travels-through-integriq-and-may-finish-later-req-a2a-003
 	 */
 	public function poll(string $handoffId, array $handoff): string {
 		$agent = $this->remoteAgents->findBySlug(slug: (string) ($handoff['target'] ?? ''));

@@ -11,7 +11,7 @@
  * @license   EUPL-1.2
  * @link      https://github.com/ConductionNL/hermiq
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
  */
 
 declare(strict_types=1);
@@ -27,6 +27,7 @@ use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
+use OCP\AppFramework\Db\DoesNotExistException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -98,6 +99,11 @@ class HandoffDeliveryTest extends TestCase {
 		parent::setUp();
 		$this->objects = $this->createMock(ObjectService::class);
 		$this->objects->method('find')->willReturnCallback(function (string $id): ?ObjectEntity {
+			if ($id === 'deleted') {
+				// OpenRegister throws for an object that was deleted.
+				throw new DoesNotExistException('Object with identifier \'deleted\' not found in any magic table');
+			}
+
 			if (isset($this->store[$id]) === false) {
 				return null;
 			}
@@ -281,6 +287,8 @@ class HandoffDeliveryTest extends TestCase {
 		$this->assertSame('skipped', $this->delivery->deliver(handoffId: 'gone'));
 		$this->assertSame('skipped', $this->delivery->deliver(handoffId: 'h-2'));
 		$this->assertSame('skipped', $this->delivery->deliver(handoffId: ''));
+		// Deleted after its result job was queued (seen live: the job failed with "not found").
+		$this->assertSame(expected: 'skipped', actual: $this->delivery->deliver(handoffId: 'deleted'));
 	}//end testAMissingOrWaitingHandoffIsSkipped()
 
 	/**

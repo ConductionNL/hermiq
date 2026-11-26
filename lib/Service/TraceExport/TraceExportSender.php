@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/observability-export-traces/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
+ * @spec openspec/changes/archive/2026-11-25-observability-export-traces/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
  */
 
 declare(strict_types=1);
@@ -79,7 +79,7 @@ class TraceExportSender {
 	 * @return array{ok: bool, retry: bool, status: int, message: string} The outcome; `retry`
 	 *         is false when trying again cannot help (refused endpoint, missing credential).
 	 *
-	 * @spec openspec/changes/observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
+	 * @spec openspec/changes/archive/2026-11-25-observability-export-traces/tasks.md#task-3-the-queue-the-job-and-the-broker-call
 	 */
 	public function send(array $payload, array $settings): array {
 		$endpoint = (string)($settings['endpoint'] ?? '');

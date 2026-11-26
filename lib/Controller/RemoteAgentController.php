@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
  */
 
 declare(strict_types=1);
@@ -42,7 +42,7 @@ use OCP\IRequest;
  *
  * Access control: every method is `#[AuthorizedAdminSetting]`; Nextcloud refuses a non-admin before the method runs.
  *
- * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
  */
 class RemoteAgentController extends Controller {
 
@@ -52,7 +52,7 @@ class RemoteAgentController extends Controller {
 	 * @param IRequest           $request      The request.
 	 * @param RemoteAgentService $remoteAgents The remote agents.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 	 */
 	public function __construct(
 		IRequest $request,
@@ -66,7 +66,7 @@ class RemoteAgentController extends Controller {
 	 *
 	 * @return JSONResponse 200 {results}
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function index(): JSONResponse {
@@ -78,7 +78,7 @@ class RemoteAgentController extends Controller {
 	 *
 	 * @return JSONResponse 201 the remote agent; 400 for missing fields or a taken handle; 502 when the card cannot be fetched.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function create(): JSONResponse {
@@ -107,7 +107,7 @@ class RemoteAgentController extends Controller {
 	 *
 	 * @return JSONResponse 200 the remote agent; 404 when it does not exist.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function update(string $id): JSONResponse {
@@ -138,7 +138,7 @@ class RemoteAgentController extends Controller {
 	 *
 	 * @return JSONResponse 200; 404 when it does not exist.
 	 *
-	 * @spec openspec/changes/flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/remote-agents/spec.md#requirement-an-admin-registers-a-remote-agent-through-an-integriq-source-req-a2a-001
 	 */
 	#[AuthorizedAdminSetting(AdminSettings::class)]
 	public function destroy(string $id): JSONResponse {
