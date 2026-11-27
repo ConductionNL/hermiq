@@ -899,7 +899,7 @@ export default {
 	font-family: var(--font-face-monospace, monospace);
 	font-size: 0.9em;
 	white-space: pre-wrap;
-	word-break: break-word;
+	overflow-wrap: anywhere;
 }
 
 .hermiq-runs__computer-meta {

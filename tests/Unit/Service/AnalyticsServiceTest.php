@@ -616,8 +616,8 @@ class AnalyticsServiceTest extends TestCase {
 	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005
 	 */
 	public function testARunRowListsItsCodeRuns(): void {
-		$schedules = [$this->schedule('s1', 'agentA')];
-		$used = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$schedules = [$this->schedule(uuid: 's1', agentId: 'agentA')];
+		$used = $this->runEntry(objectUuid: 's1', status: 'ok', durationMs: 100, agentId: 'agentA');
 		$used->setUuid('run-code');
 		$used->setCreated(new \DateTime('2026-10-20 10:00:00'));
 		$used->setChanged(
@@ -625,21 +625,27 @@ class AnalyticsServiceTest extends TestCase {
 				'status' => 'ok',
 				'agentId' => 'agentA',
 				'steps' => [
-					['seq' => 1, 'type' => 'tool', 'name' => 'hermiq.runCode', 'arguments' => ['code' => 'x'], 'codeRun' => ['language' => 'python', 'code' => 'print(2)', 'exitCode' => 0, 'stdout' => 'mail ***', 'raw' => 'dropped']],
+					[
+						'seq' => 1,
+						'type' => 'tool',
+						'name' => 'hermiq.runCode',
+						'arguments' => ['code' => 'x'],
+						'codeRun' => ['language' => 'python', 'code' => 'print(2)', 'exitCode' => 0, 'stdout' => 'mail ***', 'raw' => 'dropped'],
+					],
 				],
 			]
 		);
-		$plain = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$plain = $this->runEntry(objectUuid: 's1', status: 'ok', durationMs: 100, agentId: 'agentA');
 		$plain->setUuid('run-plain');
 		$plain->setCreated(new \DateTime('2026-10-19 10:00:00'));
 
-		$byId = array_column($this->service($schedules, [$used, $plain])->listRuns()['results'], null, 'id');
+		$byId = array_column($this->service(schedules: $schedules, runs: [$used, $plain])->listRuns()['results'], null, 'id');
 
 		$this->assertSame(
-			[['language' => 'python', 'code' => 'print(2)', 'exitCode' => 0, 'stdout' => 'mail ***']],
-			$byId['run-code']['codeRuns']
+			expected: [['language' => 'python', 'code' => 'print(2)', 'exitCode' => 0, 'stdout' => 'mail ***']],
+			actual: $byId['run-code']['codeRuns']
 		);
-		$this->assertArrayNotHasKey('codeRuns', $byId['run-plain']);
+		$this->assertArrayNotHasKey(key: 'codeRuns', array: $byId['run-plain']);
 
 	}//end testARunRowListsItsCodeRuns()
 

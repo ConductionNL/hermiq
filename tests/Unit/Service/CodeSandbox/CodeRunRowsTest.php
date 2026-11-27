@@ -59,7 +59,7 @@ class CodeRunRowsTest extends TestCase {
 		];
 
 		$this->assertSame(
-			[
+			expected: [
 				'codeRuns' => [
 					[
 						'language' => 'python',
@@ -76,7 +76,7 @@ class CodeRunRowsTest extends TestCase {
 					['language' => 'python', 'code' => 'while True: pass', 'timedOut' => true, 'outputWithheld' => true],
 				],
 			],
-			(new CodeRunRows())->facts(steps: $steps)
+			actual: (new CodeRunRows())->facts(steps: $steps)
 		);
 	}//end testEachCodeStepBecomesOneRowWithOnlyTheShownFields()
 
@@ -86,9 +86,10 @@ class CodeRunRowsTest extends TestCase {
 	 * @return void
 	 */
 	public function testARunWithoutCodeAddsNothing(): void {
-		$this->assertSame([], (new CodeRunRows())->facts(steps: [['seq' => 1, 'type' => 'llm', 'name' => 'answer']]));
-		$this->assertSame([], (new CodeRunRows())->facts(steps: null));
-		$this->assertSame([], (new CodeRunRows())->facts(steps: [['codeRun' => 'not a record']]));
+		$rows = new CodeRunRows();
+		$this->assertSame(expected: [], actual: $rows->facts(steps: [['seq' => 1, 'type' => 'llm', 'name' => 'answer']]));
+		$this->assertSame(expected: [], actual: $rows->facts(steps: null));
+		$this->assertSame(expected: [], actual: $rows->facts(steps: [['codeRun' => 'not a record']]));
 	}//end testARunWithoutCodeAddsNothing()
 
 	/**
@@ -101,6 +102,6 @@ class CodeRunRowsTest extends TestCase {
 			steps: [['codeRun' => ['code' => ['nested'], 'stdout' => 'ok', 'limits' => ['wallSeconds' => '10', 'memoryMb' => 128]]]]
 		);
 
-		$this->assertSame([['stdout' => 'ok', 'limits' => ['memoryMb' => 128]]], $rows);
+		$this->assertSame(expected: [['stdout' => 'ok', 'limits' => ['memoryMb' => 128]]], actual: $rows);
 	}//end testNonScalarValuesAreDropped()
 }//end class
