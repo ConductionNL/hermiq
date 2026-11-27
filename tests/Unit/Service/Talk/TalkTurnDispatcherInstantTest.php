@@ -130,7 +130,12 @@ final class TalkTurnDispatcherInstantTest extends TestCase {
 			$jobList,
 			$logger,
 			$taskManager,
-			new TalkInstantPath(executor: new TalkTurnExecutor(claims: $claims, service: $service), claims: $claims, postResponse: $postResponse, appConfig: $appConfig)
+			new TalkInstantPath(
+				executor: new TalkTurnExecutor(claims: $claims, service: $service),
+				claims: $claims,
+				postResponse: $postResponse,
+				appConfig: $appConfig
+			)
 		);
 	}//end dispatcher()
 

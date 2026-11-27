@@ -66,7 +66,12 @@ final class TalkTurnLiteracyTest extends TestCase {
 
 		$service = new TalkTurnService(
 			$engine,
-			new TalkTurnCollaborators(bridge: $bridge, roomBinding: $this->createMock(originalClassName: TalkRoomBinding::class), userManager: $users, userSession: $this->createMock(originalClassName: IUserSession::class)),
+			new TalkTurnCollaborators(
+				bridge: $bridge,
+				roomBinding: $this->createMock(originalClassName: TalkRoomBinding::class),
+				userManager: $users,
+				userSession: $this->createMock(originalClassName: IUserSession::class)
+			),
 			$this->createMock(LoggerInterface::class),
 			new TalkTurnOptions(literacy: $literacy)
 		);

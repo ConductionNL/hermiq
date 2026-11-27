@@ -78,7 +78,12 @@ final class TalkChainRoomTest extends TestCase {
 		$container = $this->createMock(originalClassName: ContainerInterface::class);
 		$container->method('get')->with(TalkTurnDispatcherInterface::class)->willReturn($this->dispatcher);
 
-		$this->room = new TalkChainRoom(roomBinding: $this->rooms, participation: new ConversationParticipation(), bridge: $this->bridge, container: $container);
+		$this->room = new TalkChainRoom(
+			roomBinding: $this->rooms,
+			participation: new ConversationParticipation(),
+			bridge: $this->bridge,
+			container: $container
+		);
 	}//end setUp()
 
 	/**
@@ -110,7 +115,8 @@ final class TalkChainRoomTest extends TestCase {
 			->willReturn(self::session(owner: 'alice', participants: ['bob']));
 		$this->rooms->expects($this->never())->method('createBound');
 
-		$this->assertSame(expected: 'session-1', actual: (string)$this->room->sessionFor(roomToken: 'room-1', agentId: 'agent-b', rootUid: 'bob')?->getUuid());
+		$session = $this->room->sessionFor(roomToken: 'room-1', agentId: 'agent-b', rootUid: 'bob');
+		$this->assertSame(expected: 'session-1', actual: (string)$session?->getUuid());
 	}//end testAnExistingSessionIsSyncedWithTheRoom()
 
 	/**

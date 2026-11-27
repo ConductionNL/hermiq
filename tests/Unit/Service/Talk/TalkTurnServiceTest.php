@@ -168,7 +168,7 @@ final class TalkTurnServiceTest extends TestCase {
 
 		$silent = $this->createMock(TalkAgentChain::class);
 		$silent->expects($this->never())->method('follow');
-		$this->assertFalse(condition: $this->service(reply: '', chain: $silent)->runTurn(self::turn(speaker: 'alice', message: 'Hallo', room: 'room-1')));
+		$this->assertFalse(condition: $this->service(reply: '', chain: $silent)->runTurn(self::hallo()));
 	}//end testAPostedAnswerIsFollowedToTheAgentsItMentions()
 
 	/**
@@ -178,7 +178,7 @@ final class TalkTurnServiceTest extends TestCase {
 	 * @return void
 	 */
 	public function testTheTurnRunsAsTheSpeakerAndIsAnsweredInTheRoom(): void {
-		$this->assertTrue(condition: $this->service(reply: 'The answer.')->runTurn(self::turn(speaker: 'alice', message: 'Hallo', room: 'room-1')));
+		$this->assertTrue(condition: $this->service(reply: 'The answer.')->runTurn(self::hallo()));
 
 		$this->assertSame(['setUser', 'alice'], $this->events[0]);
 		$this->assertSame('engine', $this->events[1][0]);
@@ -222,7 +222,7 @@ final class TalkTurnServiceTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnEmptyAnswerIsReported(): void {
-		$this->assertFalse(condition: $this->service(reply: "  \n ")->runTurn(self::turn(speaker: 'alice', message: 'Hallo', room: 'room-1')));
+		$this->assertFalse(condition: $this->service(reply: "  \n ")->runTurn(self::hallo()));
 
 		$this->assertSame(['post', 'room-1', '⚠️ I could not complete that turn: the agent returned an empty answer', null], $this->events[2]);
 		$this->assertSame(['setUser', 'prior'], $this->events[3]);
@@ -234,7 +234,7 @@ final class TalkTurnServiceTest extends TestCase {
 	 * @return void
 	 */
 	public function testAFailingTurnIsLoggedReportedAndRestored(): void {
-		$this->assertFalse(condition: $this->service(reply: new RuntimeException('model down'))->runTurn(self::turn(speaker: 'alice', message: 'Hallo', room: 'room-1')));
+		$this->assertFalse(condition: $this->service(reply: new RuntimeException('model down'))->runTurn(self::hallo()));
 
 		$this->assertSame(['log', '[TalkTurnService] Talk-originated agent turn failed', 'model down'], $this->events[2]);
 		$this->assertSame(['post', 'room-1', '⚠️ I could not complete that turn: model down', null], $this->events[3]);
@@ -246,7 +246,7 @@ final class TalkTurnServiceTest extends TestCase {
 	 * @return void
 	 */
 	public function testAnEmptyDisplayNameIsRecordedAsNone(): void {
-		$this->assertTrue(condition: $this->service(reply: 'Answer', displayName: '')->runTurn(self::turn(speaker: 'alice', message: 'Hallo', room: 'room-1')));
+		$this->assertTrue(condition: $this->service(reply: 'Answer', displayName: '')->runTurn(self::hallo()));
 
 		$this->assertSame(['alice', null], array_slice($this->events[1][1], 11, 2));
 	}//end testAnEmptyDisplayNameIsRecordedAsNone()
@@ -258,7 +258,7 @@ final class TalkTurnServiceTest extends TestCase {
 	 * @return void
 	 */
 	public function testASpeakerGoneAtNameLookupHasNoDisplayName(): void {
-		$this->assertTrue(condition: $this->service(reply: 'Answer', vanishes: true)->runTurn(self::turn(speaker: 'alice', message: 'Hallo', room: 'room-1')));
+		$this->assertTrue(condition: $this->service(reply: 'Answer', vanishes: true)->runTurn(self::hallo()));
 
 		$this->assertSame(['alice', null], array_slice($this->events[1][1], 11, 2));
 		$this->assertSame(['post', 'room-1', 'Answer', 'agent-9'], $this->events[2]);
@@ -271,11 +271,11 @@ final class TalkTurnServiceTest extends TestCase {
 	 * @return void
 	 */
 	public function testABoundSessionWithoutAnAgentPostsUnderTheSharedBot(): void {
-		$this->service(reply: 'Answer', bound: ['agentId' => ''])->runTurn(self::turn(speaker: 'alice', message: 'Hallo', room: 'room-1'));
+		$this->service(reply: 'Answer', bound: ['agentId' => ''])->runTurn(self::hallo());
 		$this->assertSame(['post', 'room-1', 'Answer', null], $this->events[2]);
 
 		$this->events = [];
-		$this->service(reply: 'Answer', bound: ['title' => 'x'])->runTurn(self::turn(speaker: 'alice', message: 'Hallo', room: 'room-1'));
+		$this->service(reply: 'Answer', bound: ['title' => 'x'])->runTurn(self::hallo());
 		$this->assertSame(['post', 'room-1', 'Answer', null], $this->events[2]);
 	}//end testABoundSessionWithoutAnAgentPostsUnderTheSharedBot()
 
@@ -288,7 +288,7 @@ final class TalkTurnServiceTest extends TestCase {
 	public function testOnlyTheFirstAnswerInTheRoomCarriesTheSessionLink(): void {
 		$service = $this->service(reply: 'The answer.', claims: ['sess-1', null]);
 
-		$service->runTurn(self::turn(speaker: 'alice', message: 'Hallo', room: 'room-1'));
+		$service->runTurn(self::hallo());
 		$service->runTurn(self::turn(speaker: 'alice', message: 'Nog iets', room: 'room-1'));
 
 		$posts = array_values(array_filter($this->events, static fn (array $event): bool => $event[0] === 'post'));
@@ -307,6 +307,15 @@ final class TalkTurnServiceTest extends TestCase {
 			TalkTurnService::continueInHermiq(answer: "Twee offertes.\n", url: 'https://x/apps/hermiq/chat?session=s')
 		);
 	}//end testTheContinueLineEndsTheAnswer()
+
+	/**
+	 * Alice saying hallo in room-1.
+	 *
+	 * @return TalkTurn
+	 */
+	private static function hallo(): TalkTurn {
+		return self::turn(speaker: 'alice', message: 'Hallo', room: 'room-1');
+	}//end hallo()
 
 	/**
 	 * A turn on conv-1, as the dispatcher hands it to the service.
