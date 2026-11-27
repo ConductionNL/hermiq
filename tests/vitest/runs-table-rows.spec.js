@@ -238,4 +238,40 @@ describe('the Runs table', () => {
 		])
 		expect(w.find('[data-testid="run-computer-actions"] img').exists()).toBe(false)
 	})
+
+	it('shows the code a run ran and its recorded outputs, as the record kept them', async () => {
+		analytics.listRuns.mockResolvedValue({
+			results: [{
+				id: 'r10',
+				agentId: 'a1',
+				agentName: 'Rekenaar',
+				status: 'ok',
+				summary: 'Berekend',
+				codeRuns: [
+					{ language: 'python', code: 'print(1 + 1)', exitCode: 0, stdout: 'mail *** 2', stdoutTruncated: true, stderr: '', stderrTruncated: false },
+					{ language: 'python', code: 'while True: pass', timedOut: true, outputWithheld: true },
+				],
+			}],
+			total: 1,
+		})
+		const { w } = await page()
+
+		const items = w.findAll('[data-testid="run-code-runs"] > li')
+		expect(items).toHaveLength(2)
+		expect(items[0].text()).toContain('Ran python: exit code 0')
+		expect(items[0].find('[data-testid="run-code-source"]').text()).toBe('print(1 + 1)')
+		expect(items[0].find('[data-testid="run-code-stdout"]').text()).toBe('mail *** 2')
+		expect(items[0].find('[data-testid="run-code-stderr"]').exists()).toBe(false)
+		expect(items[0].text()).toContain('Cut to the first 4 KB')
+		expect(items[1].text()).toContain('Ran python: timed out')
+		expect(items[1].text()).toContain('Output not kept: no redaction was available')
+		expect(items[1].find('[data-testid="run-code-stdout"]').exists()).toBe(false)
+	})
+
+	it('shows no code list for a run that ran no code', async () => {
+		analytics.listRuns.mockResolvedValue({ results: [RUNS[0]], total: 1 })
+		const { w } = await page()
+
+		expect(w.find('[data-testid="run-code-runs"]').exists()).toBe(false)
+	})
 })

@@ -204,6 +204,36 @@
 									</span>
 								</li>
 							</ul>
+							<ul
+								v-if="run.codeRuns && run.codeRuns.length"
+								class="hermiq-runs__code"
+								data-testid="run-code-runs">
+								<li v-for="(codeRun, index) in run.codeRuns" :key="`code-${index}`">
+									{{ codeRunLine(codeRun) }}
+									<pre
+										class="hermiq-runs__code-block"
+										:aria-label="t('hermiq', 'Code that ran')"
+										data-testid="run-code-source">{{ codeRun.code }}</pre>
+									<span
+										v-if="codeRun.outputWithheld"
+										class="hermiq-runs__computer-meta">
+										{{ t('hermiq', 'Output not kept: no redaction was available') }}
+									</span>
+									<template v-for="output in codeRunOutputs(codeRun)" :key="output.stream">
+										<span class="hermiq-runs__computer-meta">
+											{{ output.stream === 'stdout' ? t('hermiq', 'Output') : t('hermiq', 'Error output') }}
+										</span>
+										<pre
+											class="hermiq-runs__code-block"
+											:data-testid="`run-code-${output.stream}`">{{ output.text }}</pre>
+										<span
+											v-if="output.truncated"
+											class="hermiq-runs__computer-meta">
+											{{ t('hermiq', 'Cut to the first 4 KB') }}
+										</span>
+									</template>
+								</li>
+							</ul>
 						</td>
 					</tr>
 				</tbody>
@@ -233,6 +263,7 @@ import {
 import HistoryIcon from 'vue-material-design-icons/History.vue'
 import { listRuns } from '../api/analytics.js'
 import { useAgentStore } from '../store/store.js'
+import { codeRunOutcome, codeRunOutputs } from '../utils/codeRuns.js'
 import { attemptOutcome, receivedByList } from '../utils/providerAttempts.js'
 import { toggleSelection } from '../utils/runCompare.js'
 import { cacheShare } from '../utils/runUsage.js'
@@ -422,6 +453,40 @@ export default {
 				return line()
 			}
 			return this.t('hermiq', 'Clicked at {x}, {y} on {target}', { x: String(entry.x ?? ''), y: String(entry.y ?? ''), target })
+		},
+
+		/**
+		 * One recorded code run in words: the language and how it ended (REQ-SANDBOX-005).
+		 *
+		 * @param {object} codeRun One entry of the run row's `codeRuns`.
+		 * @return {string} The line.
+		 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005
+		 */
+		codeRunLine(codeRun) {
+			const language = String((codeRun && codeRun.language) || 'code')
+			const outcome = codeRunOutcome(codeRun)
+			const lines = {
+				__proto__: null,
+				timedOut: () => this.t('hermiq', 'Ran {language}: timed out', { language }),
+				exit: () => this.t('hermiq', 'Ran {language}: exit code {code}', { language, code: String(outcome.exitCode) }),
+				error: () => this.t('hermiq', 'Ran {language}: failed ({error})', { language, error: outcome.error }),
+			}
+			const line = lines[outcome.kind]
+			if (line !== undefined) {
+				return line()
+			}
+			return this.t('hermiq', 'Ran {language}', { language })
+		},
+
+		/**
+		 * The recorded output streams of a code run worth showing.
+		 *
+		 * @param {object} codeRun One entry of the run row's `codeRuns`.
+		 * @return {Array<{stream: string, text: string, truncated: boolean}>} The streams.
+		 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005
+		 */
+		codeRunOutputs(codeRun) {
+			return codeRunOutputs(codeRun)
 		},
 
 		/**
@@ -816,6 +881,25 @@ export default {
 	margin: 4px 0 0;
 	padding-inline-start: 16px;
 	list-style: disc;
+}
+
+.hermiq-runs__code {
+	margin: 4px 0 0;
+	padding-inline-start: 16px;
+	list-style: disc;
+}
+
+.hermiq-runs__code-block {
+	max-height: 12em;
+	margin: 2px 0;
+	padding: 4px 8px;
+	overflow: auto;
+	border-radius: var(--border-radius);
+	background-color: var(--color-background-dark);
+	font-family: var(--font-face-monospace, monospace);
+	font-size: 0.9em;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
 }
 
 .hermiq-runs__computer-meta {

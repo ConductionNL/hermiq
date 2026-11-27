@@ -156,3 +156,65 @@ test.describe('tools-code-sandbox: the admin chooses where code runs', () => {
 		).toBeVisible()
 	})
 })
+
+/*
+ * tools-code-sandbox REQ-SANDBOX-005: the auditor reads what ran on the Runs page.
+ *
+ * The run list is answered by page.route with one run whose step recorded a
+ * `codeRun`, as `AnalyticsService` returns it (`CodeRunRows` narrows the step
+ * on the server, pinned by AnalyticsServiceTest and CodeRunRowsTest): a CI
+ * instance has no sandbox to produce a real run. Not run here.
+ *
+ * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005
+ */
+const RUNS_ROUTE = /\/apps\/hermiq\/api\/runs(\?.*)?$/
+
+test.describe('tools-code-sandbox: every code run is on the run record', () => {
+	// @e2e code-sandbox::an-auditor-reads-what-ran
+	test('an auditor opens the run on the Runs page and reads the code and its redacted output', async ({
+		page,
+	}) => {
+		await page.route(RUNS_ROUTE, async (route: Route) => {
+			await route.fulfill({
+				json: {
+					results: [
+						{
+							id: `${TEST_PREFIX}-code-run`,
+							status: 'ok',
+							agentName: `${TEST_PREFIX} calculator`,
+							trigger: 'manual',
+							durationMs: 900,
+							summary: 'Calculated',
+							codeRuns: [
+								{
+									language: 'python',
+									code: 'print(1 + 1)',
+									exitCode: 0,
+									stdout: 'mailed *** the result 2',
+									stdoutTruncated: true,
+									stderr: '',
+									stderrTruncated: false,
+								},
+							],
+						},
+					],
+					total: 1,
+					limit: 25,
+					offset: 0,
+				},
+			})
+		})
+
+		await page.goto('/index.php/apps/hermiq/runs', {
+			waitUntil: 'domcontentloaded',
+		})
+		const codeRuns = page.getByTestId('run-code-runs')
+		await expect(codeRuns).toBeVisible({ timeout: 20_000 })
+		await expect(codeRuns.getByText('Ran python: exit code 0')).toBeVisible()
+		await expect(codeRuns.getByTestId('run-code-source')).toHaveText('print(1 + 1)')
+		const stdout = codeRuns.getByTestId('run-code-stdout')
+		await expect(stdout).toHaveText('mailed *** the result 2')
+		await expect(stdout).not.toContainText('@')
+		await expect(codeRuns.getByText('Cut to the first 4 KB')).toBeVisible()
+	})
+})
