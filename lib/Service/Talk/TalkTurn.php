@@ -4,8 +4,9 @@
  * Hermiq TalkTurn.
  *
  * One Talk-originated turn: the bound conversation, the speaker it runs as, the
- * message and the room the answer goes to. Built and read only inside
- * TalkTurnService.
+ * message and the room the answer goes to. It is also the hand-off a turn is
+ * dispatched and run with, so neither the dispatcher nor the turn service takes
+ * its fields one by one.
  *
  * @category Service
  * @package  OCA\Hermiq\Service\Talk
@@ -18,6 +19,7 @@
  * SPDX-License-Identifier: EUPL-1.2
  *
  * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+ * @spec openspec/changes/instant-talk/tasks.md#7-verify
  */
 
 declare(strict_types=1);
@@ -58,6 +60,20 @@ final class TalkTurn {
 	 * @var array
 	 */
 	public array $chain = [];
+
+	/**
+	 * The turn id (`TalkTurnId::derive()`); '' runs the turn unclaimed.
+	 *
+	 * @var string
+	 */
+	public string $turnId = '';
+
+	/**
+	 * The Talk message that addressed the agent; its acknowledgement is resolved.
+	 *
+	 * @var string
+	 */
+	public string $messageId = '';
 
 	/**
 	 * Constructor.

@@ -1,22 +1,14 @@
 # instant-talk (delta)
 
-This change makes Talk answers effectively instant (event-driven execution,
-immediate acknowledgement, edit-streamed progressive replies) and makes rooms
-multi-party (several agents and humans, per-agent addressing, bounded agent-to-agent
-turns, moderator-managed per-room agent membership). It builds on the
-`talk-chat-bridge` and in-progress `talk-shared-sessions` specs without weakening
-their identity rules.
-
 ## ADDED Requirements
 
 ### Requirement: Turns execute immediately with claim-based exactly-once semantics
 The system MUST derive a deterministic turn id from the room token, the Talk message
-id, and the addressed agent, and MUST execute each turn at most once: every executor
-(immediate path or queued job) MUST atomically claim the turn id before running it
-and MUST exit without side effects when the claim is already held. The durable
-queued job MUST remain enqueued for every turn as the fallback record, re-executing
-only when a claim has expired without the turn completing. The sender's own request
-MUST never be held for turn execution.
+id and the addressed agent, and MUST run each turn at most once: every executor
+(immediate path or queued job) MUST atomically claim the turn id first and MUST exit
+without side effects when it is held. The queued job MUST stay enqueued for every turn
+as the fallback, re-running only after a claim expired without the turn completing.
+The sender's request MUST never be held for a turn.
 
 #### Scenario: The immediate path answers before the cron tick
 - **GIVEN** an addressed Talk message on an instance with the immediate path
@@ -139,15 +131,12 @@ runs as the speaker with speaker-scoped files and credentials.
 - **THEN** A's session history MUST NOT contain B's session turns, and vice versa
 
 ### Requirement: Agent-to-agent turns are mention-only, bounded, and human-rooted
-The system MUST allow an agent's reply to trigger another enabled agent's turn only
-by explicit @-mention; an agent MUST never react to an agent message that does not
-mention it and MUST never trigger itself. Every agent-triggered turn MUST carry a
-chain rooted at the originating human turn, and the system MUST enforce a
-configurable maximum hop count per chain and a per-room rate cap on agent-triggered
-turns; a chain ending on an exhausted budget MUST end with a brief visible notice,
-not silence. Agent-triggered turns MUST execute as the originating human speaker —
-subject to that speaker's session authorization, files, and credentials — never as
-an agent identity and never as any other participant.
+A reply MUST trigger another enabled agent's turn only by explicit @-mention; an agent
+MUST never react to an agent message not mentioning it, nor trigger itself. Each such
+turn MUST carry a chain rooted at a human turn; the system MUST enforce a configurable
+hop limit per chain and a per-room rate cap, and a spent budget MUST end the chain
+with a brief visible notice. They MUST run as the rooting human, with their access,
+files and credentials, never as an agent or other participant.
 
 #### Scenario: An agent asks another agent for input
 - **GIVEN** a room with agents A and B, and a human turn to A whose reply mentions B

@@ -159,6 +159,18 @@ posted answer to `TalkAgentChain::follow()`.
     (overall 4.20 to 4.16, unit interfacing 2.64 to 2.50); 298 phpcs findings sit in the
     test files, mostly named parameters, outside the app's `composer phpcs` scope
     (lib only); gate 23 counts the app-local Tenant classes, outside this change.
+  - 2026-11-27, refactor PR (branch `cloud/b-hermiq-talk-params`): the seven units are under
+    five parameters (a turn travels as one `TalkTurn`; `TalkAgentChain` delegates to
+    `TalkChainMentions`, `TalkChainRoom` and `TalkChainBudget`; `TalkTurnCollaborators`,
+    `TalkTurnOptions`, `TalkReplyTarget` and `TalkInstantPath` group the rest), and the
+    flagged repeated fragments are gone (log contexts folded, `TalkRoomBinding::saveSession()`).
+    Hydra diff-check against development: units 0 findings (50 changed units), floor PASS,
+    phpcs/phpstan/phpmd/phpunit no NEW findings; gate 23 still counts the untouched
+    app-local Tenant classes. The four `openspec validate` warnings are fixed by hand (no
+    text above the first section; the three requirement texts over 500 characters
+    tightened, every MUST kept). Still open, so this stays unticked: one
+    `openspec validate instant-talk --strict` run to confirm (the CLI could not be
+    installed in the build session), and psalm, which refuses PHP 8.3.6 there.
 
 ## Acceptance criteria
 

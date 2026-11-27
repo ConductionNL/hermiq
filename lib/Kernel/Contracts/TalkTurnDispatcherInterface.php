@@ -24,6 +24,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Kernel\Contracts;
 
+use OCA\Hermiq\Service\Talk\TalkTurn;
+
 /**
  * Contract of TalkTurnDispatcher.
  *
@@ -40,27 +42,13 @@ interface TalkTurnDispatcherInterface {
 	/**
 	 * Hand the turn off for execution outside this request.
 	 *
-	 * @param string $conversationUuid The bound conversation.
-	 * @param string $speakerUid The uid whose turn this is.
-	 * @param string $message The message text.
-	 * @param string $roomToken The room to answer in.
-	 * @param string $turnId The turn id; '' runs it unclaimed.
-	 * @param string $agentId The addressed agent; '' resolves it from the room's session.
-	 * @param string $messageId The Talk message that addressed the agent.
-	 * @param array $chain The agent-to-agent chain descriptor; empty for a human-rooted turn.
+	 * @param TalkTurn $turn The turn: conversation, speaker, message, room, and the
+	 *                       optional turn id, agent, addressing message and chain.
 	 *
 	 * @return string The path taken: `triggered`, `instant` or `queued`.
 	 *
 	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
-	public function dispatch(
-		string $conversationUuid,
-		string $speakerUid,
-		string $message,
-		string $roomToken,
-		string $turnId = '',
-		string $agentId = '',
-		string $messageId = '',
-		array $chain = [],
-	): string;
+	public function dispatch(TalkTurn $turn): string;
 }//end interface

@@ -180,33 +180,44 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 	 * @return ObjectEntity The session, now carrying the agent.
 	 *
 	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-sessions-are-per-room-per-agent-and-ordered
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	private function adopt(ObjectEntity $conversation, string $agentId): ObjectEntity {
 		// The saveObject call is PUT-semantic — carry every existing field forward.
 		$data = $conversation->getObject();
 		$data['agentId'] = $agentId;
 
-		$this->objectService->saveObject(
+		$this->saveSession(conversation: $conversation, data: $data);
+
+		$this->logger->info(
+			message: '[TalkRoomBinding] A room session without an agent is now keyed with its agent',
+			context: ['file' => __FILE__, 'line' => __LINE__, 'conversation' => (string)$conversation->getUuid(), 'agentId' => $agentId]
+		);
+
+		$conversation->setObject($data);
+		return $conversation;
+	}//end adopt()
+
+	/**
+	 * Save a session's payload back onto it. The save is PUT-semantic, so the
+	 * caller passes every existing field forward with its change.
+	 *
+	 * @param ObjectEntity        $conversation The session.
+	 * @param array<string,mixed> $data         Its complete payload.
+	 *
+	 * @return ObjectEntity The saved session.
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
+	 */
+	private function saveSession(ObjectEntity $conversation, array $data): ObjectEntity {
+		return $this->objectService->saveObject(
 			object: $data,
 			options: new ObjectSaveOptions(
 				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
 				uuid: (string)$conversation->getUuid()
 			)
 		);
-
-		$this->logger->info(
-			message: '[TalkRoomBinding] A room session without an agent is now keyed with its agent',
-			context: [
-				'file' => __FILE__,
-				'line' => __LINE__,
-				'conversation' => (string)$conversation->getUuid(),
-				'agentId' => $agentId,
-			]
-		);
-
-		$conversation->setObject($data);
-		return $conversation;
-	}//end adopt()
+	}//end saveSession()
 
 	/**
 	 * The newest session bound to a room.
@@ -267,16 +278,12 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 	 * @param Throwable $error The failure.
 	 *
 	 * @return void
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	private function logRoomLookupFailure(string $roomToken, Throwable $error): void {
 		$this->logger->warning(
 			message: '[TalkRoomBinding] Could not resolve the conversation bound to the room',
-			context: [
-				'file' => __FILE__,
-				'line' => __LINE__,
-				'roomToken' => $roomToken,
-				'error' => $error->getMessage(),
-			]
+			context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'error' => $error->getMessage()]
 		);
 
 	}//end logRoomLookupFailure()
@@ -324,6 +331,7 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 	 * @return bool True when the binding was persisted.
 	 *
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-talk-delivery-binds-the-delivered-for-conversation-to-the-room
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function bind(ObjectEntity $conversation, string $roomToken): bool {
 		if ($roomToken === '') {
@@ -340,13 +348,7 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 			// or the omitted ones are nulled.
 			$data['talkRoomToken'] = $roomToken;
 
-			$this->objectService->saveObject(
-				object: $data,
-				options: new ObjectSaveOptions(
-					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
-					uuid: (string)$conversation->getUuid()
-				)
-			);
+			$this->saveSession(conversation: $conversation, data: $data);
 
 			return true;
 		} catch (Throwable $e) {
@@ -378,6 +380,7 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 	 * @return bool True when the binding was persisted.
 	 *
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-talk-delivery-binds-the-delivered-for-conversation-to-the-room
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function bindByUuid(string $conversationUuid, string $roomToken): bool {
 		if ($conversationUuid === '' || $roomToken === '') {
@@ -398,12 +401,7 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[TalkRoomBinding] Could not load the conversation to bind (delivery is unaffected)',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'conversation' => $conversationUuid,
-					'error' => $e->getMessage(),
-				]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'conversation' => $conversationUuid, 'error' => $e->getMessage()]
 			);
 			return false;
 		}//end try
@@ -446,6 +444,7 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 	 * @return ObjectEntity The session, with its roster updated when it changed.
 	 *
 	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-room-participants-become-session-participants
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function syncParticipants(ObjectEntity $conversation, array $participants): ObjectEntity {
 		try {
@@ -472,22 +471,11 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 			// the fields not mentioned here are deleted.
 			$payload['participants'] = $roster;
 
-			return $this->objectService->saveObject(
-				object: $payload,
-				options: new ObjectSaveOptions(
-					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
-					uuid: (string)$conversation->getUuid()
-				)
-			);
+			return $this->saveSession(conversation: $conversation, data: $payload);
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[TalkRoomBinding] Could not sync the session roster (the turn is unaffected)',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'conversation' => (string)$conversation->getUuid(),
-					'error' => $e->getMessage(),
-				]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'conversation' => (string)$conversation->getUuid(), 'error' => $e->getMessage()]
 			);
 			return $conversation;
 		}//end try
@@ -516,6 +504,7 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 	 *
 	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
 	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-a-session-begun-in-talk-can-be-continued-on-the-chat-page-req-schan-001
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function createBound(
 		string $roomToken,
@@ -568,12 +557,7 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 		} catch (Throwable $e) {
 			$this->logger->error(
 				message: '[TalkRoomBinding] Could not open a conversation for the room',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'error' => $e->getMessage()]
 			);
 			return null;
 		}//end try
@@ -595,6 +579,7 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 	 * @return bool True when the session's title was changed.
 	 *
 	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-a-session-begun-in-talk-can-be-continued-on-the-chat-page-req-schan-001
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function followRoomRename(string $roomToken, string $oldName, string $newName): bool {
 		$newName = trim($newName);
@@ -615,13 +600,7 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 		try {
 			// PUT-semantic: carry every existing field forward.
 			$data['title'] = $newName;
-			$this->objectService->saveObject(
-				object: $data,
-				options: new ObjectSaveOptions(
-					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
-					uuid: (string)$conversation->getUuid()
-				)
-			);
+			$this->saveSession(conversation: $conversation, data: $data);
 			return true;
 		} catch (Throwable $e) {
 			$this->logger->warning(

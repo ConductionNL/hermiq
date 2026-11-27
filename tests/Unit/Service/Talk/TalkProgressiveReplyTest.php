@@ -24,6 +24,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Talk;
 
 use OCA\Hermiq\Service\Talk\TalkBridge;
 use OCA\Hermiq\Service\Talk\TalkProgressiveReply;
+use OCA\Hermiq\Service\Talk\TalkReplyTarget;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -95,10 +96,7 @@ final class TalkProgressiveReplyTest extends TestCase {
 	private function reply(TalkBridge $bridge, bool $canEdit = true): TalkProgressiveReply {
 		return new TalkProgressiveReply(
 			bridge: $bridge,
-			roomToken: 'room-1',
-			agentId: 'agent-a',
-			canEdit: $canEdit,
-			throttleSeconds: 2.0,
+			target: new TalkReplyTarget(roomToken: 'room-1', agentId: 'agent-a', canEdit: $canEdit, throttleSeconds: 2.0),
 			logger: $this->createMock(LoggerInterface::class),
 			clock: fn (): float => $this->now
 		);

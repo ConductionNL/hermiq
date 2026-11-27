@@ -1,27 +1,15 @@
 # talk-chat-bridge (delta)
 
-The hand-off requirement is amended: the queued job becomes the durable fallback and
-record while an immediate execution path (triggerable runner, or post-flush
-in-process execution) executes the turn, with a turn-id claim preventing double
-execution. The listener's fast-ack posture ("The bot listener never runs an agent
-turn inline" — within the sender's request) is unchanged.
-
 ## MODIFIED Requirements
 
 ### Requirement: Turn hand-off is event-driven when possible and queued otherwise
 
-The system MUST enqueue every turn as a durable background job, and MUST additionally
-attempt immediate execution of the same turn: via a registered
-`ITriggerableProvider` runner when one exists, otherwise via post-response
-in-process execution where the runtime allows running work after the sender's
-response has been flushed. The queued job MUST remain the durable record on all
-paths, so a turn can never be lost between the mechanisms, and a turn-id claim MUST
-ensure that only one path executes any given turn. All paths MUST execute the turn
-through the same turn service, so that turn behaviour cannot diverge between them.
-The choice of path MUST NOT change any user-visible behaviour other than latency,
-and MUST NOT hold the request of the person who sent the message. An
-`ISynchronousProvider` does not qualify as an immediate path — core runs those on
-the same cron tick as the fallback.
+The system MUST enqueue every turn as a durable background job and MUST also try to
+run it at once: through a registered `ITriggerableProvider` runner, else in-process
+after the sender's response is flushed (not an `ISynchronousProvider`). The queued job
+MUST stay the record on every path, a turn-id claim MUST let only one path run a turn,
+and every path MUST run it through the same turn service. The path MUST change nothing
+visible but latency and MUST NOT hold the sender's request.
 
 #### Scenario: A registered triggerable runner is nudged in-request
 

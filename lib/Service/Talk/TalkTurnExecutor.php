@@ -78,6 +78,7 @@ class TalkTurnExecutor {
 	 * @return string `ran`, `skipped` (claimed or done elsewhere) or `invalid`.
 	 *
 	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-turns-execute-immediately-with-claim-based-exactly-once-semantics
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function execute(mixed $argument): string {
 		$turn = $this->turnOf(argument: $argument);
@@ -90,19 +91,32 @@ class TalkTurnExecutor {
 			return 'skipped';
 		}
 
-		$this->service->runTurn(
-			conversationUuid: $turn['conversationUuid'],
-			speakerUid: $turn['speakerUid'],
-			message: $turn['message'],
-			roomToken: $turn['roomToken'],
-			agentId: $turn['agentId'],
-			messageId: $turn['messageId'],
-			chain: $turn['chain']
-		);
+		$this->service->runTurn(turn: $this->talkTurn(fields: $turn));
 		$this->claims->markDone(turnId: $turnId);
 
 		return 'ran';
 	}//end execute()
+
+	/**
+	 * The turn to run, from the hand-off's validated fields.
+	 *
+	 * @param array<string, mixed> $fields The fields `turnOf()` answered.
+	 *
+	 * @return TalkTurn The turn.
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
+	 */
+	private function talkTurn(array $fields): TalkTurn {
+		$turn = new TalkTurn(conversationUuid: (string)$fields['conversationUuid'], speakerUid: (string)$fields['speakerUid']);
+		$turn->message = (string)$fields['message'];
+		$turn->roomToken = (string)$fields['roomToken'];
+		$turn->turnId = (string)$fields['turnId'];
+		$turn->agentId = (string)$fields['agentId'];
+		$turn->messageId = (string)$fields['messageId'];
+		$turn->chain = (array)$fields['chain'];
+
+		return $turn;
+	}//end talkTurn()
 
 	/**
 	 * The turn's fields, or null when a required one is missing or empty.

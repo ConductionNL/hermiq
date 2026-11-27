@@ -168,6 +168,7 @@ class TalkTurnClaims {
 	 * @return bool True when the caller now holds the claim and runs the turn.
 	 *
 	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-turns-execute-immediately-with-claim-based-exactly-once-semantics
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function claim(string $turnId): bool {
 		if ($turnId === '' || $this->cache === null) {
@@ -186,12 +187,7 @@ class TalkTurnClaims {
 			// answer, which is the lesser failure — and it is logged.
 			$this->logger->warning(
 				message: '[TalkTurnClaims] The claim store failed; the turn runs unclaimed',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'turnId' => $turnId,
-					'error' => $e->getMessage(),
-				]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'turnId' => $turnId, 'error' => $e->getMessage()]
 			);
 			return true;
 		}//end try
@@ -205,6 +201,7 @@ class TalkTurnClaims {
 	 * @return void
 	 *
 	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-turns-execute-immediately-with-claim-based-exactly-once-semantics
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function markDone(string $turnId): void {
 		if ($turnId === '' || $this->cache === null) {
@@ -217,12 +214,7 @@ class TalkTurnClaims {
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[TalkTurnClaims] Could not record the turn as done; its claim expires on its own',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'turnId' => $turnId,
-					'error' => $e->getMessage(),
-				]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'turnId' => $turnId, 'error' => $e->getMessage()]
 			);
 		}
 	}//end markDone()
@@ -235,6 +227,7 @@ class TalkTurnClaims {
 	 * @return bool True when a slot was taken; release it with `releaseSlot()`.
 	 *
 	 * @spec openspec/changes/instant-talk/tasks.md#2-immediate-execution-paths
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function takeSlot(int $cap): bool {
 		if ($this->cache === null || $cap < 1) {
@@ -251,11 +244,7 @@ class TalkTurnClaims {
 		} catch (Throwable $e) {
 			$this->logger->debug(
 				message: '[TalkTurnClaims] Could not count instant turns; the turn stays queued',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'error' => $e->getMessage(),
-				]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
 			);
 		}
 
@@ -268,6 +257,7 @@ class TalkTurnClaims {
 	 * @return void
 	 *
 	 * @spec openspec/changes/instant-talk/tasks.md#2-immediate-execution-paths
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function releaseSlot(): void {
 		if ($this->cache === null) {
@@ -279,11 +269,7 @@ class TalkTurnClaims {
 		} catch (Throwable $e) {
 			$this->logger->debug(
 				message: '[TalkTurnClaims] Could not release an instant-turn slot',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'error' => $e->getMessage(),
-				]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
 			);
 		}
 	}//end releaseSlot()

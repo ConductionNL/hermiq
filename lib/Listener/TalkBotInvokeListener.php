@@ -42,6 +42,7 @@ use OCA\Hermiq\Kernel\Contracts\TalkRoomGroupingInterface;
 use OCA\Hermiq\Kernel\Contracts\TalkTurnDispatcherInterface;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkBridge;
+use OCA\Hermiq\Service\Talk\TalkTurn;
 use OCA\Hermiq\Service\Talk\TalkTurnId;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -243,20 +244,19 @@ class TalkBotInvokeListener implements IEventListener {
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) TalkTurnId is a pure derivation of a turn's identity from room,
 	 * message and agent; it holds no state to inject.
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	private function handOff(TalkInvocation $invocation): void {
 		$turn = $invocation->turn;
 		$conversationUuid = (string)$invocation->conversation?->getUuid();
 		$messageId = $invocation->messageId();
-		$path = $this->dispatcher->dispatch(
-			conversationUuid: $conversationUuid,
-			speakerUid: $turn['speakerUid'],
-			message: $turn['content'],
-			roomToken: $turn['roomToken'],
-			turnId: TalkTurnId::derive(roomToken: $turn['roomToken'], messageId: $messageId, agentId: $invocation->agentId),
-			agentId: $invocation->agentId,
-			messageId: $messageId
-		);
+		$handOff = new TalkTurn(conversationUuid: $conversationUuid, speakerUid: $turn['speakerUid']);
+		$handOff->message = $turn['content'];
+		$handOff->roomToken = $turn['roomToken'];
+		$handOff->turnId = TalkTurnId::derive(roomToken: $turn['roomToken'], messageId: $messageId, agentId: $invocation->agentId);
+		$handOff->agentId = $invocation->agentId;
+		$handOff->messageId = $messageId;
+		$path = $this->dispatcher->dispatch(turn: $handOff);
 
 		$this->logger->info(
 			message: '[TalkBotInvokeListener] Talk turn handed off',

@@ -27,14 +27,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
-use OCA\Hermiq\Kernel\Contracts\TalkAgentBindingInterface;
-use OCA\Hermiq\Kernel\Contracts\TalkMentionMatcherInterface;
-use OCA\Hermiq\Kernel\Contracts\TalkRoomBindingInterface;
-use OCA\Hermiq\Kernel\Contracts\TalkTurnDispatcherInterface;
-use OCP\IAppConfig;
-use OCP\ICacheFactory;
-use OCP\IMemcache;
-use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -58,50 +50,38 @@ use Throwable;
  *
  * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-agent-to-agent-turns-are-mention-only-bounded-and-human-rooted
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Each limit needs its own collaborator (agents, mentions,
- * sessions, roster, rate counter, dispatcher); splitting them apart would scatter one rule set.
+ * @spec openspec/changes/instant-talk/tasks.md#7-verify
  */
 class TalkAgentChain {
 
 	/**
-	 * The hop budget key and its default.
+	 * The hop budget key and its default (kept here for callers that read them).
 	 */
-	public const MAX_HOPS_KEY = 'talk.agentChainMaxHops';
+	public const MAX_HOPS_KEY = TalkChainBudget::MAX_HOPS_KEY;
 
-	public const DEFAULT_MAX_HOPS = 3;
+	public const DEFAULT_MAX_HOPS = TalkChainBudget::DEFAULT_MAX_HOPS;
 
 	/**
 	 * The per-room rate cap key and its default.
 	 */
-	public const RATE_KEY = 'talk.agentChainRoomRatePerMinute';
+	public const RATE_KEY = TalkChainBudget::RATE_KEY;
 
-	public const DEFAULT_RATE = 6;
+	public const DEFAULT_RATE = TalkChainBudget::DEFAULT_RATE;
 
 	/**
 	 * Constructor.
 	 *
-	 * @param TalkAgentBindingInterface   $agentBinding   The agents a room holds, and their names.
-	 * @param TalkMentionMatcherInterface $mentionMatcher Whether an answer mentions an agent.
-	 * @param TalkRoomBindingInterface    $roomBinding    Each agent's session in the room.
-	 * @param ConversationParticipation   $participation  Owner-or-participant guard.
-	 * @param ContainerInterface          $container      Resolves the dispatcher when a turn is handed off:
-	 *                                                    the dispatcher's executor runs TalkTurnService,
-	 *                                                    which holds this chain, so a constructor
-	 *                                                    dependency would be a cycle.
-	 * @param TalkBridge                  $bridge         Room roster and the chain-ended notice.
-	 * @param IAppConfig                  $appConfig      The hop budget and the rate cap.
-	 * @param ICacheFactory               $cacheFactory   Counts the per-room rate.
-	 * @param LoggerInterface             $logger         PSR-3 logger.
+	 * @param TalkChainMentions $mentions The agents of the room an answer mentions.
+	 * @param TalkChainRoom     $room     The target's session, the hand-off and the chain-ended notice.
+	 * @param TalkChainBudget   $budget   The hop budget and the per-room rate cap.
+	 * @param LoggerInterface   $logger   PSR-3 logger.
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function __construct(
-		private readonly TalkAgentBindingInterface $agentBinding,
-		private readonly TalkMentionMatcherInterface $mentionMatcher,
-		private readonly TalkRoomBindingInterface $roomBinding,
-		private readonly ConversationParticipation $participation,
-		private readonly ContainerInterface $container,
-		private readonly TalkBridge $bridge,
-		private readonly IAppConfig $appConfig,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly TalkChainMentions $mentions,
+		private readonly TalkChainRoom $room,
+		private readonly TalkChainBudget $budget,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -170,32 +150,34 @@ class TalkAgentChain {
 	 * @param string   $messageId The posted answer's message id, or ''.
 	 *
 	 * @return int The agent-triggered turns handed off.
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	private function followMentions(TalkTurn $turn, string $answer, string $messageId): int {
 		if ($turn->agentId === '' || $turn->roomToken === '' || trim($answer) === '') {
 			return 0;
 		}
 
-		$targets = $this->mentionedAgents(turn: $turn, answer: $answer);
+		$targets = $this->mentions->mentionedAgents(turn: $turn, answer: $answer);
 		if ($targets === []) {
 			return 0;
 		}
 
 		$next = $this->nextHop(turn: $turn, messageId: $messageId);
-		$maxHops = max(0, $this->appConfig->getValueInt('hermiq', self::MAX_HOPS_KEY, self::DEFAULT_MAX_HOPS));
+		$maxHops = $this->budget->maxHops();
 		if ($next['hop'] > $maxHops) {
 			$this->endChain(turn: $turn, notice: sprintf('This conversation between agents has ended: it reached its limit of %d hand-offs.', $maxHops));
 			return 0;
 		}
 
+		$hop = new TalkChainHop(answer: $answer, messageId: $messageId, next: $next);
 		$handedOff = 0;
 		foreach ($targets as $target) {
-			if ($this->takeRateSlot(roomToken: $turn->roomToken) === false) {
+			if ($this->budget->takeRateSlot(roomToken: $turn->roomToken) === false) {
 				$this->endChain(turn: $turn, notice: 'This conversation between agents has ended: too many agent turns in this room in the last minute.');
 				break;
 			}
 
-			if ($this->handOff(turn: $turn, target: $target, answer: $answer, messageId: $messageId, next: $next) === true) {
+			if ($this->handOff(turn: $turn, target: $target, hop: $hop) === true) {
 				$handedOff++;
 			}
 		}
@@ -204,114 +186,46 @@ class TalkAgentChain {
 	}//end followMentions()
 
 	/**
-	 * The other opted-in agents of the room the answer mentions by name.
-	 *
-	 * @param TalkTurn $turn   The turn.
-	 * @param string   $answer The answer.
-	 *
-	 * @return array<int, string> The mentioned agents' uuids.
-	 */
-	private function mentionedAgents(TalkTurn $turn, string $answer): array {
-		$targets = [];
-		foreach ($this->agentBinding->agentsForRoom(roomToken: $turn->roomToken) as $agentId) {
-			if ($agentId === $turn->agentId) {
-				continue;
-			}
-
-			$name = $this->agentBinding->agentName(agentId: $agentId);
-			if ($name !== '' && $this->mentionMatcher->matchesAny(content: $answer, names: [$name]) === true) {
-				$targets[] = $agentId;
-			}
-		}
-
-		return $targets;
-	}//end mentionedAgents()
-
-	/**
 	 * Hand one agent-triggered turn off, as the chain's rooting human.
 	 *
 	 * The target agent's session in the room is found or opened for the
 	 * rooting human, its roster synced with the room, and the rooting human
 	 * must still be its owner or a participant: one who left fails closed.
 	 *
-	 * @param TalkTurn                                                $turn      The turn that produced the answer.
-	 * @param string                                                  $target    The mentioned agent.
-	 * @param string                                                  $answer    The answer, the chained turn's message.
-	 * @param string                                                  $messageId The posted answer's message id, or ''.
-	 * @param array{chainId: string, hop: int, rootSpeakerUid: string} $next      The next hop's descriptor.
+	 * @param TalkTurn     $turn   The turn that produced the answer.
+	 * @param string       $target The mentioned agent.
+	 * @param TalkChainHop $hop    The answer, its message id and the next hop's descriptor.
 	 *
 	 * @return bool True when the turn was handed off.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) TalkTurnId::derive() is the one pure turn-id function every hand-off uses.
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
-	private function handOff(TalkTurn $turn, string $target, string $answer, string $messageId, array $next): bool {
+	private function handOff(TalkTurn $turn, string $target, TalkChainHop $hop): bool {
 		$room = $turn->roomToken;
-		$root = $next['rootSpeakerUid'];
-		$members = $this->bridge->roomUserIds(roomToken: $room);
+		$root = $hop->next['rootSpeakerUid'];
 
-		$session = $this->roomBinding->findByRoomAndAgent(roomToken: $room, agentId: $target);
-		if ($session !== null) {
-			$session = $this->roomBinding->syncParticipants(conversation: $session, participants: $members);
-		}
-
+		$session = $this->room->sessionFor(roomToken: $room, agentId: $target, rootUid: $root);
 		if ($session === null) {
-			$session = $this->roomBinding->createBound(roomToken: $room, agentId: $target, ownerUid: $root, participants: $members);
-		}
-
-		if ($session === null
-			|| in_array($root, $members, true) === false
-			|| $this->participation->mayTakeTurn(conversationData: (array)$session->getObject(), userId: $root) === false
-		) {
 			$this->logger->info(
 				message: '[TalkAgentChain] The chain\'s rooting user may not take a turn on the mentioned agent\'s session — no chained turn',
-				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $room, 'agentId' => $target, 'chainId' => $next['chainId']]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $room, 'agentId' => $target, 'chainId' => $hop->next['chainId']]
 			);
 			return false;
 		}
 
-		$turnKey = $messageId;
-		if ($turnKey === '') {
-			$turnKey = $next['chainId'] . '-' . $next['hop'];
-		}
-
-		$this->container->get(TalkTurnDispatcherInterface::class)->dispatch(
-			conversationUuid: (string)$session->getUuid(),
-			speakerUid: $root,
-			message: $answer,
-			roomToken: $room,
-			turnId: TalkTurnId::derive(roomToken: $room, messageId: $turnKey, agentId: $target),
-			agentId: $target,
-			messageId: $messageId,
-			chain: $next
-		);
+		$chained = new TalkTurn(conversationUuid: (string)$session->getUuid(), speakerUid: $root);
+		$chained->message = $hop->answer;
+		$chained->roomToken = $room;
+		$chained->turnId = TalkTurnId::derive(roomToken: $room, messageId: $hop->turnKey(), agentId: $target);
+		$chained->agentId = $target;
+		$chained->messageId = $hop->messageId;
+		$chained->chain = $hop->next;
+		$this->room->dispatch(turn: $chained);
 
 		return true;
 	}//end handOff()
-
-	/**
-	 * Count one agent-triggered turn against the room's per-minute cap.
-	 *
-	 * @param string $roomToken The room.
-	 *
-	 * @return bool True when the turn is within the cap; false without a memcache.
-	 */
-	private function takeRateSlot(string $roomToken): bool {
-		$limit = max(0, $this->appConfig->getValueInt('hermiq', self::RATE_KEY, self::DEFAULT_RATE));
-		if ($limit === 0 || $this->cacheFactory->isAvailable() === false) {
-			return false;
-		}
-
-		$cache = $this->cacheFactory->createDistributed('hermiq_talk_chain');
-		if (($cache instanceof IMemcache) === false) {
-			return false;
-		}
-
-		$key = 'rate-' . $roomToken . '-' . (int)floor(time() / 60);
-		$cache->add($key, 0, 120);
-		$count = $cache->inc($key);
-
-		return (is_int($count) === true && $count <= $limit);
-	}//end takeRateSlot()
 
 	/**
 	 * End the chain with a brief notice in the room, under the answering agent's bot.
@@ -320,12 +234,13 @@ class TalkAgentChain {
 	 * @param string   $notice The notice.
 	 *
 	 * @return void
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	private function endChain(TalkTurn $turn, string $notice): void {
 		$this->logger->info(
 			message: '[TalkAgentChain] Agent chain ended',
 			context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $turn->roomToken, 'notice' => $notice]
 		);
-		$this->bridge->postToRoom(roomToken: $turn->roomToken, message: $notice, agentId: $turn->agentId);
+		$this->room->postNotice(roomToken: $turn->roomToken, notice: $notice, agentId: $turn->agentId);
 	}//end endChain()
 }//end class

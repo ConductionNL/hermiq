@@ -26,6 +26,9 @@ use OCA\Hermiq\Kernel\Contracts\TalkTurnDispatcherInterface;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkAgentChain;
 use OCA\Hermiq\Service\Talk\TalkBridge;
+use OCA\Hermiq\Service\Talk\TalkChainBudget;
+use OCA\Hermiq\Service\Talk\TalkChainMentions;
+use OCA\Hermiq\Service\Talk\TalkChainRoom;
 use OCA\Hermiq\Service\Talk\TalkMentionMatcher;
 use OCA\Hermiq\Service\Talk\TalkTurn;
 use OCA\Hermiq\Service\Talk\TalkTurnId;
@@ -108,8 +111,17 @@ final class TalkAgentChainTest extends TestCase {
 
 		$dispatcher = $this->createMock(TalkTurnDispatcherInterface::class);
 		$dispatcher->method('dispatch')->willReturnCallback(
-			function (string $conversationUuid, string $speakerUid, string $message, string $roomToken, string $turnId = '', string $agentId = '', string $messageId = '', array $chain = []): string {
-				$this->dispatched[] = compact('conversationUuid', 'speakerUid', 'message', 'roomToken', 'turnId', 'agentId', 'messageId', 'chain');
+			function (TalkTurn $turn): string {
+				$this->dispatched[] = [
+					'conversationUuid' => $turn->conversationUuid,
+					'speakerUid' => $turn->speakerUid,
+					'message' => $turn->message,
+					'roomToken' => $turn->roomToken,
+					'turnId' => $turn->turnId,
+					'agentId' => $turn->agentId,
+					'messageId' => $turn->messageId,
+					'chain' => $turn->chain,
+				];
 				return 'queued';
 			}
 		);
@@ -156,14 +168,9 @@ final class TalkAgentChainTest extends TestCase {
 		$caches->method('createDistributed')->willReturn($cache);
 
 		return new TalkAgentChain(
-			$agents,
-			new TalkMentionMatcher(),
-			$rooms,
-			new ConversationParticipation(),
-			$container,
-			$bridge,
-			$config,
-			$caches,
+			new TalkChainMentions(agentBinding: $agents, mentionMatcher: new TalkMentionMatcher()),
+			new TalkChainRoom(roomBinding: $rooms, participation: new ConversationParticipation(), bridge: $bridge, container: $container),
+			new TalkChainBudget(appConfig: $config, cacheFactory: $caches),
 			$this->createMock(LoggerInterface::class)
 		);
 	}//end chain()
