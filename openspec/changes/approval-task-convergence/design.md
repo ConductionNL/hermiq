@@ -38,6 +38,16 @@ In-flight state is pending Approval objects. The repair step (`MirrorPendingAppr
 
 Rollback (`occ hermiq:approvals:rollback-task-mirror`) terminates every still-open mirror task as moot and clears the `taskUuid` backlinks, restoring the pre-convergence world without touching any decision already made. Both directions log per-object and report counts; a partial pass names what failed.
 
+## Decision 6: no task sequence for skill drafts (phase 3, task 3.2)
+
+Evaluated 2026-11-27: `TaskSequenceService::provision()` for a multi-step skill-draft approval (maintainer plus owner sign-off). Rejected, recorded rather than adopted.
+
+- hermiq has no multi-step approval to move. `ApprovalService::ensurePendingApprovalForSkillDraft()` creates ONE pending Approval per draft, routed by `reviewFor()` to the skill's owner, or to the `admin` group when the skill has no owner. There is no maintainer role, no second position and no ordering anywhere in the approval code, so a sequence would provision a chain of length one.
+- A one-position sequence adds a `TaskSequence` row, a frozen template snapshot and progression through `TaskSequenceProgressListener` on top of the single mirror task that `ApprovalTaskBridge` already creates, and buys none of the sequence's semantics (one position enabled at a time, a rejection that stops the chain).
+- `provision()` takes a compiled chain template (`ApprovalChainAnnotationInstaller::compile()`) anchored on the object under approval. hermiq would have to author and maintain such a template for a chain it does not have.
+
+Revisit when a spec adds a second sign-off to skill drafts. The adoption path is then: compile a two-position template (maintainer, owner), provision it in place of `ApprovalTaskBridge::ensureTaskFor()` for `sourceType: skill-draft` only, and apply the decision from the sequence's terminal state instead of the single task's, so `TaskTerminalListener` stays the only applier.
+
 ## Alternatives considered
 
 - Full cutover in one PR (ApprovalService becomes a thin delegate): rejected for blast radius; five resume paths, the Talk binding and the skill-draft applier would all change under one review. Staged as phase 2/3.
