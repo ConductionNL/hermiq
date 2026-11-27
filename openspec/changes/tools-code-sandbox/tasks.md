@@ -62,6 +62,7 @@ Kind: code. Size L. Rows `hermiq:tl-code-exec`, `hermiq:fl-code-step`, `hermiq:d
 - [ ] Test (PHPUnit on the trace extra; Playwright under tests/e2e/spec-coverage/ on the admin section)
   - PHPUnit (`CodeRunTraceTest`, the invoker's trace step, the test route) and vitest (`code-sandbox-settings.spec.js`) done; the Playwright run needs a live instance.
   - 2026-11-21: `tests/e2e/spec-coverage/code-sandbox.spec.ts` written for the admin section (the hosted choice saved for real and put back, "Run a test" answered by page.route); not run here, it needs a running Nextcloud. Open: the auditor scenario has no screen yet, nothing renders the `codeRun` trace extra on the Runs page.
+  - 2026-11-27: the auditor scenario has its screen: `CodeRunRows` puts each step's `codeRun` on the run row as `codeRuns` (scalars only, limits narrowed to wall clock and memory), and the Runs page shows the language, how it ended, the code, and each recorded output with its 4 KB cut, or that the output was withheld. Tests: `CodeRunRowsTest`, `AnalyticsServiceTest::testARunRowListsItsCodeRuns`, vitest `code-runs.spec.js` and `runs-table-rows.spec.js`; the Playwright case `an-auditor-reads-what-ran` is in `code-sandbox.spec.ts`, not run here (needs a running Nextcloud), so this line stays open.
 
 ## Verification
 - [x] `openspec validate tools-code-sandbox --type change --strict` passes

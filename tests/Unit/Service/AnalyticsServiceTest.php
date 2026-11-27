@@ -607,6 +607,43 @@ class AnalyticsServiceTest extends TestCase {
 	}//end testARunRowListsItsComputerActions()
 
 	/**
+	 * Tools-code-sandbox REQ-SANDBOX-005: a run row lists the code runs its steps
+	 * recorded, with the code and the already redacted outputs; a run without one
+	 * has no such list.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005
+	 */
+	public function testARunRowListsItsCodeRuns(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+		$used = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$used->setUuid('run-code');
+		$used->setCreated(new \DateTime('2026-10-20 10:00:00'));
+		$used->setChanged(
+			[
+				'status' => 'ok',
+				'agentId' => 'agentA',
+				'steps' => [
+					['seq' => 1, 'type' => 'tool', 'name' => 'hermiq.runCode', 'arguments' => ['code' => 'x'], 'codeRun' => ['language' => 'python', 'code' => 'print(2)', 'exitCode' => 0, 'stdout' => 'mail ***', 'raw' => 'dropped']],
+				],
+			]
+		);
+		$plain = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$plain->setUuid('run-plain');
+		$plain->setCreated(new \DateTime('2026-10-19 10:00:00'));
+
+		$byId = array_column($this->service($schedules, [$used, $plain])->listRuns()['results'], null, 'id');
+
+		$this->assertSame(
+			[['language' => 'python', 'code' => 'print(2)', 'exitCode' => 0, 'stdout' => 'mail ***']],
+			$byId['run-code']['codeRuns']
+		);
+		$this->assertArrayNotHasKey('codeRuns', $byId['run-plain']);
+
+	}//end testARunRowListsItsCodeRuns()
+
+	/**
 	 * A run row carries the run's token counts, cache counts included, and drops
 	 * anything that is not a whole count; a run without usage gets an empty list.
 	 *

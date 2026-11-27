@@ -68,6 +68,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Kernel\Contracts\AnalyticsServiceInterface;
+use OCA\Hermiq\Service\CodeSandbox\CodeRunRows;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -546,6 +547,8 @@ class AnalyticsService implements AnalyticsServiceInterface
      * @param array<string, mixed> $context The entry's recorded `changed` payload.
      *
      * @return array<string, mixed> The recorded facts, null where not recorded.
+     *
+     * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005
      */
     private function runFacts(array $context): array
     {
@@ -567,7 +570,7 @@ class AnalyticsService implements AnalyticsServiceInterface
             ),
             'receivedBy'         => self::labelRows(rows: ($context['providerDisclosure']['receivedBy'] ?? []), keys: ['provider', 'model']),
             'usage'              => $this->runUsage(context: $context),
-        ] + self::computerFacts(steps: ($context['steps'] ?? []));
+        ] + self::computerFacts(steps: ($context['steps'] ?? [])) + (new CodeRunRows())->facts(steps: ($context['steps'] ?? []));
 
     }//end runFacts()
 
