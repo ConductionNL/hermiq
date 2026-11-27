@@ -2,7 +2,8 @@
 
 ## 0. Sequencing and the blocking decision
 
-- [ ] Land `tool-scope-security-default` first
+- [x] Land `tool-scope-security-default` first
+  - 2026-11-27: landed; archived as `openspec/changes/archive/2026-11-17-tool-scope-security-default/`. The token strategy (D0.1) is still open and still blocks the pool.
 - [ ] Decide the token strategy (design D0.1) before writing any pool code
 
 Acceptance criteria:
