@@ -43,7 +43,7 @@ final class TalkChainBudgetTest extends TestCase {
 	 * @return TalkChainBudget
 	 */
 	private function budget(int $maxHops, int $rate, ?InMemoryMemcache $cache): TalkChainBudget {
-		$config = $this->createMock(IAppConfig::class);
+		$config = $this->createMock(originalClassName: IAppConfig::class);
 		$config->method('getValueInt')->willReturnCallback(
 			static fn (string $app, string $key, int $default): int => match ($key) {
 				TalkChainBudget::MAX_HOPS_KEY => $maxHops,
@@ -51,11 +51,11 @@ final class TalkChainBudgetTest extends TestCase {
 				default => $default,
 			}
 		);
-		$caches = $this->createMock(ICacheFactory::class);
+		$caches = $this->createMock(originalClassName: ICacheFactory::class);
 		$caches->method('isAvailable')->willReturn($cache !== null);
 		$caches->method('createDistributed')->willReturn($cache ?? new InMemoryMemcache());
 
-		return new TalkChainBudget($config, $caches);
+		return new TalkChainBudget(appConfig: $config, cacheFactory: $caches);
 	}//end budget()
 
 	/**
@@ -64,8 +64,8 @@ final class TalkChainBudgetTest extends TestCase {
 	 * @return void
 	 */
 	public function testTheHopBudgetIsNeverNegative(): void {
-		$this->assertSame(5, $this->budget(maxHops: 5, rate: 6, cache: null)->maxHops());
-		$this->assertSame(0, $this->budget(maxHops: -2, rate: 6, cache: null)->maxHops());
+		$this->assertSame(expected: 5, actual: $this->budget(maxHops: 5, rate: 6, cache: null)->maxHops());
+		$this->assertSame(expected: 0, actual: $this->budget(maxHops: -2, rate: 6, cache: null)->maxHops());
 	}//end testTheHopBudgetIsNeverNegative()
 
 	/**
@@ -76,10 +76,10 @@ final class TalkChainBudgetTest extends TestCase {
 	public function testTheRateCapAdmitsUpToItsLimitPerRoom(): void {
 		$budget = $this->budget(maxHops: 3, rate: 2, cache: new InMemoryMemcache());
 
-		$this->assertTrue($budget->takeRateSlot(roomToken: 'room-1'));
-		$this->assertTrue($budget->takeRateSlot(roomToken: 'room-1'));
-		$this->assertFalse($budget->takeRateSlot(roomToken: 'room-1'));
-		$this->assertTrue($budget->takeRateSlot(roomToken: 'room-2'), 'Each room has its own count.');
+		$this->assertTrue(condition: $budget->takeRateSlot(roomToken: 'room-1'));
+		$this->assertTrue(condition: $budget->takeRateSlot(roomToken: 'room-1'));
+		$this->assertFalse(condition: $budget->takeRateSlot(roomToken: 'room-1'));
+		$this->assertTrue(condition: $budget->takeRateSlot(roomToken: 'room-2'), message: 'Each room has its own count.');
 	}//end testTheRateCapAdmitsUpToItsLimitPerRoom()
 
 	/**
@@ -88,7 +88,7 @@ final class TalkChainBudgetTest extends TestCase {
 	 * @return void
 	 */
 	public function testNoCounterOrAZeroCapRefusesEveryTurn(): void {
-		$this->assertFalse($this->budget(maxHops: 3, rate: 6, cache: null)->takeRateSlot(roomToken: 'room-1'));
-		$this->assertFalse($this->budget(maxHops: 3, rate: 0, cache: new InMemoryMemcache())->takeRateSlot(roomToken: 'room-1'));
+		$this->assertFalse(condition: $this->budget(maxHops: 3, rate: 6, cache: null)->takeRateSlot(roomToken: 'room-1'));
+		$this->assertFalse(condition: $this->budget(maxHops: 3, rate: 0, cache: new InMemoryMemcache())->takeRateSlot(roomToken: 'room-1'));
 	}//end testNoCounterOrAZeroCapRefusesEveryTurn()
 }//end class

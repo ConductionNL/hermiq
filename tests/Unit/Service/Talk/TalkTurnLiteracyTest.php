@@ -66,12 +66,12 @@ final class TalkTurnLiteracyTest extends TestCase {
 
 		$service = new TalkTurnService(
 			$engine,
-			new TalkTurnCollaborators($bridge, $this->createMock(TalkRoomBinding::class), $users, $this->createMock(IUserSession::class)),
+			new TalkTurnCollaborators(bridge: $bridge, roomBinding: $this->createMock(originalClassName: TalkRoomBinding::class), userManager: $users, userSession: $this->createMock(originalClassName: IUserSession::class)),
 			$this->createMock(LoggerInterface::class),
 			new TalkTurnOptions(literacy: $literacy)
 		);
 
-		$this->assertFalse($service->runTurn(self::turn('alice', 'hallo', 'room1')));
+		$this->assertFalse(condition: $service->runTurn(self::turn(speaker: 'alice', message: 'hallo', room: 'room1')));
 		$this->assertCount(1, $posted);
 		$this->assertStringContainsString('Finish the short course Working with AI first.', $posted[0]);
 

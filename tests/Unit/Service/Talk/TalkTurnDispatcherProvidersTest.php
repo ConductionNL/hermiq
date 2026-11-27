@@ -142,7 +142,7 @@ class TalkTurnDispatcherProvidersTest extends TestCase {
 			$this->callback(static fn (array $context): bool => $context['error'] === 'runner down')
 		);
 
-		$path = (new TalkTurnDispatcher($jobs, $logger, $this->manager([$provider])))->dispatch(turn: $this->turn());
+		$path = (new TalkTurnDispatcher(jobList: $jobs, logger: $logger, taskManager: $this->manager(providers: [$provider])))->dispatch(turn: $this->turn());
 
 		self::assertSame('queued', $path);
 

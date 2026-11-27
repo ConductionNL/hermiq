@@ -354,7 +354,13 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[TalkRoomBinding] Could not bind the conversation to the room (delivery is unaffected)',
-				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'conversation' => (string)$conversation->getUuid(), 'error' => $e->getMessage()]
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'roomToken' => $roomToken,
+					'conversation' => (string)$conversation->getUuid(),
+					'error' => $e->getMessage(),
+				]
 			);
 			return false;
 		}//end try
@@ -538,7 +544,13 @@ class TalkRoomBinding implements TalkRoomBindingInterface {
 
 			$this->logger->info(
 				message: '[TalkRoomBinding] Opened a conversation bound to a Talk room',
-				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'conversation' => (string)$created->getUuid(), 'participants' => count($roster)]
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'roomToken' => $roomToken,
+					'conversation' => (string)$created->getUuid(),
+					'participants' => count($roster),
+				]
 			);
 
 			return $created;

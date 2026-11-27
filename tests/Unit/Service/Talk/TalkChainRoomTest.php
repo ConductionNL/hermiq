@@ -72,13 +72,13 @@ final class TalkChainRoomTest extends TestCase {
 	 * @return void
 	 */
 	protected function setUp(): void {
-		$this->rooms = $this->createMock(TalkRoomBindingInterface::class);
-		$this->bridge = $this->createMock(TalkBridge::class);
-		$this->dispatcher = $this->createMock(TalkTurnDispatcherInterface::class);
-		$container = $this->createMock(ContainerInterface::class);
+		$this->rooms = $this->createMock(originalClassName: TalkRoomBindingInterface::class);
+		$this->bridge = $this->createMock(originalClassName: TalkBridge::class);
+		$this->dispatcher = $this->createMock(originalClassName: TalkTurnDispatcherInterface::class);
+		$container = $this->createMock(originalClassName: ContainerInterface::class);
 		$container->method('get')->with(TalkTurnDispatcherInterface::class)->willReturn($this->dispatcher);
 
-		$this->room = new TalkChainRoom($this->rooms, new ConversationParticipation(), $this->bridge, $container);
+		$this->room = new TalkChainRoom(roomBinding: $this->rooms, participation: new ConversationParticipation(), bridge: $this->bridge, container: $container);
 	}//end setUp()
 
 	/**
@@ -104,13 +104,13 @@ final class TalkChainRoomTest extends TestCase {
 	 */
 	public function testAnExistingSessionIsSyncedWithTheRoom(): void {
 		$this->bridge->method('roomUserIds')->willReturn(['alice', 'bob']);
-		$this->rooms->method('findByRoomAndAgent')->willReturn(self::session('alice', []));
+		$this->rooms->method('findByRoomAndAgent')->willReturn(self::session(owner: 'alice', participants: []));
 		$this->rooms->expects($this->once())->method('syncParticipants')
-			->with($this->isInstanceOf(ObjectEntity::class), ['alice', 'bob'])
-			->willReturn(self::session('alice', ['bob']));
+			->with($this->isInstanceOf(className: ObjectEntity::class), ['alice', 'bob'])
+			->willReturn(self::session(owner: 'alice', participants: ['bob']));
 		$this->rooms->expects($this->never())->method('createBound');
 
-		$this->assertSame('session-1', (string)$this->room->sessionFor(roomToken: 'room-1', agentId: 'agent-b', rootUid: 'bob')?->getUuid());
+		$this->assertSame(expected: 'session-1', actual: (string)$this->room->sessionFor(roomToken: 'room-1', agentId: 'agent-b', rootUid: 'bob')?->getUuid());
 	}//end testAnExistingSessionIsSyncedWithTheRoom()
 
 	/**
@@ -123,9 +123,9 @@ final class TalkChainRoomTest extends TestCase {
 		$this->rooms->method('findByRoomAndAgent')->willReturn(null);
 		$this->rooms->expects($this->once())->method('createBound')
 			->with('room-1', 'agent-b', 'alice', ['alice'])
-			->willReturn(self::session('alice', []));
+			->willReturn(self::session(owner: 'alice', participants: []));
 
-		$this->assertNotNull($this->room->sessionFor(roomToken: 'room-1', agentId: 'agent-b', rootUid: 'alice'));
+		$this->assertNotNull(actual: $this->room->sessionFor(roomToken: 'room-1', agentId: 'agent-b', rootUid: 'alice'));
 	}//end testAMissingSessionIsOpenedForTheRootingHuman()
 
 	/**
@@ -135,11 +135,11 @@ final class TalkChainRoomTest extends TestCase {
 	 */
 	public function testARootingHumanWhoLeftFailsClosed(): void {
 		$this->bridge->method('roomUserIds')->willReturn(['alice']);
-		$this->rooms->method('findByRoomAndAgent')->willReturn(self::session('alice', ['carol']));
+		$this->rooms->method('findByRoomAndAgent')->willReturn(self::session(owner: 'alice', participants: ['carol']));
 		$this->rooms->method('syncParticipants')->willReturnArgument(0);
 
-		$this->assertNull($this->room->sessionFor(roomToken: 'room-1', agentId: 'agent-b', rootUid: 'carol'), 'Carol left the room.');
-		$this->assertNull($this->room->sessionFor(roomToken: 'room-1', agentId: 'agent-b', rootUid: 'dave'), 'Dave is not in the room.');
+		$this->assertNull(actual: $this->room->sessionFor(roomToken: 'room-1', agentId: 'agent-b', rootUid: 'carol'), message: 'Carol left the room.');
+		$this->assertNull(actual: $this->room->sessionFor(roomToken: 'room-1', agentId: 'agent-b', rootUid: 'dave'), message: 'Dave is not in the room.');
 	}//end testARootingHumanWhoLeftFailsClosed()
 
 	/**
@@ -149,9 +149,9 @@ final class TalkChainRoomTest extends TestCase {
 	 */
 	public function testAChainedTurnIsHandedToTheDispatcher(): void {
 		$turn = new TalkTurn(conversationUuid: 'session-1', speakerUid: 'alice');
-		$this->dispatcher->expects($this->once())->method('dispatch')->with($this->identicalTo($turn))->willReturn('instant');
+		$this->dispatcher->expects($this->once())->method('dispatch')->with($this->identicalTo(value: $turn))->willReturn('instant');
 
-		$this->assertSame('instant', $this->room->dispatch(turn: $turn));
+		$this->assertSame(expected: 'instant', actual: $this->room->dispatch(turn: $turn));
 	}//end testAChainedTurnIsHandedToTheDispatcher()
 
 	/**

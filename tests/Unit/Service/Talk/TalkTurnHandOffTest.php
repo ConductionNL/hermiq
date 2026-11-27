@@ -139,7 +139,7 @@ class TalkTurnHandOffTest extends TestCase {
 			}
 		);
 
-		$path = $this->makeDispatcher(null, $jobList)->dispatch(turn: $this->turn());
+		$path = $this->makeDispatcher(providers: null, jobList: $jobList)->dispatch(turn: $this->turn());
 
 		$this->assertSame('queued', $path);
 		$this->assertCount(1, $enqueued);
@@ -170,7 +170,7 @@ class TalkTurnHandOffTest extends TestCase {
 
 		$provider = $this->makeTriggerableProvider();
 
-		$path = $this->makeDispatcher([$provider], $jobList)->dispatch(turn: $this->turn());
+		$path = $this->makeDispatcher(providers: [$provider], jobList: $jobList)->dispatch(turn: $this->turn());
 
 		// That the runner was nudged is asserted by the mock's `once()`
 		// expectation in makeTriggerableProvider().

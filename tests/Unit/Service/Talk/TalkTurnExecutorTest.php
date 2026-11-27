@@ -161,7 +161,7 @@ final class TalkTurnExecutorTest extends TestCase {
 		$this->assertSame('ran', $this->executor(cache: $cache)->execute(argument: $legacy));
 		$this->assertSame('', $this->calls[0][4]);
 		$this->assertSame([], $this->calls[0][6]);
-		$this->assertSame('', $this->calls[0][7]);
+		$this->assertSame(expected: '', actual: $this->calls[0][7]);
 	}//end testALegacyArgumentRunsUnclaimed()
 
 	/**

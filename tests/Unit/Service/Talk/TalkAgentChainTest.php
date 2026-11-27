@@ -168,9 +168,9 @@ final class TalkAgentChainTest extends TestCase {
 		$caches->method('createDistributed')->willReturn($cache);
 
 		return new TalkAgentChain(
-			new TalkChainMentions($agents, new TalkMentionMatcher()),
-			new TalkChainRoom($rooms, new ConversationParticipation(), $bridge, $container),
-			new TalkChainBudget($config, $caches),
+			new TalkChainMentions(agentBinding: $agents, mentionMatcher: new TalkMentionMatcher()),
+			new TalkChainRoom(roomBinding: $rooms, participation: new ConversationParticipation(), bridge: $bridge, container: $container),
+			new TalkChainBudget(appConfig: $config, cacheFactory: $caches),
 			$this->createMock(LoggerInterface::class)
 		);
 	}//end chain()

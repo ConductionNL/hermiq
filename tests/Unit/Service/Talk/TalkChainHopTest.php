@@ -42,8 +42,8 @@ final class TalkChainHopTest extends TestCase {
 	public function testTheTurnKeyPrefersThePostedMessage(): void {
 		$next = ['chainId' => 'abc', 'hop' => 2, 'rootSpeakerUid' => 'alice'];
 
-		$this->assertSame('77', (new TalkChainHop(answer: '@Bram', messageId: '77', next: $next))->turnKey());
-		$this->assertSame('abc-2', (new TalkChainHop(answer: '@Bram', messageId: '', next: $next))->turnKey());
+		$this->assertSame(expected: '77', actual: (new TalkChainHop(answer: '@Bram', messageId: '77', next: $next))->turnKey());
+		$this->assertSame(expected: 'abc-2', actual: (new TalkChainHop(answer: '@Bram', messageId: '', next: $next))->turnKey());
 	}//end testTheTurnKeyPrefersThePostedMessage()
 
 	/**
@@ -52,7 +52,7 @@ final class TalkChainHopTest extends TestCase {
 	 * @return void
 	 */
 	public function testOnlyOtherNamedAgentsAreMentioned(): void {
-		$agents = $this->createMock(TalkAgentBindingInterface::class);
+		$agents = $this->createMock(originalClassName: TalkAgentBindingInterface::class);
 		$agents->method('agentsForRoom')->willReturn(['agent-ada', 'agent-bram', 'agent-cas', 'agent-nameless']);
 		$agents->method('agentName')->willReturnCallback(
 			static fn (string $id): string => ['agent-ada' => 'Ada', 'agent-bram' => 'Bram', 'agent-cas' => 'Cas'][$id] ?? ''
@@ -61,9 +61,9 @@ final class TalkChainHopTest extends TestCase {
 		$turn->roomToken = 'room-1';
 		$turn->agentId = 'agent-ada';
 
-		$mentions = new TalkChainMentions($agents, new TalkMentionMatcher());
+		$mentions = new TalkChainMentions(agentBinding: $agents, mentionMatcher: new TalkMentionMatcher());
 
-		$this->assertSame(['agent-bram'], $mentions->mentionedAgents(turn: $turn, answer: '@Ada and @Bram, over to you.'));
-		$this->assertSame([], $mentions->mentionedAgents(turn: $turn, answer: 'No one else.'));
+		$this->assertSame(expected: ['agent-bram'], actual: $mentions->mentionedAgents(turn: $turn, answer: '@Ada and @Bram, over to you.'));
+		$this->assertSame(expected: [], actual: $mentions->mentionedAgents(turn: $turn, answer: 'No one else.'));
 	}//end testOnlyOtherNamedAgentsAreMentioned()
 }//end class

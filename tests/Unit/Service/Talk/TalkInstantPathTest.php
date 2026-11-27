@@ -40,18 +40,18 @@ final class TalkInstantPathTest extends TestCase {
 	 * @return void
 	 */
 	public function testTheSwitchAndCapComeFromTheAppConfigWithTheirDefaults(): void {
-		$config = $this->createMock(IAppConfig::class);
+		$config = $this->createMock(originalClassName: IAppConfig::class);
 		$config->expects($this->once())->method('getValueBool')->with('hermiq', TalkInstantPath::ENABLED_KEY, true)->willReturn(false);
 		$config->expects($this->once())->method('getValueInt')->with('hermiq', TalkInstantPath::CAP_KEY, TalkInstantPath::DEFAULT_CAP)->willReturn(4);
 
 		$path = new TalkInstantPath(
-			$this->createMock(TalkTurnExecutor::class),
-			$this->createMock(TalkTurnClaims::class),
-			$this->createMock(TalkPostResponseRunner::class),
-			$config
+			executor: $this->createMock(originalClassName: TalkTurnExecutor::class),
+			claims: $this->createMock(originalClassName: TalkTurnClaims::class),
+			postResponse: $this->createMock(originalClassName: TalkPostResponseRunner::class),
+			appConfig: $config
 		);
 
-		$this->assertFalse($path->enabled());
-		$this->assertSame(4, $path->cap());
+		$this->assertFalse(condition: $path->enabled());
+		$this->assertSame(expected: 4, actual: $path->cap());
 	}//end testTheSwitchAndCapComeFromTheAppConfigWithTheirDefaults()
 }//end class

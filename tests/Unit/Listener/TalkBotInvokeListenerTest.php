@@ -245,7 +245,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 
 		$this->dispatcher->expects($this->once())
 			->method('dispatch')
-			->with($this->turnOf('conv-1', 'alice', '@Hermiq hello there', 'room1'))
+			->with($this->turnOf(conversationUuid: 'conv-1', speakerUid: 'alice', message: '@Hermiq hello there', roomToken: 'room1'))
 			->willReturn('queued');
 
 		$event = $this->makeEvent(content: '@Hermiq hello there');
@@ -314,7 +314,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 
 		$this->dispatcher->expects($this->once())
 			->method('dispatch')
-			->with($this->turnOf('conv-1', 'alice', 'what is 2+2?', 'room1'))
+			->with($this->turnOf(conversationUuid: 'conv-1', speakerUid: 'alice', message: 'what is 2+2?', roomToken: 'room1'))
 			->willReturn('queued');
 
 		$envelope = json_encode(['message' => 'what is 2+2?', 'parameters' => []]);
@@ -337,7 +337,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 
 		$this->dispatcher->expects($this->once())
 			->method('dispatch')
-			->with($this->turnOf('conv-1', 'alice', 'Hermiq summarise this', 'room1'))
+			->with($this->turnOf(conversationUuid: 'conv-1', speakerUid: 'alice', message: 'Hermiq summarise this', roomToken: 'room1'))
 			->willReturn('queued');
 
 		$envelope = json_encode(
@@ -434,7 +434,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 
 		$this->dispatcher->expects($this->once())
 			->method('dispatch')
-			->with($this->turnOf('conv-1', 'alice', 'hello', 'room1'))
+			->with($this->turnOf(conversationUuid: 'conv-1', speakerUid: 'alice', message: 'hello', roomToken: 'room1'))
 			->willReturn('queued');
 
 		$this->listener->handle($this->makeEvent(content: 'hello', actorId: 'users/alice'));
@@ -477,7 +477,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 	 */
 	private function turnOf(string $conversationUuid, string $speakerUid, string $message, string $roomToken): Callback {
 		return $this->callback(
-			static fn (TalkTurn $turn): bool => $turn->conversationUuid === $conversationUuid
+			callback: static fn (TalkTurn $turn): bool => $turn->conversationUuid === $conversationUuid
 				&& $turn->speakerUid === $speakerUid
 				&& $turn->message === $message
 				&& $turn->roomToken === $roomToken
