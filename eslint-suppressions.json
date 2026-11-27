@@ -195,9 +195,6 @@
     }
   },
   "src/views/TenantOps.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 7
-    },
     "@typescript-eslint/no-unused-vars": {
       "count": 2
     }
@@ -235,9 +232,6 @@
     }
   },
   "src/widgets/AgentTemplateGithubStore.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    },
     "@typescript-eslint/no-unused-vars": {
       "count": 1
     }

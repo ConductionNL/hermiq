@@ -354,8 +354,8 @@ import {
 } from '@nextcloud/vue'
 import ProviderDeclarations from '../components/ProviderDeclarations.vue'
 import { getLlmSettings, patchLlmSettings } from '../api/llm.js'
-import { apiPathOf, applyStoredConfig, configKeyOf, optionWithValue } from './llmProviderForm.js'
 import { loadLlmCredentials } from '../utils/llmCredentials.js'
+import { apiPathOf, applyStoredConfig, configKeyOf, optionWithValue } from './llmProviderForm.js'
 
 /** The host the broker locks Fireworks credentials to. */
 const FIREWORKS_HOST = 'api.fireworks.ai'
