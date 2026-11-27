@@ -24,6 +24,9 @@ use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\Hermiq\Service\Talk\TalkBridge;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
+use OCA\Hermiq\Service\Talk\TalkTurn;
+use OCA\Hermiq\Service\Talk\TalkTurnCollaborators;
+use OCA\Hermiq\Service\Talk\TalkTurnOptions;
 use OCA\Hermiq\Service\Talk\TalkTurnService;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -63,18 +66,36 @@ final class TalkTurnLiteracyTest extends TestCase {
 
 		$service = new TalkTurnService(
 			$engine,
-			$bridge,
-			$this->createMock(TalkRoomBinding::class),
-			$users,
-			$this->createMock(IUserSession::class),
+			new TalkTurnCollaborators($bridge, $this->createMock(TalkRoomBinding::class), $users, $this->createMock(IUserSession::class)),
 			$this->createMock(LoggerInterface::class),
-			$literacy
+			new TalkTurnOptions(literacy: $literacy)
 		);
 
-		$this->assertFalse($service->runTurn('conv-1', 'alice', 'hallo', 'room1'));
+		$this->assertFalse($service->runTurn(self::turn('alice', 'hallo', 'room1')));
 		$this->assertCount(1, $posted);
 		$this->assertStringContainsString('Finish the short course Working with AI first.', $posted[0]);
 
 	}//end testASpeakerWhoSkippedTheCourseIsToldInTheRoom()
 
+
+	/**
+	 * A turn on conv-1, as the dispatcher hands it to the service.
+	 *
+	 * @param string               $speaker The speaker.
+	 * @param string               $message The message.
+	 * @param string               $room    The room.
+	 * @param array<string, mixed> $extra   `agentId`, `messageId` and `chain`, when set.
+	 *
+	 * @return TalkTurn
+	 */
+	private static function turn(string $speaker, string $message, string $room, array $extra = []): TalkTurn {
+		$turn = new TalkTurn(conversationUuid: 'conv-1', speakerUid: $speaker);
+		$turn->message = $message;
+		$turn->roomToken = $room;
+		$turn->agentId = (string)($extra['agentId'] ?? '');
+		$turn->messageId = (string)($extra['messageId'] ?? '');
+		$turn->chain = (array)($extra['chain'] ?? []);
+
+		return $turn;
+	}//end turn()
 }//end class

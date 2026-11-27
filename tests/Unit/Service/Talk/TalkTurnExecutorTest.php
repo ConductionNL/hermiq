@@ -24,6 +24,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Talk;
 
 use OCA\Hermiq\Kernel\Contracts\TalkTurnServiceInterface;
 use OCA\Hermiq\Service\Talk\TalkTurnClaims;
+use OCA\Hermiq\Service\Talk\TalkTurn;
 use OCA\Hermiq\Service\Talk\TalkTurnExecutor;
 use OCA\Hermiq\Tests\Unit\Support\InMemoryMemcache;
 use OCP\IAppConfig;
@@ -81,8 +82,17 @@ final class TalkTurnExecutorTest extends TestCase {
 
 		$service = $this->createMock(TalkTurnServiceInterface::class);
 		$service->method('runTurn')->willReturnCallback(
-			function (...$args): bool {
-				$this->calls[] = $args;
+			function (TalkTurn $turn): bool {
+				$this->calls[] = [
+					$turn->conversationUuid,
+					$turn->speakerUid,
+					$turn->message,
+					$turn->roomToken,
+					$turn->agentId,
+					$turn->messageId,
+					$turn->chain,
+					$turn->turnId,
+				];
 				return true;
 			}
 		);
@@ -104,7 +114,7 @@ final class TalkTurnExecutorTest extends TestCase {
 
 		$this->assertCount(1, $this->calls);
 		$this->assertSame(
-			['conv-1', 'alice', 'Hallo', 'room-1', 'agent-a', '42', ['hops' => 1]],
+			['conv-1', 'alice', 'Hallo', 'room-1', 'agent-a', '42', ['hops' => 1], 'turn-1'],
 			$this->calls[0]
 		);
 	}//end testADoubleDeliveryRunsTheTurnOnce()
@@ -151,6 +161,7 @@ final class TalkTurnExecutorTest extends TestCase {
 		$this->assertSame('ran', $this->executor(cache: $cache)->execute(argument: $legacy));
 		$this->assertSame('', $this->calls[0][4]);
 		$this->assertSame([], $this->calls[0][6]);
+		$this->assertSame('', $this->calls[0][7]);
 	}//end testALegacyArgumentRunsUnclaimed()
 
 	/**

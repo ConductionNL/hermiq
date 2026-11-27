@@ -23,6 +23,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Talk;
 
 use OCA\Hermiq\BackgroundJob\TalkTurnJob;
+use OCA\Hermiq\Service\Talk\TalkTurn;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
 use OCP\BackgroundJob\IJobList;
 use OCP\TaskProcessing\IManager as ITaskProcessingManager;
@@ -141,12 +142,7 @@ class TalkTurnDispatcherProvidersTest extends TestCase {
 			$this->callback(static fn (array $context): bool => $context['error'] === 'runner down')
 		);
 
-		$path = (new TalkTurnDispatcher($jobs, $logger, $this->manager([$provider])))->dispatch(
-			conversationUuid: 'c-1',
-			speakerUid: 'ada',
-			message: 'Hi',
-			roomToken: 'room-1'
-		);
+		$path = (new TalkTurnDispatcher($jobs, $logger, $this->manager([$provider])))->dispatch(turn: $this->turn());
 
 		self::assertSame('queued', $path);
 
@@ -167,9 +163,22 @@ class TalkTurnDispatcherProvidersTest extends TestCase {
 			$this->createMock(IJobList::class),
 			$this->createMock(LoggerInterface::class),
 			$this->manager([$first, new stdClass(), $second])
-		))->dispatch(conversationUuid: 'c-1', speakerUid: 'ada', message: 'Hi', roomToken: 'room-1');
+		))->dispatch(turn: $this->turn());
 
 		self::assertSame('triggered', $path);
 
 	}//end testEveryTriggerableRunnerIsNudged()
+
+	/**
+	 * Ada's turn in room-1, saying hi.
+	 *
+	 * @return TalkTurn
+	 */
+	private function turn(): TalkTurn {
+		$turn = new TalkTurn(conversationUuid: 'c-1', speakerUid: 'ada');
+		$turn->message = 'Hi';
+		$turn->roomToken = 'room-1';
+
+		return $turn;
+	}//end turn()
 }//end class

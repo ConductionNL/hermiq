@@ -82,20 +82,16 @@ class TalkProgressiveReply {
 	/**
 	 * Start a reply.
 	 *
-	 * @param TalkBridge      $bridge          The room I/O.
-	 * @param string          $roomToken       The room to answer in.
-	 * @param string|null     $agentId         The answering agent's bot identity.
-	 * @param boolean         $canEdit         Whether this Talk can edit bot messages.
-	 * @param float           $throttleSeconds The least time between two edits.
-	 * @param LoggerInterface $logger          PSR-3 logger.
-	 * @param Closure|null    $clock           Returns the current time in seconds; microtime by default.
+	 * @param TalkBridge      $bridge The room I/O.
+	 * @param TalkReplyTarget $target The room, the bot identity, edit support and the edit throttle.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param Closure|null    $clock  Returns the current time in seconds; microtime by default.
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function __construct(
 		private readonly TalkBridge $bridge,
-		private readonly string $roomToken,
-		private readonly ?string $agentId,
-		private readonly bool $canEdit,
-		private readonly float $throttleSeconds,
+		private readonly TalkReplyTarget $target,
 		private readonly LoggerInterface $logger,
 		private readonly ?Closure $clock = null,
 	) {
@@ -109,18 +105,19 @@ class TalkProgressiveReply {
 	 * @return void
 	 *
 	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-replies-stream-progressively-where-talk-supports-message-editing
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function append(string $delta): void {
 		$this->buffer .= $delta;
-		if ($this->canEdit === false || $this->editFailed === true || trim($this->buffer) === '') {
+		if ($this->target->canEdit === false || $this->editFailed === true || trim($this->buffer) === '') {
 			return;
 		}
 
 		if ($this->messageId === null) {
 			$this->messageId = $this->bridge->postToRoomReturningId(
-				roomToken: $this->roomToken,
+				roomToken: $this->target->roomToken,
 				message: $this->buffer . self::PENDING_MARK,
-				agentId: $this->agentId
+				agentId: $this->target->agentId
 			);
 			$this->lastWrite = $this->now();
 			if ($this->messageId === null) {
@@ -131,7 +128,7 @@ class TalkProgressiveReply {
 			return;
 		}
 
-		if (($this->now() - $this->lastWrite) < $this->throttleSeconds) {
+		if (($this->now() - $this->lastWrite) < $this->target->throttleSeconds) {
 			return;
 		}
 
@@ -146,6 +143,7 @@ class TalkProgressiveReply {
 	 * @return bool True when the complete answer is in the room.
 	 *
 	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-replies-stream-progressively-where-talk-supports-message-editing
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function finish(string $answer): bool {
 		if ($this->messageId !== null && $this->editFailed === false && $this->edit(text: $answer) === true) {
@@ -155,11 +153,11 @@ class TalkProgressiveReply {
 		if ($this->messageId !== null) {
 			$this->logger->info(
 				message: '[TalkProgressiveReply] Editing stopped mid-answer; the complete answer is posted as a message',
-				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $this->roomToken]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $this->target->roomToken]
 			);
 		}
 
-		return $this->bridge->postToRoom(roomToken: $this->roomToken, message: $answer, agentId: $this->agentId);
+		return $this->bridge->postToRoom(roomToken: $this->target->roomToken, message: $answer, agentId: $this->target->agentId);
 	}//end finish()
 
 	/**
@@ -191,13 +189,14 @@ class TalkProgressiveReply {
 	 * @param string $text The new text.
 	 *
 	 * @return bool True when the edit landed.
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	private function edit(string $text): bool {
 		$edited = $this->bridge->editMessage(
-			roomToken: $this->roomToken,
+			roomToken: $this->target->roomToken,
 			messageId: (string)$this->messageId,
 			newText: $text,
-			agentId: $this->agentId
+			agentId: $this->target->agentId
 		);
 		$this->lastWrite = $this->now();
 		if ($edited === false) {
@@ -211,12 +210,11 @@ class TalkProgressiveReply {
 	 * The current time in seconds.
 	 *
 	 * @return float
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	private function now(): float {
-		if ($this->clock !== null) {
-			return (float)($this->clock)();
-		}
+		$clock = $this->clock ?? static fn (): float => microtime(true);
 
-		return microtime(true);
+		return (float)$clock();
 	}//end now()
 }//end class

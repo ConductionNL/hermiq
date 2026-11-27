@@ -66,34 +66,85 @@ class TalkTurnService implements TalkTurnServiceInterface {
 	private const ACK_REACTION = '⏳';
 
 	/**
+	 * Talk availability and room I/O.
+	 *
+	 * @var TalkBridge
+	 */
+	private readonly TalkBridge $bridge;
+
+	/**
+	 * Resolves the conversation bound to a room.
+	 *
+	 * @var TalkRoomBinding
+	 */
+	private readonly TalkRoomBinding $roomBinding;
+
+	/**
+	 * Resolves the speaker and their display name.
+	 *
+	 * @var IUserManager
+	 */
+	private readonly IUserManager $userManager;
+
+	/**
+	 * Impersonates the speaker for the turn.
+	 *
+	 * @var IUserSession
+	 */
+	private readonly IUserSession $userSession;
+
+	/**
+	 * The course requirement (compliance-ai-literacy), when present.
+	 *
+	 * @var LiteracyRequirement|null
+	 */
+	private readonly ?LiteracyRequirement $literacy;
+
+	/**
+	 * Reads the edit throttle (instant-talk), when present.
+	 *
+	 * @var IAppConfig|null
+	 */
+	private readonly ?IAppConfig $appConfig;
+
+	/**
+	 * Follows an answer to the agents it mentions (instant-talk), when present.
+	 *
+	 * @var TalkAgentChain|null
+	 */
+	private readonly ?TalkAgentChain $agentChain;
+
+	/**
+	 * Builds the link to the session on the Chat page, when present.
+	 *
+	 * @var IURLGenerator|null
+	 */
+	private readonly ?IURLGenerator $urls;
+
+	/**
 	 * Constructor.
 	 *
-	 * @param Engine $engine The agent engine.
-	 * @param TalkBridge $bridge Talk availability and room I/O.
-	 * @param TalkRoomBinding $roomBinding Resolves the conversation bound to a room.
-	 * @param IUserManager $userManager Resolves the speaker and their display name.
-	 * @param IUserSession $userSession Impersonates the speaker for the turn.
-	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
-	 * @param IAppConfig|null $appConfig Reads the edit throttle (instant-talk).
-	 * @param TalkAgentChain|null $agentChain Follows an answer to the agents it mentions (instant-talk).
-	 * @param IURLGenerator|null $urls Builds the link to the session on the Chat page.
+	 * @param Engine                $engine  The agent engine.
+	 * @param TalkTurnCollaborators $talk    The room I/O, the room binding and the speaker's identity.
+	 * @param LoggerInterface       $logger  PSR-3 logger.
+	 * @param TalkTurnOptions|null  $options The literacy requirement, edit throttle, agent chain and URLs.
 	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) every collaborator is optional and trailing, so a
-	 * service built by hand keeps working; a value object for them is follow-up work.
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function __construct(
 		private readonly Engine $engine,
-		private readonly TalkBridge $bridge,
-		private readonly TalkRoomBinding $roomBinding,
-		private readonly IUserManager $userManager,
-		private readonly IUserSession $userSession,
+		TalkTurnCollaborators $talk,
 		private readonly LoggerInterface $logger,
-		private readonly ?LiteracyRequirement $literacy = null,
-		private readonly ?IAppConfig $appConfig = null,
-		private readonly ?TalkAgentChain $agentChain = null,
-		private readonly ?IURLGenerator $urls = null,
+		?TalkTurnOptions $options = null,
 	) {
+		$this->bridge = $talk->bridge;
+		$this->roomBinding = $talk->roomBinding;
+		$this->userManager = $talk->userManager;
+		$this->userSession = $talk->userSession;
+		$this->literacy = $options?->literacy;
+		$this->appConfig = $options?->appConfig;
+		$this->agentChain = $options?->agentChain;
+		$this->urls = $options?->urls;
 	}//end __construct()
 
 	/**
@@ -105,40 +156,23 @@ class TalkTurnService implements TalkTurnServiceInterface {
 	 * acknowledging reaction and then nothing cannot tell "still working" from
 	 * "died".
 	 *
-	 * @param string $conversationUuid The bound conversation.
-	 * @param string $speakerUid The uid whose turn this is (the acting identity).
-	 * @param string $message The message text.
-	 * @param string $roomToken The room to answer in.
-	 * @param string $agentId The addressed agent; '' resolves it from the room's session.
-	 * @param string $messageId The Talk message that addressed the agent; its ⏳ is resolved.
-	 * @param array $chain The agent-to-agent chain descriptor; empty for a human-rooted turn.
+	 * @param TalkTurn $turn The turn: conversation, speaker, message, room, and the
+	 *                       optional agent ('' resolves it from the room's session),
+	 *                       addressing message (its ⏳ is resolved) and chain.
 	 *
 	 * @return bool True when an answer was posted.
 	 *
 	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
 	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-acknowledgement-is-immediate-and-resolves-with-the-answer
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
-	public function runTurn(
-		string $conversationUuid,
-		string $speakerUid,
-		string $message,
-		string $roomToken,
-		string $agentId = '',
-		string $messageId = '',
-		array $chain = [],
-	): bool {
-		$turn = new TalkTurn(conversationUuid: $conversationUuid, speakerUid: $speakerUid);
-		$turn->message = $message;
-		$turn->roomToken = $roomToken;
-		$turn->agentId = $agentId;
-		$turn->chain = $chain;
-
+	public function runTurn(TalkTurn $turn): bool {
 		try {
 			return $this->runAsSpeaker(turn: $turn);
 		} finally {
 			// The answer or the failure notice is in the room now, so the ⏳ is
 			// no longer the latest signal and must not linger as if still working.
-			$this->resolveAcknowledgement(turn: $turn, messageId: $messageId);
+			$this->resolveAcknowledgement(turn: $turn, messageId: $turn->messageId);
 		}
 	}//end runTurn()
 
@@ -241,18 +275,19 @@ class TalkTurnService implements TalkTurnServiceInterface {
 	 * @param TalkTurn $turn The turn, running as its speaker.
 	 *
 	 * @return bool True when an answer was posted.
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	private function answerTurn(TalkTurn $turn): bool {
 		$this->literacy?->assertMayUseAgents(uid: $turn->speakerUid);
 
-		$reply = new TalkProgressiveReply(
-			bridge: $this->bridge,
+		$target = new TalkReplyTarget(
 			roomToken: $turn->roomToken,
 			agentId: $this->answeringAgent(turn: $turn),
 			canEdit: $this->bridge->supportsEditing(),
-			throttleSeconds: $this->editThrottleSeconds(),
-			logger: $this->logger
+			throttleSeconds: $this->editThrottleSeconds()
 		);
+		$reply = new TalkProgressiveReply(bridge: $this->bridge, target: $target, logger: $this->logger);
 		$channel = new StreamYieldChannel();
 		$channel->onToken(
 			function (string $delta) use ($reply): void {

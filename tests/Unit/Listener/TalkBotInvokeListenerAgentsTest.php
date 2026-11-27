@@ -35,6 +35,7 @@ use OCA\Hermiq\Service\Talk\TalkBridge;
 use OCA\Hermiq\Service\Talk\TalkMentionMatcher;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\Hermiq\Service\Talk\TalkRoomGrouping;
+use OCA\Hermiq\Service\Talk\TalkTurn;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
 use OCA\Hermiq\Service\Talk\TalkTurnId;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -112,8 +113,8 @@ final class TalkBotInvokeListenerAgentsTest extends TestCase {
 
 		$dispatcher = $this->createMock(TalkTurnDispatcher::class);
 		$dispatcher->method('dispatch')->willReturnCallback(
-			function (string $conversationUuid, string $speakerUid, string $message, string $roomToken, string $turnId, string $agentId, string $messageId): string {
-				$this->handOffs[] = [$agentId, $turnId, $messageId];
+			function (TalkTurn $turn): string {
+				$this->handOffs[] = [$turn->agentId, $turn->turnId, $turn->messageId];
 				return 'instant';
 			}
 		);

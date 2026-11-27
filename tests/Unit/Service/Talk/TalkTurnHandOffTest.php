@@ -31,6 +31,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Talk;
 
 use OCA\Hermiq\BackgroundJob\TalkTurnJob;
 use OCA\Hermiq\Service\Talk\TalkTurnClaims;
+use OCA\Hermiq\Service\Talk\TalkTurn;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
 use OCA\Hermiq\Service\Talk\TalkTurnExecutor;
 use OCA\Hermiq\Service\Talk\TalkTurnService;
@@ -138,12 +139,7 @@ class TalkTurnHandOffTest extends TestCase {
 			}
 		);
 
-		$path = $this->makeDispatcher(null, $jobList)->dispatch(
-			conversationUuid: self::TURN['conversationUuid'],
-			speakerUid: self::TURN['speakerUid'],
-			message: self::TURN['message'],
-			roomToken: self::TURN['roomToken']
-		);
+		$path = $this->makeDispatcher(null, $jobList)->dispatch(turn: $this->turn());
 
 		$this->assertSame('queued', $path);
 		$this->assertCount(1, $enqueued);
@@ -174,12 +170,7 @@ class TalkTurnHandOffTest extends TestCase {
 
 		$provider = $this->makeTriggerableProvider();
 
-		$path = $this->makeDispatcher([$provider], $jobList)->dispatch(
-			conversationUuid: self::TURN['conversationUuid'],
-			speakerUid: self::TURN['speakerUid'],
-			message: self::TURN['message'],
-			roomToken: self::TURN['roomToken']
-		);
+		$path = $this->makeDispatcher([$provider], $jobList)->dispatch(turn: $this->turn());
 
 		// That the runner was nudged is asserted by the mock's `once()`
 		// expectation in makeTriggerableProvider().
@@ -206,12 +197,12 @@ class TalkTurnHandOffTest extends TestCase {
 
 		$service = $this->createMock(TalkTurnService::class);
 		$service->method('runTurn')->willReturnCallback(
-			function (string $conversationUuid, string $speakerUid, string $message, string $roomToken) use (&$seen): bool {
+			function (TalkTurn $turn) use (&$seen): bool {
 				$seen = [
-					'conversationUuid' => $conversationUuid,
-					'speakerUid' => $speakerUid,
-					'message' => $message,
-					'roomToken' => $roomToken,
+					'conversationUuid' => $turn->conversationUuid,
+					'speakerUid' => $turn->speakerUid,
+					'message' => $turn->message,
+					'roomToken' => $turn->roomToken,
 				];
 				return true;
 			}
@@ -260,4 +251,17 @@ class TalkTurnHandOffTest extends TestCase {
 
 		return new TalkTurnExecutor($claims, $service);
 	}//end executorFor()
+
+	/**
+	 * The fixture turn as the dispatcher takes it.
+	 *
+	 * @return TalkTurn
+	 */
+	private function turn(): TalkTurn {
+		$turn = new TalkTurn(conversationUuid: self::TURN['conversationUuid'], speakerUid: self::TURN['speakerUid']);
+		$turn->message = self::TURN['message'];
+		$turn->roomToken = self::TURN['roomToken'];
+
+		return $turn;
+	}//end turn()
 }//end class

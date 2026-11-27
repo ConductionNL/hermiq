@@ -34,6 +34,7 @@ use OCA\Hermiq\Service\Talk\TalkBridge;
 use OCA\Hermiq\Service\Talk\TalkMentionMatcher;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\Hermiq\Service\Talk\TalkRoomGrouping;
+use OCA\Hermiq\Service\Talk\TalkTurn;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\EventDispatcher\Event;
@@ -144,8 +145,8 @@ class TalkBotInvokeListenerGoldenTest extends TestCase {
 
 		$dispatcher = $this->createMock(TalkTurnDispatcher::class);
 		$dispatcher->method('dispatch')->willReturnCallback(
-			function (string $conversationUuid, string $speakerUid, string $message, string $roomToken): string {
-				$this->log[] = 'dispatch ' . $conversationUuid . ' ' . $speakerUid . ' ' . $message . ' ' . $roomToken;
+			function (TalkTurn $turn): string {
+				$this->log[] = 'dispatch ' . $turn->conversationUuid . ' ' . $turn->speakerUid . ' ' . $turn->message . ' ' . $turn->roomToken;
 				return 'queued';
 			}
 		);

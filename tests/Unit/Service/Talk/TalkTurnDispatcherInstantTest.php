@@ -27,8 +27,10 @@ namespace OCA\Hermiq\Tests\Unit\Service\Talk;
 
 use OCA\Hermiq\BackgroundJob\TalkTurnJob;
 use OCA\Hermiq\Kernel\Contracts\TalkTurnServiceInterface;
+use OCA\Hermiq\Service\Talk\TalkInstantPath;
 use OCA\Hermiq\Service\Talk\TalkPostResponseRunner;
 use OCA\Hermiq\Service\Talk\TalkTurnClaims;
+use OCA\Hermiq\Service\Talk\TalkTurn;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
 use OCA\Hermiq\Service\Talk\TalkTurnExecutor;
 use OCA\Hermiq\Tests\Unit\Support\InMemoryMemcache;
@@ -128,10 +130,7 @@ final class TalkTurnDispatcherInstantTest extends TestCase {
 			$jobList,
 			$logger,
 			$taskManager,
-			new TalkTurnExecutor($claims, $service),
-			$claims,
-			$postResponse,
-			$appConfig
+			new TalkInstantPath(new TalkTurnExecutor($claims, $service), $claims, $postResponse, $appConfig)
 		);
 	}//end dispatcher()
 
@@ -144,15 +143,14 @@ final class TalkTurnDispatcherInstantTest extends TestCase {
 	 * @return string The path.
 	 */
 	private function handOff(TalkTurnDispatcher $dispatcher, string $turnId = 'turn-1'): string {
-		return $dispatcher->dispatch(
-			conversationUuid: 'conv-1',
-			speakerUid: 'alice',
-			message: 'Hallo',
-			roomToken: 'room-1',
-			turnId: $turnId,
-			agentId: 'agent-a',
-			messageId: '42'
-		);
+		$turn = new TalkTurn(conversationUuid: 'conv-1', speakerUid: 'alice');
+		$turn->message = 'Hallo';
+		$turn->roomToken = 'room-1';
+		$turn->turnId = $turnId;
+		$turn->agentId = 'agent-a';
+		$turn->messageId = '42';
+
+		return $dispatcher->dispatch(turn: $turn);
 	}//end handOff()
 
 	/**
