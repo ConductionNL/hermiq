@@ -34,7 +34,7 @@ $autoloader->addPsr4('OCA\\Integriq\\', __DIR__ . '/Stubs/Integriq/');
 //
 // 🔴 THERE IS DELIBERATELY NO STUB FOR THIS NAMESPACE, and there must never be
 // one. A stub of a value class is a second copy of the rules, and this repo has
-// already paid for that: `tests/Stubs/Service/Mcp/ToolRegistryFacade.php` drifted
+// already paid for that: `tests/Stubs/Mcp/Service/Mcp/ToolRegistryFacade.php` drifted
 // from the real facade by one method (`describeTools()`), and every matrix cell
 // in which OpenRegister failed to enable errored on the missing method instead
 // of exercising the controller. That was a 3-method facade. This is ~2,400 lines

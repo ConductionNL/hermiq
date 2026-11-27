@@ -123,7 +123,9 @@ class EnginePromptVariablesTest extends TestCase {
 		$retrieval = $this->createMock(ContextRetrievalHandler::class);
 		$retrieval->method('retrieveContext')->willReturn(['text' => '', 'sources' => []]);
 		$history = $this->createMock(MessageHistoryHandler::class);
-		$history->method('buildMessageHistory')->willReturn([]);
+		$history->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
 
 		$engine = new Engine(
 			$objectService,
@@ -195,8 +197,9 @@ class EnginePromptVariablesTest extends TestCase {
 
 		$this->assertNotNull($captured);
 		$system = (string)$captured[0]->content;
-		$this->assertStringStartsWith('Address Fatima el Amrani. Today is 2026-09-27.', $system);
-		$this->assertStringContainsString('A memo for {{user.id}}.', $system, 'Retrieved text is never a template.');
+		$this->assertSame('Address Fatima el Amrani. Today is 2026-09-27.', $system);
+		// The retrieved context is the per-turn system block, after the stable one.
+		$this->assertStringContainsString('A memo for {{user.id}}.', (string)$captured[1]->content, 'Retrieved text is never a template.');
 		$this->assertSame('Show me {{user.id}}', (string)$captured[count($captured) - 1]->content, 'The person\'s message is never a template.');
 
 	}//end testOnlyTheInstructionsAreFilledIn()

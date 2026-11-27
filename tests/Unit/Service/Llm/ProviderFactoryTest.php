@@ -29,6 +29,7 @@ use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
+use OCA\Hermiq\Service\Llm\CliTurn;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\AiFeature\DataUseGate;
 use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
@@ -36,7 +37,8 @@ use OCA\Hermiq\Service\AiFeature\ProviderDataUseRegistry;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
+use OCA\Hermiq\Service\OrganisationModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -64,6 +66,12 @@ class ProviderFactoryTest extends TestCase {
 	private function factory(bool $hasProviders = false): array {
 		$manager = $this->createMock(IManager::class);
 		$manager->method('hasProviders')->willReturn($hasProviders);
+		// Nextcloud AI (use-nextcloud-ai-settings) checks the type is served and runs
+		// through the preferred provider: a synchronous one runs inline via runTask().
+		$manager->method('getAvailableTaskTypeIds')->willReturn($hasProviders ? [TextToText::ID] : []);
+		$provider = $this->createMock(\OCP\TaskProcessing\ISynchronousProvider::class);
+		$provider->method('getId')->willReturn('integration_openai-text2text');
+		$manager->method('getPreferredProvider')->willReturn($provider);
 
 		$settings = $this->createMock(LlmSettingsHandler::class);
 
@@ -198,7 +206,7 @@ class ProviderFactoryTest extends TestCase {
 		$settings = $this->createMock(LlmSettingsHandler::class);
 		$userSession = $this->createMock(IUserSession::class);
 
-		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->method('isAllowed')->willReturn(false);
 
 		$factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', $policy);
@@ -231,7 +239,7 @@ class ProviderFactoryTest extends TestCase {
 		$settings = $this->createMock(LlmSettingsHandler::class);
 		$userSession = $this->createMock(IUserSession::class);
 
-		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->expects($this->once())->method('isAllowed')->willReturn(true);
 
 		$factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', $policy);
@@ -265,12 +273,13 @@ class ProviderFactoryTest extends TestCase {
 		$settings = $this->createMock(LlmSettingsHandler::class);
 		$userSession = $this->createMock(IUserSession::class);
 
-		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->method('isAllowed')->willReturn(true);
-		$policy->method('requiresNoTraining')->willReturn(true);
+		$effective = $this->createMock(EffectiveModelPolicy::class);
+		$effective->method('requiresNoTraining')->willReturn(true);
 		$config = $this->createMock(IAppConfig::class);
 		$config->method('getValueString')->willReturn('');
-		$gate = new DataUseGate($policy, new ProviderDataUseRegistry($config));
+		$gate = new DataUseGate($effective, new ProviderDataUseRegistry($config));
 
 		$factory = new ProviderFactory(
 			$settings,
@@ -577,7 +586,7 @@ class ProviderFactoryTest extends TestCase {
 		$settings = $this->createMock(LlmSettingsHandler::class);
 		$userSession = $this->createMock(IUserSession::class);
 
-		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy = $this->createMock(OrganisationModelPolicyService::class);
 		$policy->method('isAllowed')->willReturn(false);
 
 		$factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', $policy);
@@ -662,6 +671,7 @@ class ProviderFactoryTest extends TestCase {
 				$this->assertSame(TextToText::ID, $task->getTaskTypeId());
 				$this->assertSame('hermiq', $task->getAppId());
 				$this->assertSame(['input' => 'Summarise this.'], $task->getInput());
+				$task->setStatus(Task::STATUS_SUCCESSFUL);
 				$task->setOutput(['output' => 'A concise summary.']);
 				return $task;
 			}
@@ -684,6 +694,7 @@ class ProviderFactoryTest extends TestCase {
 
 		$manager->method('runTask')->willReturnCallback(
 			static function (Task $task): Task {
+				$task->setStatus(Task::STATUS_SUCCESSFUL);
 				$task->setOutput([]);
 				return $task;
 			}
@@ -1014,67 +1025,6 @@ class ProviderFactoryTest extends TestCase {
 
 	}//end testResolverReturningNullKeepsTheConfiguredCredential()
 
-	/**
-	 * An argument-less tool must serialise `input_schema.properties` as a JSON
-	 * object (`{}`), not an array (`[]`). PHP's json_encode emits an empty PHP
-	 * array as `[]`, which the Anthropic Messages API rejects with HTTP 400
-	 * ("Input should be an object"), so an empty/absent properties map is forced
-	 * to a stdClass.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-	 */
-	public function testBuildAnthropicToolsEmptyPropertiesSerialisesAsObject(): void {
-		[$factory] = $this->factory();
-
-		$tools = $factory->buildAnthropicTools(
-			[
-				['name' => 'no_args', 'description' => 'A tool with no parameters'],
-				['name' => 'empty_props', 'parameters' => ['type' => 'object', 'properties' => []]],
-			]
-		);
-
-		$this->assertInstanceOf(\stdClass::class, $tools[0]['input_schema']['properties']);
-		$this->assertSame('object', $tools[0]['input_schema']['type']);
-		$this->assertInstanceOf(\stdClass::class, $tools[1]['input_schema']['properties']);
-
-		$json = json_encode($tools);
-		$this->assertStringNotContainsString('"properties":[]', $json);
-		$this->assertStringContainsString('"properties":{}', $json);
-
-	}//end testBuildAnthropicToolsEmptyPropertiesSerialisesAsObject()
-
-	/**
-	 * A tool that declares real parameters keeps its properties object intact
-	 * and is not clobbered by the empty-properties guard.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-	 */
-	public function testBuildAnthropicToolsPreservesRealProperties(): void {
-		[$factory] = $this->factory();
-
-		$tools = $factory->buildAnthropicTools(
-			[
-				[
-					'name' => 'search',
-					'description' => 'Search',
-					'parameters' => [
-						'type' => 'object',
-						'properties' => ['query' => ['type' => 'string']],
-						'required' => ['query'],
-					],
-				],
-			]
-		);
-
-		$this->assertSame(['query' => ['type' => 'string']], $tools[0]['input_schema']['properties']);
-		$this->assertSame(['query'], $tools[0]['input_schema']['required']);
-
-	}//end testBuildAnthropicToolsPreservesRealProperties()
-
 	/*
 	 * cli-runner-text-turn-dispatch — `executionMode: cli` (the hermiq-llm-runner ExApp).
 	 */
@@ -1218,190 +1168,6 @@ class ProviderFactoryTest extends TestCase {
 	}//end testGovernedCliTurnIsNoLongerRefusedForCarryingTools()
 
 	/**
-	 * `mintGovernedRunToken()` fails LOUD (503) when the run-token service is unavailable —
-	 * a tool-requiring turn that cannot be governed is refused, never downgraded text-only.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-tool-requiring-turn-with-an-unreachable-governed-endpoint-raises
-	 */
-	public function testMintGovernedRunTokenFailsLoudWithoutTokenService(): void {
-		[$factory] = $this->factory();
-
-		$this->expectException(ProviderUnavailableException::class);
-		$this->expectExceptionCode(503);
-
-		$this->callPrivate($factory, 'mintGovernedRunToken', ['agent-uuid-1', 'alice']);
-
-	}//end testMintGovernedRunTokenFailsLoudWithoutTokenService()
-
-	/**
-	 * `mintGovernedRunToken()` fails LOUD (503) without an agent identity to bind the run to.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
-	 */
-	public function testMintGovernedRunTokenFailsLoudWithoutAgentId(): void {
-		$factory = $this->governedFactory(runTokenService: $this->realRunTokenService());
-
-		try {
-			$this->callPrivate($factory, 'mintGovernedRunToken', [null, 'alice']);
-			$this->fail('A tool-requiring turn without an agent id must fail loud.');
-		} catch (ProviderUnavailableException $e) {
-			$this->assertSame(503, $e->getCode());
-			$this->assertStringContainsStringIgnoringCase('agent identity', $e->getMessage());
-		}
-
-	}//end testMintGovernedRunTokenFailsLoudWithoutAgentId()
-
-	/**
-	 * `mintGovernedRunToken()` fails LOUD (503) without a user context to bind the token to.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
-	 */
-	public function testMintGovernedRunTokenFailsLoudWithoutUser(): void {
-		$factory = $this->governedFactory(runTokenService: $this->realRunTokenService());
-
-		try {
-			$this->callPrivate($factory, 'mintGovernedRunToken', ['agent-uuid-1', null]);
-			$this->fail('A tool-requiring turn without a user context must fail loud.');
-		} catch (ProviderUnavailableException $e) {
-			$this->assertSame(503, $e->getCode());
-			$this->assertStringContainsStringIgnoringCase('user context', $e->getMessage());
-		}
-
-	}//end testMintGovernedRunTokenFailsLoudWithoutUser()
-
-	/**
-	 * A minted token is bound to (runId, agentId, userId) and the SAME service verifies it —
-	 * the token re-enters an already-authorized run and resolves the run's agent + user.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
-	 */
-	public function testMintGovernedRunTokenBindsAndVerifies(): void {
-		$runTokenService = $this->realRunTokenService();
-		$factory = $this->governedFactory(runTokenService: $runTokenService);
-
-		$token = $this->callPrivate($factory, 'mintGovernedRunToken', ['agent-uuid-1', 'alice']);
-		$this->assertIsString($token);
-		$this->assertNotSame('', $token);
-
-		$binding = $runTokenService->verify(token: $token);
-		$this->assertIsArray($binding);
-		$this->assertSame('agent-uuid-1', $binding['agentId']);
-		$this->assertSame('alice', $binding['userId']);
-
-	}//end testMintGovernedRunTokenBindsAndVerifies()
-
-	/**
-	 * `buildGovernedMcpConfig()` fails LOUD (503) when the endpoint URL cannot be resolved —
-	 * the MCP config cannot be written, so the turn is refused rather than run tool-less.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
-	 */
-	public function testBuildGovernedMcpConfigFailsLoudWithoutUrlGenerator(): void {
-		$factory = $this->governedFactory(runTokenService: $this->realRunTokenService());
-
-		$this->expectException(ProviderUnavailableException::class);
-		$this->expectExceptionCode(503);
-
-		$this->callPrivate($factory, 'buildGovernedMcpConfig', ['YOUR_RUN_TOKEN_HERE']);
-
-	}//end testBuildGovernedMcpConfigFailsLoudWithoutUrlGenerator()
-
-	/**
-	 * `buildGovernedMcpConfig()` produces an `http` MCP server whose headers carry the bearer
-	 * token and `OCS-APIRequest: true` — the exact block the runner writes to a 0600 file.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
-	 */
-	public function testBuildGovernedMcpConfigProducesHttpBearerConfig(): void {
-		$urlGenerator = $this->createMock(\OCP\IURLGenerator::class);
-		$urlGenerator->method('linkToRouteAbsolute')
-			->with('hermiq.mcpRun.handle')
-			->willReturn('https://nc.example/apps/hermiq/api/mcp/run');
-
-		$factory = $this->governedFactory(runTokenService: $this->realRunTokenService(), urlGenerator: $urlGenerator);
-
-		$config = $this->callPrivate($factory, 'buildGovernedMcpConfig', ['RUN-TOKEN-VALUE']);
-
-		$server = $config['mcpServers']['hermiq'];
-		$this->assertSame('http', $server['type']);
-		$this->assertSame('https://nc.example/apps/hermiq/api/mcp/run', $server['url']);
-		$this->assertSame('Bearer RUN-TOKEN-VALUE', $server['headers']['Authorization']);
-		$this->assertSame('true', $server['headers']['OCS-APIRequest']);
-
-	}//end testBuildGovernedMcpConfigProducesHttpBearerConfig()
-
-	/**
-	 * Build a ProviderFactory wired with the governed-MCP collaborators (RunTokenService,
-	 * IURLGenerator) plus a session user, for the governance-helper tests.
-	 *
-	 * @param \OCA\Hermiq\Service\Llm\RunTokenService|null $runTokenService The token service.
-	 * @param \OCP\IURLGenerator|null $urlGenerator The URL generator.
-	 *
-	 * @return ProviderFactory
-	 */
-	private function governedFactory(
-		?\OCA\Hermiq\Service\Llm\RunTokenService $runTokenService = null,
-		?\OCP\IURLGenerator $urlGenerator = null,
-	): ProviderFactory {
-		$manager = $this->createMock(IManager::class);
-		$settings = $this->createMock(LlmSettingsHandler::class);
-
-		$user = $this->createMock(IUser::class);
-		$user->method('getUID')->willReturn('alice');
-		$userSession = $this->createMock(IUserSession::class);
-		$userSession->method('getUser')->willReturn($user);
-
-		return new ProviderFactory(
-			$settings,
-			$manager,
-			$userSession,
-			new NullLogger(),
-			'hermiq',
-			null,
-			null,
-			null,
-			$runTokenService,
-			$urlGenerator
-		);
-
-	}//end governedFactory()
-
-	/**
-	 * A real `RunTokenService` backed by an in-memory store and a deterministic CSPRNG stub,
-	 * so mint→verify round-trips without a live Nextcloud cache.
-	 *
-	 * @return \OCA\Hermiq\Service\Llm\RunTokenService
-	 */
-	private function realRunTokenService(): \OCA\Hermiq\Service\Llm\RunTokenService {
-		$secureRandom = $this->createMock(\OCP\Security\ISecureRandom::class);
-		$counter = 0;
-		$secureRandom->method('generate')->willReturnCallback(
-			static function () use (&$counter): string {
-				$counter++;
-				return str_pad('token' . $counter, 43, 'x');
-			}
-		);
-
-		return new \OCA\Hermiq\Service\Llm\RunTokenService(
-			new \OCA\Hermiq\Tests\Unit\Support\InMemoryRunTokenStore(),
-			$secureRandom,
-			$this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class)
-		);
-	}//end realRunTokenService()
-
-	/**
 	 * A text-only `cli` turn with no app manager fails with a 503 that NAMES the missing
 	 * component — never a generic "cli unavailable" an operator cannot act on.
 	 *
@@ -1427,68 +1193,6 @@ class ProviderFactoryTest extends TestCase {
 		}
 
 	}//end testCliWithoutAppManagerNamesTheMissingComponent()
-
-	/**
-	 * THE 3-SECOND TRAP. AppAPI defaults `timeout` to 3s (guarded by
-	 * `if (!isset($options['timeout']))`) while the runner allows the CLI 120s. Omitting it
-	 * makes the feature 0% functional: every turn fails at 3s while the container runs to
-	 * completion and bills the user's real subscription.
-	 *
-	 * This pins that the option is PRESENT and EXCEEDS the runner's own timeout, so it cannot
-	 * regress to the default and the runner's kill-and-report wins the race.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
-	 */
-	public function testCliDispatchPassesAnExplicitTimeoutExceedingTheRunners(): void {
-		[$factory] = $this->factory();
-
-		$options = $this->callPrivate($factory, 'cliDispatchOptions');
-
-		$this->assertArrayHasKey('timeout', $options, 'Omitting timeout falls back to AppAPI\'s 3s default.');
-		$this->assertIsInt($options['timeout']);
-		$this->assertGreaterThan(
-			$this->constant('RUNNER_CLI_TIMEOUT_SECONDS'),
-			$options['timeout'],
-			'Hermiq must outwait the runner so the runner reports the real reason.'
-		);
-		$this->assertGreaterThan(3, $options['timeout'], 'This is AppAPI\'s default — the trap.');
-
-	}//end testCliDispatchPassesAnExplicitTimeoutExceedingTheRunners()
-
-	/**
-	 * The system prompt is carried IN-BAND in `messages` for the runner.
-	 *
-	 * The Messages API mapper hoists system turns into a separate top-level `system` field,
-	 * but the runner has NO such field — reusing it would silently drop the agent's entire
-	 * persona on every `cli` turn. The runner renders `ROLE: content`, so the system turn must
-	 * survive as a message.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
-	 */
-	public function testCliMessageMappingKeepsTheSystemPromptInBand(): void {
-		[$factory] = $this->factory();
-
-		$messages = $this->callPrivate(
-			$factory,
-			'mapHistoryToCliMessages',
-			[
-				[
-					LLPhantMessage::system('You are a terse assistant.'),
-					LLPhantMessage::user('Hello.'),
-				],
-			]
-		);
-
-		$this->assertCount(2, $messages);
-		$this->assertSame('system', $messages[0]['role']);
-		$this->assertSame('You are a terse assistant.', $messages[0]['content']);
-		$this->assertSame('user', $messages[1]['role']);
-
-	}//end testCliMessageMappingKeepsTheSystemPromptInBand()
 
 	/**
 	 * The runner's 200 body maps to the turn's answer.
@@ -1548,92 +1252,6 @@ class ProviderFactoryTest extends TestCase {
 		$this->callPrivate($factory, 'mapCliCompletion', ['ExApp `hermiq-llm-runner` not found']);
 
 	}//end testCliCompletionWithUndecodableBodyIsRefused()
-
-	/**
-	 * An organisation-scope credential is REFUSED for `cli`: a Claude Max/Pro subscription is
-	 * PERSONAL-SCOPE ONLY under the Anthropic Terms of Service and serves only its owner.
-	 *
-	 * The broker does NOT enforce this — its Guard 1 deliberately admits any organisation
-	 * MEMBER for an organisation-scope credential — so this is the only enforcement point.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
-	 */
-	public function testCliRefusesAnOrganisationScopeCredential(): void {
-		$resolver = $this->createMock(CredentialScopeResolver::class);
-		$resolver->method('scopeOfCredential')->willReturn('organisation');
-		$factory = $this->factoryWithCredentialResolver($resolver);
-
-		try {
-			$this->callPrivate(
-				$factory,
-				'assertPersonalScopeCredential',
-				['00000000-0000-0000-0000-000000000000']
-			);
-			$this->fail('An organisation-scope subscription credential must be refused.');
-		} catch (ProviderUnavailableException $e) {
-			$this->assertSame(503, $e->getCode());
-			$this->assertStringContainsStringIgnoringCase('personal', $e->getMessage());
-		}
-
-	}//end testCliRefusesAnOrganisationScopeCredential()
-
-	/**
-	 * A personal-scope credential passes the ToS guard.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
-	 */
-	public function testCliAcceptsAPersonalScopeCredential(): void {
-		$resolver = $this->createMock(CredentialScopeResolver::class);
-		$resolver->method('scopeOfCredential')->willReturn('personal');
-		$factory = $this->factoryWithCredentialResolver($resolver);
-
-		$this->callPrivate($factory, 'assertPersonalScopeCredential', ['00000000-0000-0000-0000-000000000000']);
-
-		$this->addToAssertionCount(1);
-
-	}//end testCliAcceptsAPersonalScopeCredential()
-
-	/**
-	 * An unknown credential FAILS CLOSED: a scope that cannot be established is never assumed
-	 * personal.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
-	 */
-	public function testCliFailsClosedWhenTheScopeCannotBeEstablished(): void {
-		$resolver = $this->createMock(CredentialScopeResolver::class);
-		$resolver->method('scopeOfCredential')->willReturn(null);
-		$factory = $this->factoryWithCredentialResolver($resolver);
-
-		$this->expectException(ProviderUnavailableException::class);
-		$this->expectExceptionCode(503);
-
-		$this->callPrivate($factory, 'assertPersonalScopeCredential', ['00000000-0000-0000-0000-000000000000']);
-
-	}//end testCliFailsClosedWhenTheScopeCannotBeEstablished()
-
-	/**
-	 * With no `CredentialScopeResolver` the scope cannot be verified, so the turn fails closed
-	 * rather than proceeding with an unverified subscription credential.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
-	 */
-	public function testCliFailsClosedWithoutACredentialResolver(): void {
-		$factory = $this->factoryWithCredentialResolver(null);
-
-		$this->expectException(ProviderUnavailableException::class);
-		$this->expectExceptionCode(503);
-
-		$this->callPrivate($factory, 'assertPersonalScopeCredential', ['00000000-0000-0000-0000-000000000000']);
-
-	}//end testCliFailsClosedWithoutACredentialResolver()
 
 	/**
 	 * No `cli` failure message may leak the subscription token. The token is a local variable

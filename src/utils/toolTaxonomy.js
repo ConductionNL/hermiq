@@ -96,7 +96,7 @@ export const SPECIAL_VERBS = new Set([
  * @param {string} id The tool id in either spelling.
  * @return {string} The normalised join key.
  *
- * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
+ * @spec openspec/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
  */
 export function joinKey(id) {
 	return String(id ?? '').replace(/\./g, '_')
@@ -108,7 +108,7 @@ export function joinKey(id) {
  * @param {string} word The possibly-plural word.
  * @return {string} The singular form.
  *
- * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
+ * @spec openspec/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
  */
 export function singularise(word) {
 	if (/[^aeiou]ies$/.test(word) === true) {
@@ -138,7 +138,7 @@ export function singularise(word) {
  * @param {string} subject The subject the verb acts on.
  * @return {{verb: string, subject: string, specialLabel: string|null}} The classification.
  *
- * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
+ * @spec openspec/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
  */
 export function classify(verb, subject) {
 	const canonical = VERB_ALIASES[verb] ?? null
@@ -172,7 +172,7 @@ export function classify(verb, subject) {
  * @param {Array<string>} parts The id split on separators.
  * @return {{verb: string, subject: string}|null} The split, or null when no segment is a verb.
  *
- * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
+ * @spec openspec/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
  */
 export function splitOnVerbSegment(parts) {
 	const index = parts.findIndex(
@@ -230,7 +230,7 @@ export function splitOnVerbSegment(parts) {
  * @param {object} taxonomy The taxonomy row for this tool, if any.
  * @return {{verb: string, subject: string, specialLabel: string|null}} The parse.
  *
- * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
+ * @spec openspec/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
  */
 export function parseVerbAndSubject(id, taxonomy = {}) {
 	// 🔑 If the producer DECLARED its subject and action, use them. The
@@ -241,12 +241,7 @@ export function parseVerbAndSubject(id, taxonomy = {}) {
 	// Everything below this point is a FALLBACK for tools that declare nothing,
 	// and it is guesswork. The fix for those is to declare their subject and
 	// action at the source, not to improve the guessing.
-	if (
-		typeof taxonomy.subject === 'string'
-		&& taxonomy.subject !== ''
-		&& typeof taxonomy.action === 'string'
-		&& taxonomy.action !== ''
-	) {
+	if (declaresSubjectAndAction(taxonomy) === true) {
 		return classify(taxonomy.action, taxonomy.subject)
 	}
 
@@ -282,4 +277,19 @@ export function parseVerbAndSubject(id, taxonomy = {}) {
 	// No verb to find — fall back to the taxonomy's coarse right, and let the
 	// tool name stand as its own subject rather than inventing one.
 	return classify(taxonomy.right ?? 'special', name)
+}
+
+/**
+ * Whether a taxonomy row declares both its subject and its action as non-empty strings.
+ *
+ * @param {object} taxonomy The taxonomy row.
+ * @return {boolean} True when both are declared.
+ */
+function declaresSubjectAndAction(taxonomy) {
+	return (
+		typeof taxonomy.subject === 'string'
+		&& taxonomy.subject !== ''
+		&& typeof taxonomy.action === 'string'
+		&& taxonomy.action !== ''
+	)
 }

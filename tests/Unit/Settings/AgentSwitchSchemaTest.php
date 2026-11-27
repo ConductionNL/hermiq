@@ -44,11 +44,13 @@ class AgentSwitchSchemaTest extends TestCase {
 	}//end register()
 
 	/**
-	 * Deleting an agent deletes its schedules and its standing goals:
-	 * `onDelete: CASCADE` on Schedule.agentId and Goal.agentId
-	 * (agents-standing-goal D1), and on nothing else that points at an agent.
+	 * Deleting an agent deletes its schedules, its eval schedules and its standing goals:
+	 * `onDelete: CASCADE` on Schedule.agentId, EvalSchedule.agentId (reuse-scheduled-bias-evals
+	 * D3) and Goal.agentId (agents-standing-goal D1), and on nothing else that points at an agent.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-a-dataset-can-run-against-an-agent-on-a-schedule-req-biaseval-003
 	 */
 	public function testScheduleAgentIdCascades(): void {
 		$schemas = $this->register(file: 'hermiq_register.json')->components->schemas;
@@ -57,9 +59,12 @@ class AgentSwitchSchemaTest extends TestCase {
 		$this->assertSame('CASCADE', $schemas->Schedule->properties->agentId->onDelete ?? null);
 		$this->assertSame('agent', $schemas->Goal->properties->agentId->{'$ref'});
 		$this->assertSame('CASCADE', $schemas->Goal->properties->agentId->onDelete ?? null);
+		$evalScheduleAgent = ((array)$schemas)['EvalSchedule']->properties->agentId;
+		$this->assertSame(expected: 'agent', actual: $evalScheduleAgent->{'$ref'});
+		$this->assertSame(expected: 'CASCADE', actual: ($evalScheduleAgent->onDelete ?? null));
 
 		foreach ((array)$schemas as $name => $schema) {
-			if ($name === 'Schedule' || $name === 'Goal') {
+			if (in_array($name, ['Schedule', 'EvalSchedule', 'Goal'], true) === true) {
 				continue;
 			}
 

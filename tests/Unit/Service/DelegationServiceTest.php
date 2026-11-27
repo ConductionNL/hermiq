@@ -43,12 +43,18 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\DelegationService;
+use OCA\Hermiq\Service\Delegation\DelegatedRunStore;
+use OCA\Hermiq\Service\Delegation\ParallelDelegation;
+use OCA\Hermiq\Tests\Unit\Service\Delegation\DelegatedRunsDouble;
+use OCP\BackgroundJob\IJobList;
+use OCP\Lock\ILockingProvider;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -57,6 +63,8 @@ use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Contract\ObjectFindOptions as PublishedObjectFindOptions;
 
 /**
  * Tests for the sub-agent-delegation DelegationService.
@@ -86,15 +94,16 @@ class DelegationServiceTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?array $_extend = [],
-				bool $files = false,
-				mixed $register = null,
-				mixed $schema = null,
+				ObjectFindOptions|PublishedObjectFindOptions|null $options = null,
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $_render = true,
-				bool $_audit = true,
+				bool $_multitenancy = true
 			): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
+				$_render = $options?->render ?? true;
+				$_audit = $options?->audit ?? true;
 				return ($this->agentsById[(string)$id] ?? null);
 			}//end find()
 		};
@@ -164,7 +173,7 @@ class DelegationServiceTest extends TestCase {
 	 * @param array<string,string> $appConfigValues `delegation.maxDepth`/`delegation.maxFanOut`
 	 *                                              overrides; unset keys fall back to the
 	 *                                              service's own defaults (2/3).
-	 * @param TenantModelPolicyService|null $tenantModelPolicyService Defaults to an
+	 * @param EffectiveModelPolicy|null $tenantModelPolicyService Defaults to an
 	 *                                                                always-allow mock.
 	 * @param ScheduleService|null $scheduleService Defaults to a never-called mock
 	 *                                              (tests exercising the success
@@ -172,6 +181,7 @@ class DelegationServiceTest extends TestCase {
 	 * @param BudgetService|null $budgetService Defaults to a never-blocked mock.
 	 * @param AuditTrailMapper|null $auditTrailMapper Defaults to a plain stub mapper.
 	 * @param string $currentUser The caller's own current session uid.
+	 * @param ParallelDelegation|null $parallel Runs parts on workers; none by default.
 	 *
 	 * @return DelegationService
 	 */
@@ -179,29 +189,30 @@ class DelegationServiceTest extends TestCase {
 		ObjectService $objectService,
 		DelegationContext $delegationContext,
 		array $appConfigValues = [],
-		?TenantModelPolicyService $tenantModelPolicyService = null,
+		?EffectiveModelPolicy $tenantModelPolicyService = null,
 		?ScheduleService $scheduleService = null,
 		?BudgetService $budgetService = null,
 		?AuditTrailMapper $auditTrailMapper = null,
 		string $currentUser = 'alice',
+		?ParallelDelegation $parallel = null,
 	): DelegationService {
 		$appConfig = $this->createMock(IAppConfig::class);
 		$appConfig->method('getValueString')->willReturnCallback(
 			static fn (string $app, string $key, string $default): string => ($appConfigValues[$key] ?? $default)
 		);
 
-		$tenantModelPolicyService = ($tenantModelPolicyService ?? $this->createMock(TenantModelPolicyService::class));
+		$tenantModelPolicyService = ($tenantModelPolicyService ?? $this->createMock(EffectiveModelPolicy::class));
 
 		$scheduleService = ($scheduleService ?? $this->createMock(ScheduleService::class));
 
 		$budgetService = ($budgetService ?? $this->createMock(BudgetService::class));
 
 		$auditTrailMapper = ($auditTrailMapper ?? $this->createMock(AuditTrailMapper::class));
-		$auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
-			static function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
+		$auditTrailMapper->method('recordObjectEvent')->willReturnCallback(
+			static function (ObjectAuditEvent $event): AuditTrail {
 				$entry = new AuditTrail();
-				$entry->setAction($action);
-				$entry->setChanged($context);
+				$entry->setAction($event->action);
+				$entry->setChanged($event->context);
 				return $entry;
 			}
 		);
@@ -217,6 +228,7 @@ class DelegationServiceTest extends TestCase {
 			new RedactionService($this->createMock(IConfig::class)),
 			$this->userSession($currentUser),
 			$this->createMock(LoggerInterface::class),
+			parallel: $parallel,
 		);
 
 	}//end service()
@@ -237,7 +249,7 @@ class DelegationServiceTest extends TestCase {
 		$scheduleService->expects($this->never())->method('runAgentAsOwner');
 
 		$auditTrailMapper = $this->createMock(AuditTrailMapper::class);
-		$auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$service = $this->service(
 			objectService: $this->objectService(['agent-a' => $caller, 'agent-b' => $target]),
@@ -776,7 +788,7 @@ class DelegationServiceTest extends TestCase {
 		$caller = $this->agent('agent-a', 'org-x', ['delegationAllowlist' => ['agent-b']]);
 		$target = $this->agent('agent-b', 'org-x', ['provider' => 'openai', 'model' => 'gpt-9-forbidden']);
 
-		$tenantModelPolicyService = $this->createMock(TenantModelPolicyService::class);
+		$tenantModelPolicyService = $this->createMock(EffectiveModelPolicy::class);
 		$tenantModelPolicyService->method('isAllowed')->willReturn(false);
 
 		$scheduleService = $this->createMock(ScheduleService::class);
@@ -811,7 +823,7 @@ class DelegationServiceTest extends TestCase {
 		$target = $this->agent('agent-b', 'org-x');
 
 		$auditTrailMapper = $this->createMock(AuditTrailMapper::class);
-		$auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+		$auditTrailMapper->expects($this->never())->method('recordObjectEvent');
 
 		$service = $this->service(
 			objectService: $this->objectService(['agent-a' => $caller, 'agent-b' => $target]),
@@ -856,14 +868,14 @@ class DelegationServiceTest extends TestCase {
 		$capturedContext = null;
 		$auditTrailMapper = $this->createMock(AuditTrailMapper::class);
 		$auditTrailMapper->expects($this->once())
-			->method('createAuditTrailEntry')
+			->method('recordObjectEvent')
 			->willReturnCallback(
-				function (ObjectEntity $object, string $action, array $ctx = []) use (&$capturedObject, &$capturedAction, &$capturedContext): AuditTrail {
-					$capturedObject = $object;
-					$capturedAction = $action;
-					$capturedContext = $ctx;
+				function (ObjectAuditEvent $event) use (&$capturedObject, &$capturedAction, &$capturedContext): AuditTrail {
+					$capturedObject = $event->object;
+					$capturedAction = $event->action;
+					$capturedContext = $event->context;
 					$entry = new AuditTrail();
-					$entry->setAction($action);
+					$entry->setAction($event->action);
 					return $entry;
 				}
 			);
@@ -955,11 +967,11 @@ class DelegationServiceTest extends TestCase {
 
 		$capturedContext = null;
 		$auditTrailMapper = $this->createMock(AuditTrailMapper::class);
-		$auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $ctx = []) use (&$capturedContext): AuditTrail {
-				$capturedContext = $ctx;
+		$auditTrailMapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event) use (&$capturedContext): AuditTrail {
+				$capturedContext = $event->context;
 				$entry = new AuditTrail();
-				$entry->setAction($action);
+				$entry->setAction($event->action);
 				return $entry;
 			}
 		);
@@ -980,4 +992,450 @@ class DelegationServiceTest extends TestCase {
 		$this->assertSame('error', $capturedContext['status'] ?? null);
 
 	}//end testTargetRunFailureDegradesToErrorEnvelopeWithoutThrowing()
+
+	/**
+	 * A delegator with B, C and D on its allowlist, each answering its own task.
+	 *
+	 * @param array<int, string> $allowlist The caller's allowlist.
+	 *
+	 * @return array{ObjectService, DelegationContext}
+	 */
+	private function threeTargets(array $allowlist = ['agent-b', 'agent-c', 'agent-d']): array {
+		$agents = ['agent-a' => $this->agent('agent-a', 'org-x', ['delegationAllowlist' => $allowlist])];
+		foreach (['agent-b', 'agent-c', 'agent-d'] as $id) {
+			$agents[$id] = $this->agent($id, 'org-x');
+		}
+
+		$context = new DelegationContext();
+		$context->push(runId: 'run-a', agentId: 'agent-a', organisation: 'org-x', anchor: null);
+
+		return [$this->objectService($agents), $context];
+	}//end threeTargets()
+
+	/**
+	 * A schedule service that answers each run with its agent and task, and
+	 * logs every gate check and run in the order they happen.
+	 *
+	 * @param array<int, string> $log The shared log.
+	 *
+	 * @return ScheduleService
+	 */
+	private function loggingSchedule(array &$log): ScheduleService {
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('isOrganisationEngaged')->willReturnCallback(
+			static function () use (&$log): bool {
+				$log[] = 'gate';
+				return false;
+			}
+		);
+		$schedule->method('runAgentAsOwner')->willReturnCallback(
+			static function (string $owner, string $agentId, string $prompt) use (&$log): string {
+				$log[] = 'run '.$agentId;
+				return $agentId.' did '.$prompt;
+			}
+		);
+		$schedule->method('getLastRunId')->willReturn('run-sub');
+		return $schedule;
+	}//end loggingSchedule()
+
+	/**
+	 * Three allowed parts all run, and the results come back in call order.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	public function testDelegateManyRunsEveryAllowedPartAndAnswersInCallOrder(): void {
+		[$objects, $context] = $this->threeTargets();
+		$log = [];
+		$service = $this->service(objectService: $objects, delegationContext: $context, scheduleService: $this->loggingSchedule($log));
+
+		$result = $service->delegateMany(callerAgentId: 'agent-a', parts: [
+			['targetAgentId' => 'agent-d', 'task' => 'one'],
+			['targetAgentId' => 'agent-b', 'task' => 'two'],
+			['targetAgentId' => 'agent-c', 'task' => 'three'],
+		]);
+
+		$this->assertSame(['agent-d', 'agent-b', 'agent-c'], array_column($result['results'], 'targetAgentId'));
+		$this->assertSame(['agent-d did one', 'agent-b did two', 'agent-c did three'], array_column($result['results'], 'result'));
+		$this->assertSame(3, $context->current()?->fanOutCount);
+	}//end testDelegateManyRunsEveryAllowedPartAndAnswersInCallOrder()
+
+	/**
+	 * Every part passes its gates before any part runs.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	public function testDelegateManyGatesEveryPartBeforeRunningAny(): void {
+		[$objects, $context] = $this->threeTargets();
+		$log = [];
+		$service = $this->service(objectService: $objects, delegationContext: $context, scheduleService: $this->loggingSchedule($log));
+
+		$service->delegateMany(callerAgentId: 'agent-a', parts: [
+			['targetAgentId' => 'agent-b', 'task' => 'one'],
+			['targetAgentId' => 'agent-c', 'task' => 'two'],
+		]);
+
+		$this->assertSame(['gate', 'gate', 'run agent-b', 'run agent-c'], $log);
+	}//end testDelegateManyGatesEveryPartBeforeRunningAny()
+
+	/**
+	 * A refused part answers with its refusal in its own slot, does not count
+	 * toward fan-out, and does not stop the others.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	public function testDelegateManyKeepsGoingPastARefusedPart(): void {
+		[$objects, $context] = $this->threeTargets(allowlist: ['agent-b', 'agent-c']);
+		$log = [];
+		$service = $this->service(
+			objectService: $objects,
+			delegationContext: $context,
+			appConfigValues: ['delegation.maxFanOut' => '2'],
+			scheduleService: $this->loggingSchedule($log)
+		);
+
+		$result = $service->delegateMany(callerAgentId: 'agent-a', parts: [
+			['targetAgentId' => 'agent-b', 'task' => 'one'],
+			['targetAgentId' => 'agent-d', 'task' => 'two'],
+			['targetAgentId' => 'agent-c', 'task' => 'three'],
+		])['results'];
+
+		$this->assertSame('agent-b did one', $result[0]['result']);
+		$this->assertSame('agent-d', $result[1]['targetAgentId']);
+		$this->assertSame('delegation_not_allowed', $result[1]['error']['code']);
+		$this->assertSame('agent-c did three', $result[2]['result']);
+		$this->assertSame(['run agent-b', 'run agent-c'], array_values(array_filter($log, static fn (string $e): bool => $e !== 'gate')));
+	}//end testDelegateManyKeepsGoingPastARefusedPart()
+
+	/**
+	 * The fan-out limit applies to the whole list, counting what the turn
+	 * already delegated: with one delegation made and a limit of 3, the first
+	 * two parts run and the third is refused.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	public function testDelegateManyAppliesTheFanOutLimitToTheWholeList(): void {
+		[$objects, $context] = $this->threeTargets();
+		$context->incrementFanOut();
+		$log = [];
+		$service = $this->service(
+			objectService: $objects,
+			delegationContext: $context,
+			appConfigValues: ['delegation.maxFanOut' => '3'],
+			scheduleService: $this->loggingSchedule($log)
+		);
+
+		$result = $service->delegateMany(callerAgentId: 'agent-a', parts: [
+			['targetAgentId' => 'agent-b', 'task' => 'one'],
+			['targetAgentId' => 'agent-c', 'task' => 'two'],
+			['targetAgentId' => 'agent-d', 'task' => 'three'],
+		])['results'];
+
+		$this->assertSame(['agent-b did one', 'agent-c did two'], [$result[0]['result'], $result[1]['result']]);
+		$this->assertSame('delegation_fanout_exceeded', $result[2]['error']['code']);
+		$this->assertNotContains('run agent-d', $log);
+		$this->assertSame(3, $context->current()?->fanOutCount);
+	}//end testDelegateManyAppliesTheFanOutLimitToTheWholeList()
+
+	/**
+	 * A malformed part answers `invalid_argument` in its slot and runs nothing;
+	 * the well-formed parts still run.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	public function testDelegateManyAnswersAMalformedPartInItsSlot(): void {
+		[$objects, $context] = $this->threeTargets();
+		$log = [];
+		$service = $this->service(objectService: $objects, delegationContext: $context, scheduleService: $this->loggingSchedule($log));
+
+		$result = $service->delegateMany(callerAgentId: 'agent-a', parts: [
+			'not a part',
+			['targetAgentId' => 'agent-b', 'task' => '   '],
+			['targetAgentId' => ['agent-c'], 'task' => 'x'],
+			['targetAgentId' => 'agent-c', 'task' => 'fine'],
+		])['results'];
+
+		$this->assertSame(['invalid_argument', 'invalid_argument', 'invalid_argument'], array_map(static fn (array $slot): string => $slot['error']['code'], array_slice($result, 0, 3)));
+		$this->assertSame('agent-b', $result[1]['targetAgentId']);
+		$this->assertSame('agent-c did fine', $result[3]['result']);
+		$this->assertSame(['run agent-c'], array_values(array_filter($log, static fn (string $e): bool => $e !== 'gate')));
+	}//end testDelegateManyAnswersAMalformedPartInItsSlot()
+
+	/**
+	 * Parallel parts over in-memory DelegatedRun records on a fake clock.
+	 *
+	 * @param DelegatedRunsDouble   $runs     The records and the clock.
+	 * @param array<string, string> $settings App config values.
+	 *
+	 * @return ParallelDelegation
+	 */
+	private function parallelOver(DelegatedRunsDouble $runs, array $settings = []): ParallelDelegation {
+		$appConfig = $this->createMock(IAppConfig::class);
+		$appConfig->method('getValueString')->willReturnCallback(
+			static fn (string $app, string $key, string $default): string => ($settings[$key] ?? $default)
+		);
+		$jobList = $this->createMock(IJobList::class);
+		$jobList->method('add')->willReturnCallback(
+			static function () use ($runs): void {
+				$runs->jobs++;
+			}
+		);
+
+		return new ParallelDelegation(
+			store: new DelegatedRunStore(
+				objectService: $runs->objectService(test: $this),
+				locking: $this->createMock(ILockingProvider::class),
+				clock: $runs->clock(test: $this)
+			),
+			jobList: $jobList,
+			clock: $runs->clock(test: $this),
+			appConfig: $appConfig
+		);
+	}//end parallelOver()
+
+	/**
+	 * With workers, the passing parts are handed out and run on them, each
+	 * audited under the parent run, and answer in call order (REQ-DLGPAR-001).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	public function testDelegateManyHandsThePartsToWorkers(): void {
+		[$objects, $context] = $this->threeTargets();
+		$log     = [];
+		$runs    = new DelegatedRunsDouble();
+		$audit   = $this->createMock(AuditTrailMapper::class);
+		$entries = [];
+		$audit->method('recordObjectEvent')->willReturnCallback(
+			static function (ObjectAuditEvent $event) use (&$entries): AuditTrail {
+				$entries[] = $event->context;
+				return new AuditTrail();
+			}
+		);
+		$service = $this->service(
+			objectService: $objects,
+			delegationContext: $context,
+			scheduleService: $this->loggingSchedule($log),
+			auditTrailMapper: $audit,
+			parallel: $this->parallelOver(runs: $runs)
+		);
+		$runs->onWait = static function () use ($runs, $service): void {
+			foreach (array_keys($runs->records) as $id) {
+				$service->runStoredPart(delegatedRunId: $id, claimant: 'worker');
+			}
+		};
+
+		$result = $service->delegateMany(callerAgentId: 'agent-a', parts: [
+			['targetAgentId' => 'agent-d', 'task' => 'one'],
+			['targetAgentId' => 'agent-b', 'task' => 'two'],
+			['targetAgentId' => 'agent-c', 'task' => 'three'],
+		]);
+
+		$this->assertSame(['agent-d', 'agent-b', 'agent-c'], array_column($result['results'], 'targetAgentId'));
+		$this->assertSame(['agent-d did one', 'agent-b did two', 'agent-c did three'], array_column($result['results'], 'result'));
+		$this->assertSame(3, $runs->jobs);
+		$this->assertSame(['worker', 'worker', 'worker'], array_column($runs->records, 'claimedBy'));
+		$this->assertSame(['done', 'done', 'done'], array_column($runs->records, 'state'));
+		$this->assertSame(['alice', 'alice', 'alice'], array_column($runs->records, 'owner'));
+		$this->assertSame(3, $context->current()?->fanOutCount);
+		$this->assertSame('run-a', $context->current()?->runId);
+		$this->assertSame(['run-a', 'run-a', 'run-a'], array_column($entries, 'parentRunId'));
+	}//end testDelegateManyHandsThePartsToWorkers()
+
+	/**
+	 * Without a worker the parent runs each part itself after the grace
+	 * period, once, and the answers still come back (REQ-DLGPAR-002).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
+	 */
+	public function testDelegateManyRunsThePartsInlineWhenNoWorkerClaimsThem(): void {
+		[$objects, $context] = $this->threeTargets();
+		$log     = [];
+		$runs    = new DelegatedRunsDouble();
+		$service = $this->service(objectService: $objects, delegationContext: $context, scheduleService: $this->loggingSchedule($log), parallel: $this->parallelOver(runs: $runs));
+
+		$result = $service->delegateMany(callerAgentId: 'agent-a', parts: [
+			['targetAgentId' => 'agent-b', 'task' => 'one'],
+			['targetAgentId' => 'agent-c', 'task' => 'two'],
+		]);
+
+		$this->assertSame(['agent-b did one', 'agent-c did two'], array_column($result['results'], 'result'));
+		$this->assertSame(['gate', 'gate', 'run agent-b', 'run agent-c'], $log);
+		$this->assertSame(['parent', 'parent'], array_column($runs->records, 'claimedBy'));
+		$this->assertSame(1010, $runs->now);
+		$this->assertSame(1, $context->depth());
+	}//end testDelegateManyRunsThePartsInlineWhenNoWorkerClaimsThem()
+
+	/**
+	 * A part still open at the timeout answers delegation_timeout and is
+	 * audited as timed out under the parent run (REQ-DLGPAR-002).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
+	 */
+	public function testAPartThatTimesOutIsAuditedAsTimedOut(): void {
+		[$objects, $context] = $this->threeTargets();
+		$log     = [];
+		$runs    = new DelegatedRunsDouble();
+		$audit   = $this->createMock(AuditTrailMapper::class);
+		$entries = [];
+		$audit->method('recordObjectEvent')->willReturnCallback(
+			static function (ObjectAuditEvent $event) use (&$entries): AuditTrail {
+				$entries[] = $event->context;
+				return new AuditTrail();
+			}
+		);
+		$parallel = $this->parallelOver(runs: $runs, settings: ['delegation.parallelTimeoutSeconds' => '20', 'delegation.parallelGraceSeconds' => '30']);
+		$service  = $this->service(objectService: $objects, delegationContext: $context, scheduleService: $this->loggingSchedule($log), auditTrailMapper: $audit, parallel: $parallel);
+		$runs->onWait = static function () use ($runs, $parallel): void {
+			// A worker claims the first part and never finishes it.
+			$parallel->store()->claim(id: 'part-1', claimant: 'worker');
+			if ($runs->now === 1003) {
+				$parallel->store()->claim(id: 'part-2', claimant: 'worker');
+				$parallel->store()->finish(id: 'part-2', fields: ['state' => 'done', 'result' => 'quick']);
+			}
+		};
+
+		$result = $service->delegateMany(callerAgentId: 'agent-a', parts: [
+			['targetAgentId' => 'agent-b', 'task' => 'slow'],
+			['targetAgentId' => 'agent-c', 'task' => 'quick'],
+		]);
+
+		$this->assertSame('delegation_timeout', $result['results'][0]['error']['code']);
+		$this->assertSame('agent-b', $result['results'][0]['targetAgentId']);
+		$this->assertSame('quick', $result['results'][1]['result']);
+		$this->assertSame('timed-out', $runs->records['part-1']['state']);
+		$this->assertSame([['timeout', 'agent-b', 'run-a']], array_map(static fn (array $e): array => [$e['status'], $e['agentId'], $e['parentRunId']], $entries));
+		// The parts ran on the (fake) worker, never inline here.
+		$this->assertSame(['gate', 'gate'], $log);
+	}//end testAPartThatTimesOutIsAuditedAsTimedOut()
+
+	/**
+	 * One passing part runs inline even with workers available: nothing to overlap.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-several-parts-of-one-task-run-on-sub-agents-at-the-same-time-req-dlgpar-001
+	 */
+	public function testASinglePassingPartRunsInline(): void {
+		[$objects, $context] = $this->threeTargets(allowlist: ['agent-b']);
+		$log     = [];
+		$runs    = new DelegatedRunsDouble();
+		$service = $this->service(objectService: $objects, delegationContext: $context, scheduleService: $this->loggingSchedule($log), parallel: $this->parallelOver(runs: $runs));
+
+		$result = $service->delegateMany(callerAgentId: 'agent-a', parts: [
+			['targetAgentId' => 'agent-b', 'task' => 'one'],
+			['targetAgentId' => 'agent-d', 'task' => 'two'],
+		]);
+
+		$this->assertSame('agent-b did one', $result['results'][0]['result']);
+		$this->assertSame('delegation_not_allowed', $result['results'][1]['error']['code']);
+		$this->assertSame(0, $runs->jobs);
+		$this->assertSame([], $runs->records);
+	}//end testASinglePassingPartRunsInline()
+
+	/**
+	 * A worker runs a stored part at the parent's own depth and ancestry, as
+	 * the parent's acting user, once; the frame it took up is gone after.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
+	 */
+	public function testAWorkerRunsAStoredPartAtTheParentsDepthOnce(): void {
+		$context  = new DelegationContext();
+		$runs     = new DelegatedRunsDouble();
+		$parallel = $this->parallelOver(runs: $runs);
+		$seen     = [];
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->expects($this->once())->method('runAgentAsOwner')->willReturnCallback(
+			static function (string $owner, string $agentId, string $prompt, string $organisation, bool $dryRun, bool $forceOwner) use ($context, &$seen): string {
+				$frame = $context->current();
+				$seen  = [$owner, $agentId, $prompt, $organisation, $forceOwner, $frame?->runId, $frame?->depth, $frame?->ancestorAgentIds];
+				return 'done it';
+			}
+		);
+		$schedule->method('getLastRunId')->willReturn('run-sub');
+		$service = $this->service(
+			objectService: $this->objectService(['agent-b' => $this->agent('agent-b', 'org-x')]),
+			delegationContext: $context,
+			scheduleService: $schedule,
+			currentUser: '',
+			parallel: $parallel
+		);
+		$id = $parallel->store()->queue(record: [
+			'parentRunId' => 'run-p',
+			'parentAgentId' => 'agent-a',
+			'ancestorAgentIds' => ['agent-root'],
+			'depth' => 2,
+			'targetAgentId' => 'agent-b',
+			'task' => 'check the dates',
+			'owner' => 'alice',
+			'organisation' => 'org-x',
+			'effectiveReach' => 'instance',
+		]);
+
+		$this->assertTrue($service->runStoredPart(delegatedRunId: $id, claimant: 'worker'));
+		$this->assertFalse($service->runStoredPart(delegatedRunId: $id, claimant: 'worker'));
+
+		$this->assertSame(['alice', 'agent-b', 'check the dates', 'org-x', true, 'run-p', 2, ['agent-root']], $seen);
+		$this->assertNull($context->current());
+		$this->assertSame('done', $runs->records[$id]['state']);
+		$this->assertSame('done it', $runs->records[$id]['result']);
+		$this->assertSame('run-sub', $runs->records[$id]['runId']);
+	}//end testAWorkerRunsAStoredPartAtTheParentsDepthOnce()
+
+	/**
+	 * A stored part whose run fails is recorded as failed and never throws.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
+	 */
+	public function testAFailingStoredPartIsRecordedFailed(): void {
+		$context  = new DelegationContext();
+		$runs     = new DelegatedRunsDouble();
+		$parallel = $this->parallelOver(runs: $runs);
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('runAgentAsOwner')->willThrowException(new \RuntimeException('provider down'));
+		$schedule->method('getLastRunId')->willReturn('run-sub');
+		$service = $this->service(
+			objectService: $this->objectService(['agent-b' => $this->agent('agent-b', 'org-x')]),
+			delegationContext: $context,
+			scheduleService: $schedule,
+			parallel: $parallel
+		);
+		$id = $parallel->store()->queue(record: ['parentRunId' => '', 'targetAgentId' => 'agent-b', 'task' => 'x', 'owner' => 'alice']);
+
+		$this->assertTrue($service->runStoredPart(delegatedRunId: $id, claimant: 'worker'));
+
+		$this->assertSame('failed', $runs->records[$id]['state']);
+		$this->assertNull($context->current());
+	}//end testAFailingStoredPartIsRecordedFailed()
+
+	/**
+	 * Without parallel support a stored part is never claimed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delegation-runs-in-parallel/specs/sub-agent-delegation/spec.md#requirement-a-part-no-worker-picks-up-runs-inline-req-dlgpar-002
+	 */
+	public function testRunStoredPartWithoutParallelSupportClaimsNothing(): void {
+		$service = $this->service(objectService: $this->objectService([]), delegationContext: new DelegationContext());
+
+		$this->assertFalse($service->runStoredPart(delegatedRunId: 'part-1', claimant: 'worker'));
+	}//end testRunStoredPartWithoutParallelSupportClaimsNothing()
 }//end class

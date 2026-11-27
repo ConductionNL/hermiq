@@ -24,6 +24,8 @@ import {
 	cleanupFamily,
 	dismissTour,
 	harvestToken,
+	openAgentForm,
+	runHeaderAction,
 	seedAgent,
 	seedObject,
 	TEST_PREFIX,
@@ -58,13 +60,12 @@ test.describe('agents-switch-off-and-stop: the AgentDetail switch and the AgentC
 		await page.goto(`${root}/agents/${agent.id}`)
 		await dismissTour(page)
 
-		await page.getByRole('button', { name: 'Switch off or on' }).click()
+		await runHeaderAction(page, 'switch-availability')
 		const dialog = page.getByTestId('agent-availability-dialog')
 		await expect(dialog).toContainText('This agent is switched on.')
 
 		await page
 			.getByTestId('agent-availability-reason')
-			.locator('input')
 			.fill('Sends reminders for closed permits')
 		await page.getByTestId('agent-availability-switch-off').click()
 		await expect(page.getByTestId('agent-availability-state')).toContainText(
@@ -118,12 +119,11 @@ test.describe('agents-switch-off-and-stop: the AgentDetail switch and the AgentC
 		await page.goto(`${root}/agents/${agent.id}`)
 		await dismissTour(page)
 
-		await page.getByRole('button', { name: 'Edit agent' }).click()
-		await page
-			.getByTestId('agent-form-max-tool-calls')
-			.locator('input')
-			.fill('25')
-		await page.getByRole('button', { name: 'Save' }).click()
+		await openAgentForm(page)
+		await page.getByTestId('agent-form-max-tool-calls').fill('25')
+		const dialog = page.getByRole('dialog', { name: 'Edit agent' })
+		await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+		await expect(dialog).toBeHidden()
 
 		const stored = await (
 			await page.request.get(
@@ -151,6 +151,7 @@ test.describe('agents-switch-off-and-stop: the AgentDetail switch and the AgentC
 				kind: 'interval',
 				intervalMinutes: 60,
 				prompt: 'go',
+				deliver: 'none',
 				enabled: false,
 			})
 		}

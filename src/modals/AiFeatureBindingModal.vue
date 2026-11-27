@@ -88,6 +88,8 @@ import {
 } from '@nextcloud/vue'
 import { bindAiFeature } from '../api/aiFeatures.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
+import { BUSY_FIELDS, busyAction } from '../utils/busyAction.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'AiFeatureBindingModal',
@@ -249,10 +251,7 @@ export default {
 			const policy = await getEffectiveModelPolicy()
 			this.allowed = Array.isArray(policy?.allowed) ? policy.allowed : []
 		} catch (e) {
-			this.error =
-				e?.response?.data?.error
-				|| e?.message
-				|| this.t('hermiq', 'Unknown error')
+			this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 		}
 		this.providerOption =
 			this.providerOptions.find((o) => o.value === this.current.provider)
@@ -270,23 +269,14 @@ export default {
 		 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-administrator-chooses-the-provider-of-one-ai-feature-req-aibind-001
 		 */
 		async save() {
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				await bindAiFeature(this.featureId, {
 					provider: this.useDefault ? '' : this.providerOption.value,
 					model: this.useDefault ? '' : this.chosenModel,
 					requiredResidency: this.residencyOption?.value || '',
 				})
 				this.$emit('saved')
-			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 	},
 }

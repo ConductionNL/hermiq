@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
  */
 
 declare(strict_types=1);
@@ -28,10 +28,10 @@ use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\Hermiq\Service\AiFeature\ProviderResidencyRegistry;
 use OCA\Hermiq\Service\AiFeature\RedactionOutcomeReader;
 use OCA\Hermiq\Service\AiFeature\RedactionRequiredException;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
@@ -44,7 +44,7 @@ use Psr\Log\NullLogger;
 /**
  * Tests the per-attachment enforcement in ProviderFactory::createChatDriver().
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
  */
 class ProviderFactoryAttachmentsTest extends TestCase {
 
@@ -55,7 +55,7 @@ class ProviderFactoryAttachmentsTest extends TestCase {
 	 * @return ProviderFactory
 	 */
 	private function factory(): ProviderFactory {
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 		$features->method('findBySlug')->willReturnCallback(
 			static function (string $slug): ?ObjectEntity {
 				$entity = new ObjectEntity();
@@ -64,7 +64,7 @@ class ProviderFactoryAttachmentsTest extends TestCase {
 			}
 		);
 
-		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy = $this->createMock(EffectiveModelPolicy::class);
 		$policy->method('isAllowed')->willReturn(true);
 		$policy->method('effectivePolicyFor')->willReturn(['source' => 'organisation', 'allowed' => [], 'defaultModel' => null]);
 
@@ -130,7 +130,7 @@ class ProviderFactoryAttachmentsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function testRedactedOrAbsentAttachmentsRun(): void {
 		$this->assertSame('ollama', $this->driverFor([]));
@@ -144,7 +144,7 @@ class ProviderFactoryAttachmentsTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-feature-that-requires-redaction-refuses-an-unredacted-attachment
+	 * @spec openspec/specs/chat-attachments/spec.md#scenario-a-feature-that-requires-redaction-refuses-an-unredacted-attachment
 	 */
 	public function testEachAttachmentIsCheckedOnItsOwn(): void {
 		try {

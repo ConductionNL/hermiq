@@ -42,7 +42,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
  */
 
 declare(strict_types=1);
@@ -54,7 +54,7 @@ use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 /**
  * Fail-safe-closed side-effect classification for dry-run tool neutralisation.
  *
- * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
  */
 class ToolClassificationService {
 	/**
@@ -88,7 +88,7 @@ class ToolClassificationService {
 	 *
 	 * @return bool True when the tool must be neutralised in a dry-run.
 	 *
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) ToolGrantResolver::requiresGrant()
 	 *   is a deliberately stateless pure classifier — both classifications must share

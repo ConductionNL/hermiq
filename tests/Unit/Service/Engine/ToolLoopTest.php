@@ -36,7 +36,7 @@ use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -485,6 +485,45 @@ class ToolLoopTest extends TestCase {
 	}//end testBuildFunctionInfosConvertsDescriptors()
 
 	/**
+	 * Characterisation of the descriptor conversion edges: entries that are not
+	 * an array or carry no `name` are skipped, a descriptor without parameters
+	 * yields no parameters, a non-array property definition still becomes a
+	 * parameter, and a missing description defaults to an empty string.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+	 */
+	public function testBuildFunctionInfosSkipsUnnamedEntriesAndDefaultsMissingParts(): void {
+		$functions = [
+			'not-an-array',
+			['description' => 'No name'],
+			['name' => 'demo_bare'],
+			[
+				'name' => 'demo_loose',
+				'parameters' => [
+					'properties' => ['flag' => 'boolean', 'title' => ['type' => 'string']],
+					'required' => ['flag', 'absent'],
+				],
+			],
+		];
+
+		$loop = $this->loop(facade: $this->createMock(ToolRegistryFacade::class));
+		$infos = $loop->buildFunctionInfos(functions: $functions);
+
+		$this->assertCount(2, $infos);
+		$this->assertSame('demo_bare', $infos[0]->name);
+		$this->assertSame('', $infos[0]->description);
+		$this->assertSame([], $infos[0]->parameters);
+		$this->assertSame([], $infos[0]->requiredParameters);
+		$this->assertSame('demo_loose', $infos[1]->name);
+		$this->assertSame(['flag', 'title'], array_map(static fn ($p) => $p->name, $infos[1]->parameters));
+		$this->assertSame(['flag'], array_map(static fn ($p) => $p->name, $infos[1]->requiredParameters));
+		$this->assertSame($infos[0]->instance, $infos[1]->instance);
+
+	}//end testBuildFunctionInfosSkipsUnnamedEntriesAndDefaultsMissingParts()
+
+	/**
 	 * The invoker routes LLPhant's magic dispatch onto invokeTool() and fans
 	 * tool_call/tool_result frames out to the channel.
 	 *
@@ -703,7 +742,7 @@ class ToolLoopTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-an-agent-without-the-grant-asks-for-an-image
+	 * @spec openspec/specs/image-generation/spec.md#scenario-an-agent-without-the-grant-asks-for-an-image
 	 */
 	public function testTheImageToolIsOfferedOnlyWithItsGrant(): void {
 		$catalog = [
@@ -731,4 +770,45 @@ class ToolLoopTest extends TestCase {
 		$this->assertSame(['hermiq.readFile', ImageToolDescriptors::GENERATE_IMAGE], array_column($with, 'mcpId'));
 
 	}//end testTheImageToolIsOfferedOnlyWithItsGrant()
+	/**
+	 * An agent with only the read grant of a register schema is offered its
+	 * search and get tools and never its update: the update is refused before it
+	 * can be called, so the record stays as it was. With the schema's write grant
+	 * the update is offered and goes through (spec-coverage-built-rows).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-tool-governance/spec.md#requirement-an-agent-reads-and-updates-register-records-within-its-grant-req-spcov-015
+	 */
+	public function testARegisterUpdateNeedsTheSchemasWriteGrant(): void {
+		$catalog = [
+			['name' => 'dossiq_permitapplication_search', 'mcpId' => 'dossiq.permitapplication.search'],
+			['name' => 'dossiq_permitapplication_get', 'mcpId' => 'dossiq.permitapplication.get'],
+			['name' => 'dossiq_permitapplication_create', 'mcpId' => 'dossiq.permitapplication.create'],
+			['name' => 'dossiq_permitapplication_update', 'mcpId' => 'dossiq.permitapplication.update'],
+		];
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('listTools')->willReturnCallback(
+			static function (array $whitelist) use ($catalog): array {
+				if ($whitelist === []) {
+					return $catalog;
+				}
+
+				return array_values(array_filter($catalog, static fn (array $tool): bool => in_array($tool['mcpId'], $whitelist, true)));
+			}
+		);
+		$loop = $this->loop(facade: $facade);
+
+		$readOnly = array_column($loop->listAgentFunctions(agent: $this->agent(tools: ['dossiq.permitapplication.*'])), 'mcpId');
+		sort($readOnly);
+		$this->assertSame(['dossiq.permitapplication.get', 'dossiq.permitapplication.search'], $readOnly);
+
+		$writable = array_column($loop->listAgentFunctions(agent: $this->agent(tools: ['dossiq.permitapplication.*:write'])), 'mcpId');
+		sort($writable);
+		$this->assertSame(
+			['dossiq.permitapplication.create', 'dossiq.permitapplication.get', 'dossiq.permitapplication.search', 'dossiq.permitapplication.update'],
+			$writable
+		);
+
+	}//end testARegisterUpdateNeedsTheSchemasWriteGrant()
 }//end class

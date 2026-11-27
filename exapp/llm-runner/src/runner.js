@@ -27,6 +27,8 @@ const https = require('https')
 const os = require('os')
 const path = require('path')
 
+const { proxyEnvFor } = require('./proxyEnv')
+
 const DEFAULT_TIMEOUT_MS = Number(process.env.RUNNER_TIMEOUT_MS || '120000')
 const MAX_OUTPUT_BYTES = Number(
 	process.env.RUNNER_MAX_OUTPUT_BYTES || String(8 * 1024 * 1024),
@@ -67,25 +69,7 @@ const EGRESS_PROXY_AUTHORITY = (process.env.EGRESS_PROXY_AUTHORITY || '').trim()
  * @returns {object} Env map to merge into the child's environment.
  */
 function buildEgressProxyEnv(runToken) {
-	if (
-		EGRESS_PROXY_AUTHORITY === ''
-		|| typeof runToken !== 'string'
-		|| runToken === ''
-	) {
-		return {}
-	}
-
-	const url = `http://run:${encodeURIComponent(runToken)}@${EGRESS_PROXY_AUTHORITY}`
-
-	// Both cases: some tools read the lowercase names, some the uppercase.
-	// NO_PROXY is deliberately NOT set — an exemption list here would be a second
-	// policy, and a hole in the only route out.
-	return {
-		HTTPS_PROXY: url,
-		https_proxy: url,
-		HTTP_PROXY: url,
-		http_proxy: url,
-	}
+	return proxyEnvFor(EGRESS_PROXY_AUTHORITY, runToken)
 }
 
 /**
@@ -383,85 +367,33 @@ function run({ provider, model, messages, credentialEnv, mcpConfig, runToken }) 
  * @param {object} args Same arguments as {@link run}.
  * @returns {Promise<{text: string, toolCalls: Array, usage: object}>} Result.
  */
-function spawnTurn({
-	provider,
-	model,
-	messages,
-	credentialEnv,
-	mcpConfig,
-	runToken,
-}) {
+function spawnTurn(turn) {
 	return new Promise((resolve, reject) => {
-		const prompt = buildPrompt(messages)
+		const prompt = buildPrompt(turn.messages)
 
 		// Throwaway scratch dir — the only filesystem the child is pointed at.
 		const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-runner-'))
-
-		// Governed turn: write the MCP config (with its live bearer token) to a 0600
-		// file — never an inline argv string, which would put the token on the process
-		// table. It is removed with the scratch dir by cleanup() in every exit path.
-		let mcpConfigPath = null
-		if (mcpConfig && typeof mcpConfig === 'object') {
-			mcpConfigPath = path.join(scratch, 'mcp.json')
-			fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig), {
-				mode: 0o600,
-			})
-			fs.chmodSync(mcpConfigPath, 0o600)
-		}
-
-		const args = provider.args(model, { mcpConfigPath })
+		const settle = { scratch, provider: turn.provider, resolve, reject }
+		const mcpConfigPath = writeMcpConfig(turn.mcpConfig, scratch)
+		writeAuthFiles(turn.provider, turn.credentialEnv, scratch)
+		const args = turn.provider.args(turn.model, { mcpConfigPath })
 
 		// A governed turn MUST carry the lockdown flags, or the boundary is gone —
 		// refuse to spawn rather than run an ungoverned CLI holding a live token.
-		if (mcpConfigPath !== null) {
-			try {
-				assertGovernedArgs(args)
-			} catch (err) {
-				cleanup(scratch)
-				reject(err)
-				return
-			}
+		try {
+			refuseUngoverned(args, mcpConfigPath)
+		} catch (err) {
+			cleanup(scratch)
+			reject(err)
+			return
 		}
-
-		// Minimal, sanitised env: keep PATH/HOME so the binary resolves, add the
-		// provider credential(s), and NOTHING the caller supplied beyond that.
-		const childEnv = {
-			PATH: process.env.PATH,
-			HOME: scratch,
-			TMPDIR: scratch,
-			LANG: process.env.LANG || 'C.UTF-8',
-		}
-		// Forward allowlisted non-credential env (proxy config, test hooks).
-		for (const name of PASSTHROUGH_ENV) {
-			if (typeof process.env[name] === 'string') {
-				childEnv[name] = process.env[name]
-			}
-		}
-		// The per-run proxy URL is assigned AFTER the passthrough, so a stray static
-		// HTTPS_PROXY in the container's own env can never shadow the run-scoped one —
-		// that would send the CLI out through a proxy with no run identity, which the
-		// PDP denies, and it would read as "the provider is down".
-		Object.assign(childEnv, buildEgressProxyEnv(runToken))
-		Object.assign(childEnv, selectCredentialEnv(provider, credentialEnv))
 
 		let child
 		try {
-			if (process.env.RUNNER_DEBUG_ARGV === '1') {
-				// eslint-disable-next-line no-console
-				console.log(
-					`[hermiq-llm-runner] DEBUG argv: ${provider.bin} ${JSON.stringify(args)}`,
-				)
-				if (mcpConfigPath !== null) {
-					const raw = fs.readFileSync(mcpConfigPath, 'utf8')
-					// Redact the bearer token before logging.
-					console.log(
-						`[hermiq-llm-runner] DEBUG mcp.json: ${raw.replace(/Bearer [^"]+/g, 'Bearer <redacted>')}`,
-					)
-				}
-			}
-			child = spawn(provider.bin, args, {
+			debugArgv({ bin: turn.provider.bin, args, mcpConfigPath })
+			child = spawn(turn.provider.bin, args, {
 				cwd: scratch,
-				env: childEnv,
+				env: turnEnv(turn, scratch),
 				stdio: ['pipe', 'pipe', 'pipe'],
 			})
 		} catch (err) {
@@ -470,73 +402,253 @@ function spawnTurn({
 			return
 		}
 
-		let stdout = Buffer.alloc(0)
-		let stderr = Buffer.alloc(0)
-		let overflow = false
-		let settled = false
-
-		const timer = setTimeout(() => {
-			if (!settled) {
-				child.kill('SIGKILL')
-			}
-		}, DEFAULT_TIMEOUT_MS)
-
-		child.stdout.on('data', (chunk) => {
-			if (stdout.length + chunk.length > MAX_OUTPUT_BYTES) {
-				overflow = true
-				child.kill('SIGKILL')
-				return
-			}
-			stdout = Buffer.concat([stdout, chunk])
-		})
-		child.stderr.on('data', (chunk) => {
-			stderr = Buffer.concat([stderr, chunk])
-		})
-
-		child.on('error', (err) => {
-			settled = true
-			clearTimeout(timer)
-			cleanup(scratch)
-			reject(new Error(`CLI process error: ${err.message}`))
-		})
-
-		child.on('close', (code) => {
-			settled = true
-			clearTimeout(timer)
-			if (process.env.RUNNER_DEBUG_ARGV === '1') {
-				const err = redact(stderr.toString('utf8')).trim()
-				// eslint-disable-next-line no-console
-				console.log(
-					`[hermiq-llm-runner] DEBUG exit=${code} stderr=${err.slice(0, 900) || '(empty)'}`,
-				)
-			}
-			cleanup(scratch)
-			if (overflow) {
-				reject(new Error('CLI output exceeded the maximum size'))
-				return
-			}
-			if (code !== 0) {
-				// stderr may carry provider errors; it must not carry the token
-				// (the token is never on argv/stdin, only env), so this is safe
-				// to surface as a bounded, redacted message.
-				reject(
-					new Error(
-						`CLI exited with code ${code}: ${redact(stderr.toString('utf8'))}`,
-					),
-				)
-				return
-			}
-			try {
-				resolve(provider.parse(stdout.toString('utf8')))
-			} catch (err) {
-				reject(new Error(`failed to parse CLI output: ${err.message}`))
-			}
-		})
+		superviseChild(child, settle)
 
 		// Deliver the prompt on STDIN so it never lands on the process table.
 		child.stdin.write(prompt)
 		child.stdin.end()
 	})
+}
+
+/**
+ * Write a governed turn's MCP config into the scratch tree.
+ *
+ * The config carries a live bearer token, so it goes to a 0600 file — never an
+ * inline argv string, which would put the token on the process table. It is
+ * removed with the scratch dir by cleanup() in every exit path.
+ *
+ * @param {object} [mcpConfig] The MCP config, when the turn is governed.
+ * @param {string} scratch The scratch dir.
+ * @returns {string|null} The file's path, or null for an ungoverned turn.
+ */
+function writeMcpConfig(mcpConfig, scratch) {
+	if (!mcpConfig || typeof mcpConfig !== 'object') {
+		return null
+	}
+	const mcpConfigPath = path.join(scratch, 'mcp.json')
+	fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig), { mode: 0o600 })
+	fs.chmodSync(mcpConfigPath, 0o600)
+	return mcpConfigPath
+}
+
+/**
+ * Write the credentials a provider reads from a FILE into the scratch home.
+ *
+ * A signed-in ChatGPT subscription is the Codex CLI's own auth file
+ * (models-provider-connections D5): it goes to a 0600 file inside the throwaway
+ * home, never into the environment, and is removed with the scratch dir.
+ *
+ * @param {object} provider The provider adapter; `authFiles` maps a credential key to a home-relative path.
+ * @param {object} credentialEnv Caller-supplied credential map.
+ * @param {string} scratch The scratch dir (the child's HOME).
+ * @returns {Array<string>} The files written.
+ */
+function writeAuthFiles(provider, credentialEnv, scratch) {
+	const written = []
+	if (!provider.authFiles || !credentialEnv || typeof credentialEnv !== 'object') {
+		return written
+	}
+	for (const [key, relative] of Object.entries(provider.authFiles)) {
+		const value = credentialEnv[key]
+		if (typeof value !== 'string' || value === '') {
+			continue
+		}
+		const file = path.join(scratch, relative)
+		fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
+		fs.writeFileSync(file, value, { mode: 0o600 })
+		fs.chmodSync(file, 0o600)
+		written.push(file)
+	}
+	return written
+}
+
+/**
+ * Refuse the argv of a governed turn that lacks the lockdown flags.
+ *
+ * @param {Array<string>} args The CLI arguments.
+ * @param {string|null} mcpConfigPath The MCP config file; null for an ungoverned turn.
+ * @returns {void}
+ */
+function refuseUngoverned(args, mcpConfigPath) {
+	if (mcpConfigPath !== null) {
+		assertGovernedArgs(args)
+	}
+}
+
+/**
+ * The child's environment: minimal and sanitised.
+ *
+ * PATH/HOME stay so the binary resolves; the provider credential(s) are added,
+ * and NOTHING the caller supplied beyond that. Allowlisted non-credential env
+ * (proxy config, test hooks) is forwarded. The per-run proxy URL is assigned
+ * AFTER the passthrough, so a stray static HTTPS_PROXY in the container's own
+ * env can never shadow the run-scoped one — that would send the CLI out through
+ * a proxy with no run identity, which the PDP denies, and it would read as "the
+ * provider is down".
+ *
+ * @param {object} turn `{provider, credentialEnv, runToken}`.
+ * @param {string} scratch The scratch dir, HOME and TMPDIR of the child.
+ * @returns {object} The environment.
+ */
+function turnEnv({ provider, credentialEnv, runToken }, scratch) {
+	const childEnv = {
+		PATH: process.env.PATH,
+		HOME: scratch,
+		TMPDIR: scratch,
+		LANG: process.env.LANG || 'C.UTF-8',
+	}
+	for (const name of PASSTHROUGH_ENV) {
+		if (typeof process.env[name] === 'string') {
+			childEnv[name] = process.env[name]
+		}
+	}
+	return {
+		...childEnv,
+		...buildEgressProxyEnv(runToken),
+		...selectCredentialEnv(provider, credentialEnv),
+	}
+}
+
+/**
+ * Print the argv and the redacted MCP config when RUNNER_DEBUG_ARGV is 1.
+ *
+ * @param {object} spawnArgs `{bin, args, mcpConfigPath}`.
+ * @returns {void}
+ */
+function debugArgv({ bin, args, mcpConfigPath }) {
+	if (process.env.RUNNER_DEBUG_ARGV !== '1') {
+		return
+	}
+	// eslint-disable-next-line no-console
+	console.log(`[hermiq-llm-runner] DEBUG argv: ${bin} ${JSON.stringify(args)}`)
+	if (mcpConfigPath !== null) {
+		const raw = fs.readFileSync(mcpConfigPath, 'utf8')
+		// Redact the bearer token before logging.
+		// eslint-disable-next-line no-console
+		console.log(
+			`[hermiq-llm-runner] DEBUG mcp.json: ${raw.replace(/Bearer [^"]+/g, 'Bearer <redacted>')}`,
+		)
+	}
+}
+
+/**
+ * Collect the child's output under the size and time limits and settle the turn when it ends.
+ *
+ * @param {ChildProcess} child The CLI process.
+ * @param {object} settle `{scratch, provider, resolve, reject}`.
+ * @returns {void}
+ */
+function superviseChild(child, settle) {
+	const output = {
+		child,
+		stdout: Buffer.alloc(0),
+		stderr: Buffer.alloc(0),
+		overflow: false,
+		settled: false,
+	}
+	output.timer = setTimeout(killIfRunning, DEFAULT_TIMEOUT_MS, output)
+	child.stdout.on('data', (chunk) => appendStdout(output, chunk))
+	child.stderr.on('data', (chunk) => {
+		output.stderr = Buffer.concat([output.stderr, chunk])
+	})
+	child.on('error', (err) => {
+		endOutput(output)
+		cleanup(settle.scratch)
+		settle.reject(new Error(`CLI process error: ${err.message}`))
+	})
+	child.on('close', (code) => {
+		endOutput(output)
+		settleTurn(code, { output, settle })
+	})
+}
+
+/**
+ * Kill a child that is still running when the turn's time is up.
+ *
+ * @param {object} output The turn's output state.
+ * @returns {void}
+ */
+function killIfRunning(output) {
+	if (!output.settled) {
+		output.child.kill('SIGKILL')
+	}
+}
+
+/**
+ * Add a chunk of stdout, or kill the child when the output would exceed the limit.
+ *
+ * @param {object} output The turn's output state.
+ * @param {Buffer} chunk The chunk.
+ * @returns {void}
+ */
+function appendStdout(output, chunk) {
+	if (output.stdout.length + chunk.length > MAX_OUTPUT_BYTES) {
+		output.overflow = true
+		output.child.kill('SIGKILL')
+		return
+	}
+	output.stdout = Buffer.concat([output.stdout, chunk])
+}
+
+/**
+ * Mark the child as ended and stop its timer.
+ *
+ * @param {object} output The turn's output state.
+ * @returns {void}
+ */
+function endOutput(output) {
+	output.settled = true
+	clearTimeout(output.timer)
+}
+
+/**
+ * Settle the turn once the child has exited: its parsed output, or why there is none.
+ *
+ * @param {number|null} code The exit code.
+ * @param {object} turnEnd `{output, settle}`.
+ * @returns {void}
+ */
+function settleTurn(code, { output, settle }) {
+	debugExit(code, output)
+	cleanup(settle.scratch)
+	if (output.overflow) {
+		settle.reject(new Error('CLI output exceeded the maximum size'))
+		return
+	}
+	if (code !== 0) {
+		// stderr may carry provider errors; it must not carry the token
+		// (the token is never on argv/stdin, only env), so this is safe
+		// to surface as a bounded, redacted message.
+		settle.reject(
+			new Error(
+				`CLI exited with code ${code}: ${redact(output.stderr.toString('utf8'))}`,
+			),
+		)
+		return
+	}
+	try {
+		settle.resolve(settle.provider.parse(output.stdout.toString('utf8')))
+	} catch (err) {
+		settle.reject(new Error(`failed to parse CLI output: ${err.message}`))
+	}
+}
+
+/**
+ * Print the exit code and the redacted stderr when RUNNER_DEBUG_ARGV is 1.
+ *
+ * @param {number|null} code The exit code.
+ * @param {object} output The turn's output state.
+ * @returns {void}
+ */
+function debugExit(code, output) {
+	if (process.env.RUNNER_DEBUG_ARGV !== '1') {
+		return
+	}
+	const err = redact(output.stderr.toString('utf8')).trim()
+	// eslint-disable-next-line no-console
+	console.log(
+		`[hermiq-llm-runner] DEBUG exit=${code} stderr=${err.slice(0, 900) || '(empty)'}`,
+	)
 }
 
 /**
@@ -577,4 +689,5 @@ module.exports = {
 	assertGovernedArgs,
 	assertMcpEndpointReachable,
 	buildEgressProxyEnv,
+	writeAuthFiles,
 }

@@ -1,0 +1,11 @@
+{
+    "app": "hermiq",
+    "pages": [
+        {"name": "Dashboard", "path": "/index.php/apps/hermiq/"},
+        {"name": "Agents", "path": "/index.php/apps/hermiq/agents"},
+        {"name": "Schedules", "path": "/index.php/apps/hermiq/schedules"},
+        {"name": "Skills", "path": "/index.php/apps/hermiq/skills"},
+        {"name": "Contexts", "path": "/index.php/apps/hermiq/contexts"},
+        {"name": "Evaluations", "path": "/index.php/apps/hermiq/evals"}
+    ]
+}

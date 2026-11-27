@@ -20,20 +20,20 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
+ * @spec openspec/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 
 /**
  * The image tool descriptor.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
+ * @spec openspec/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
  */
 final class ImageToolDescriptors {
 
@@ -42,7 +42,7 @@ final class ImageToolDescriptors {
 	 *
 	 * @var string
 	 */
-	public const GENERATE_IMAGE = Application::APP_ID . '.generateImage';
+	public const GENERATE_IMAGE = AppIdentity::APP_ID . '.generateImage';
 
 	/**
 	 * Every id this class describes.

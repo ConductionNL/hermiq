@@ -29,12 +29,14 @@ use OCA\Hermiq\Listener\TalkBotInvokeListener;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkAgentBinding;
 use OCA\Hermiq\Service\Talk\TalkBridge;
+use OCA\Hermiq\Service\Talk\TalkTurn;
 use OCA\Hermiq\Service\Talk\TalkMentionMatcher;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\Hermiq\Service\Talk\TalkRoomGrouping;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\EventDispatcher\Event;
+use PHPUnit\Framework\Constraint\Callback;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -237,18 +239,13 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(true);
 		$this->bridge->method('isOneToOne')->willReturn(false);
 		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
-		$this->roomBinding->method('findByRoomToken')->willReturn(
+		$this->roomBinding->method('findByRoomAndAgent')->willReturn(
 			$this->makeConversation(['userId' => 'alice', 'participants' => []])
 		);
 
 		$this->dispatcher->expects($this->once())
 			->method('dispatch')
-			->with(
-				conversationUuid: 'conv-1',
-				speakerUid: 'alice',
-				message: '@Hermiq hello there',
-				roomToken: 'room1'
-			)
+			->with($this->turnOf(conversationUuid: 'conv-1', speakerUid: 'alice', message: '@Hermiq hello there', roomToken: 'room1'))
 			->willReturn('queued');
 
 		$event = $this->makeEvent(content: '@Hermiq hello there');
@@ -287,7 +284,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(true);
 		$this->bridge->method('isOneToOne')->willReturn(true);
 		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
-		$this->roomBinding->method('findByRoomToken')->willReturn(
+		$this->roomBinding->method('findByRoomAndAgent')->willReturn(
 			$this->makeConversation(['userId' => 'alice', 'participants' => []])
 		);
 
@@ -311,18 +308,13 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(true);
 		$this->bridge->method('isOneToOne')->willReturn(true);
 		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
-		$this->roomBinding->method('findByRoomToken')->willReturn(
+		$this->roomBinding->method('findByRoomAndAgent')->willReturn(
 			$this->makeConversation(['userId' => 'alice', 'participants' => []])
 		);
 
 		$this->dispatcher->expects($this->once())
 			->method('dispatch')
-			->with(
-				conversationUuid: 'conv-1',
-				speakerUid: 'alice',
-				message: 'what is 2+2?',
-				roomToken: 'room1'
-			)
+			->with($this->turnOf(conversationUuid: 'conv-1', speakerUid: 'alice', message: 'what is 2+2?', roomToken: 'room1'))
 			->willReturn('queued');
 
 		$envelope = json_encode(['message' => 'what is 2+2?', 'parameters' => []]);
@@ -339,18 +331,13 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(true);
 		$this->bridge->method('isOneToOne')->willReturn(true);
 		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
-		$this->roomBinding->method('findByRoomToken')->willReturn(
+		$this->roomBinding->method('findByRoomAndAgent')->willReturn(
 			$this->makeConversation(['userId' => 'alice', 'participants' => []])
 		);
 
 		$this->dispatcher->expects($this->once())
 			->method('dispatch')
-			->with(
-				conversationUuid: 'conv-1',
-				speakerUid: 'alice',
-				message: 'Hermiq summarise this',
-				roomToken: 'room1'
-			)
+			->with($this->turnOf(conversationUuid: 'conv-1', speakerUid: 'alice', message: 'Hermiq summarise this', roomToken: 'room1'))
 			->willReturn('queued');
 
 		$envelope = json_encode(
@@ -419,7 +406,7 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(true);
 		$this->bridge->method('isOneToOne')->willReturn(true);
 		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
-		$this->roomBinding->method('findByRoomToken')->willReturn(
+		$this->roomBinding->method('findByRoomAndAgent')->willReturn(
 			$this->makeConversation(['userId' => 'bob', 'participants' => ['carol']])
 		);
 
@@ -441,21 +428,59 @@ class TalkBotInvokeListenerTest extends TestCase {
 		$this->bridge->method('isAvailable')->willReturn(true);
 		$this->bridge->method('isOneToOne')->willReturn(true);
 		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
-		$this->roomBinding->method('findByRoomToken')->willReturn(
+		$this->roomBinding->method('findByRoomAndAgent')->willReturn(
 			$this->makeConversation(['userId' => 'alice', 'participants' => []])
 		);
 
 		$this->dispatcher->expects($this->once())
 			->method('dispatch')
-			->with(
-				conversationUuid: 'conv-1',
-				speakerUid: 'alice',
-				message: 'hello',
-				roomToken: 'room1'
-			)
+			->with($this->turnOf(conversationUuid: 'conv-1', speakerUid: 'alice', message: 'hello', roomToken: 'room1'))
 			->willReturn('queued');
 
 		$this->listener->handle($this->makeEvent(content: 'hello', actorId: 'users/alice'));
 
 	}//end testActorPrefixIsStripped()
+
+	/**
+	 * A message posted by the agent's own bot, such as a question mirrored from
+	 * the Chat page, is never a new turn (chat-carry-a-conversation-across-channels D2).
+	 *
+	 * @return void
+	 */
+	public function testAMirroredBotMessageTakesNoTurn(): void {
+		$this->bridge->method('isAvailable')->willReturn(true);
+		$this->bridge->method('isOneToOne')->willReturn(true);
+		$this->agentBinding->method('agentForRoom')->willReturn('agent-1');
+		$this->roomBinding->method('findByRoomToken')->willReturn(
+			// Even a conversation the bot's actor id would pass the participant check for.
+			$this->makeConversation(['userId' => 'bots/bot-agent-1', 'participants' => []])
+		);
+
+		$this->dispatcher->expects($this->never())->method('dispatch');
+
+		$event = $this->makeEvent(content: 'Anne de Vries via Hermiq: Welke offertes lopen nog?', actorId: 'bots/bot-agent-1');
+		$this->listener->handle($event);
+
+		$this->assertSame([], $event->reactions, 'A mirrored message is not acknowledged either.');
+
+	}//end testAMirroredBotMessageTakesNoTurn()
+
+	/**
+	 * Matches the turn handed to the dispatcher by its four required fields.
+	 *
+	 * @param string $conversationUuid The bound conversation.
+	 * @param string $speakerUid       The speaker.
+	 * @param string $message          The message.
+	 * @param string $roomToken        The room.
+	 *
+	 * @return Callback<TalkTurn>
+	 */
+	private function turnOf(string $conversationUuid, string $speakerUid, string $message, string $roomToken): Callback {
+		return $this->callback(
+			callback: static fn (TalkTurn $turn): bool => $turn->conversationUuid === $conversationUuid
+				&& $turn->speakerUid === $speakerUid
+				&& $turn->message === $message
+				&& $turn->roomToken === $roomToken
+		);
+	}//end turnOf()
 }//end class

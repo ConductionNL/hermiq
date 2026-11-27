@@ -28,7 +28,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Assistant;
 
 use Exception;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
 use OCA\Hermiq\Service\Assistant\RecordSummaryService;
@@ -40,6 +40,7 @@ use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the record summary: authorization, the feature switch, caching per
@@ -153,7 +154,11 @@ final class RecordSummaryServiceTest extends TestCase {
 		);
 		$objects->method('findAll')->willReturnCallback(fn (): array => $this->stored);
 		$objects->method('saveObject')->willReturnCallback(
-			function (array|ObjectEntity $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null, bool $_rbac = true): ObjectEntity {
+			function (array|ObjectEntity $object, ObjectSaveOptions $options = new ObjectSaveOptions(), bool $_rbac = true): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$this->saved[] = ['object' => $object, 'register' => $register, 'schema' => $schema, 'uuid' => $uuid, '_rbac' => $_rbac];
 				$entity = new ObjectEntity();
 				$entity->setUuid('summary-new');
@@ -162,7 +167,7 @@ final class RecordSummaryServiceTest extends TestCase {
 			}
 		);
 
-		$features = $this->createMock(AiFeatureService::class);
+		$features = $this->createMock(AiFeatureLookup::class);
 		$feature = null;
 		if ($lifecycle !== null) {
 			$feature = new ObjectEntity();

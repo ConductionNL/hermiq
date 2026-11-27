@@ -45,10 +45,11 @@ class FlowVersionService {
 	 *
 	 * @param Flow $flow The flow whose head is being published.
 	 * @param string|null $publishedBy The acting user.
+	 * @param string|null $bump The semantic-version bump to apply.
 	 *
 	 * @return FlowVersion The now-published version.
 	 */
-	public function publish(Flow $flow, ?string $publishedBy = null): FlowVersion {
+	public function publish(Flow $flow, ?string $publishedBy = null, ?string $bump = null): FlowVersion {
 		$flow->setLifecycleStatus(FlowVersion::STATUS_PUBLISHED);
 
 		$version = new FlowVersion();

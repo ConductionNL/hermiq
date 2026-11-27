@@ -33,7 +33,9 @@ namespace OCA\Hermiq\Service\Assistant;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Kernel\Contracts\RecordSummaryServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\AiFeatureService;
 use OCA\Hermiq\Service\AppAssistantResolver;
 use OCA\Hermiq\Service\Engine\AppRegisterScope;
@@ -42,6 +44,9 @@ use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -58,29 +63,7 @@ use Throwable;
  * is one collaborator, and splitting them would only move the joins elsewhere.
  * @SuppressWarnings(PHPMD.LongVariable) `$guardrailPolicyService` is named after its class.
  */
-class RecordSummaryService {
-
-	/**
-	 * The AI feature that switches record summaries on and off.
-	 *
-	 * @var string
-	 */
-	public const FEATURE_SLUG = 'record-summary';
-
-	/**
-	 * The assistant prompt scope whose prompt writes the summary.
-	 *
-	 * @var string
-	 */
-	public const PROMPT_SCOPE = 'record-summary';
-
-	/**
-	 * The prompt used when the library holds none for the scope (design.md, seed data).
-	 *
-	 * @var string
-	 */
-	public const DEFAULT_PROMPT = 'Summarise this record in at most five sentences for a colleague who has not '
-		. 'seen it. Name its status, the last change and anything that needs action.';
+class RecordSummaryService implements RecordSummaryServiceInterface {
 
 	/**
 	 * Tool whitelist entry that resolves to no tool: the summary is tool-free by
@@ -124,7 +107,7 @@ class RecordSummaryService {
 	 * @param ObjectService $objectService OpenRegister's single read and write path.
 	 * @param AppAssistantResolver $resolver Picks the agent that answers in the record's app.
 	 * @param AppRegisterScope $registerScope Names the app a register belongs to.
-	 * @param AiFeatureService $features The AI feature register (the on/off switch).
+	 * @param AiFeatureLookup $features The AI feature register (the on/off switch).
 	 * @param AssistantPromptLibrary $prompts The administered prompts.
 	 * @param ResponseGenerationHandler $responseHandler The model call (shared with converse).
 	 * @param LoggerInterface $logger PSR-3 logger.
@@ -137,7 +120,7 @@ class RecordSummaryService {
 		private readonly ObjectService $objectService,
 		private readonly AppAssistantResolver $resolver,
 		private readonly AppRegisterScope $registerScope,
-		private readonly AiFeatureService $features,
+		private readonly AiFeatureLookup $features,
 		private readonly AssistantPromptLibrary $prompts,
 		private readonly ResponseGenerationHandler $responseHandler,
 		private readonly LoggerInterface $logger,
@@ -220,7 +203,7 @@ class RecordSummaryService {
 		(new AgentAvailability())->assertRunnable(agent: $agent);
 
 		$prompt = $this->prompt();
-		$text = $this->writeSummary(record: $record, agent: $agent, prompt: $prompt['text'], schema: $schema);
+		$text = $this->writeSummary(record: $record, write: new SummaryWrite(agent: $agent, prompt: $prompt['text'], schema: $schema));
 
 		$payload = [
 			'objectUuid' => (string)$record->getUuid(),
@@ -240,9 +223,10 @@ class RecordSummaryService {
 		// one reader, and it checked the record above as the caller.
 		$this->objectService->saveObject(
 			object: $payload,
-			register: self::REGISTER_SLUG,
-			schema: self::SUMMARY_SCHEMA,
-			uuid: $stored?->getUuid(),
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SUMMARY_SCHEMA),
+				uuid: $stored?->getUuid()
+			),
 			_rbac: false
 		);
 
@@ -304,7 +288,7 @@ class RecordSummaryService {
 		}
 
 		try {
-			$record = $this->objectService->find(id: $objectId, register: $register, schema: $schema);
+			$record = $this->objectService->find(id: $objectId, options: new ObjectFindOptions(register: $register, schema: $schema));
 		} catch (Throwable $e) {
 			$record = null;
 		}
@@ -346,7 +330,10 @@ class RecordSummaryService {
 		}
 
 		try {
-			$agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+			$agent = $this->objectService->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
+			);
 		} catch (Throwable $e) {
 			$this->logger->warning('[RecordSummaryService] Agent ' . $agentId . ' could not be read: ' . $e->getMessage());
 			return null;
@@ -384,9 +371,7 @@ class RecordSummaryService {
 	 * Ask the agent for the summary, tool-free, through the guardrail filters.
 	 *
 	 * @param ObjectEntity $record The record.
-	 * @param ObjectEntity $agent The answering agent.
-	 * @param string $prompt The summary prompt.
-	 * @param string $schema The record's schema, named to the model as its type.
+	 * @param SummaryWrite $write The agent, prompt and schema a record summary is written with.
 	 *
 	 * @return string The summary text.
 	 *
@@ -394,7 +379,10 @@ class RecordSummaryService {
 	 *
 	 * @spec openspec/specs/agent-object-leaf/spec.md#requirement-a-record-page-can-show-an-ai-written-summary-of-the-record-req-appag-004
 	 */
-	private function writeSummary(ObjectEntity $record, ObjectEntity $agent, string $prompt, string $schema): string {
+	private function writeSummary(ObjectEntity $record, SummaryWrite $write): string {
+		$agent = $write->agent;
+		$prompt = $write->prompt;
+		$schema = $write->schema;
 		$policy = $this->guardrailPolicyService?->effectivePolicyFor(organisation: (string)($agent->getOrganisation() ?? ''));
 		$recordText = mb_substr(
 			(string)json_encode($record->getObject(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),

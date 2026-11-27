@@ -34,7 +34,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
+ * @spec openspec/specs/course-recommendations/spec.md
  */
 
 declare(strict_types=1);
@@ -49,7 +49,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Whether the learner-signal register can be read here, and under which slug.
  *
- * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
+ * @spec openspec/specs/course-recommendations/spec.md
  */
 class LearnerSignalRegister {
 
@@ -134,7 +134,7 @@ class LearnerSignalRegister {
 	 *  substitute. Injecting it would add a constructor argument to every
 	 *  consumer to no end.
 	 *
-	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md
+	 * @spec openspec/specs/course-recommendations/spec.md
 	 */
 	public function slugOrReason(): array {
 		if (FleetAppId::isInstalled(appManager: $this->appManager, canonical: self::CANONICAL_APP) === false) {

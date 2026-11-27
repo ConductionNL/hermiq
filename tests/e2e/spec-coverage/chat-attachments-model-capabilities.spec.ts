@@ -18,7 +18,7 @@
  *     NEXTCLOUD_URL=http://localhost:8080 NC_USER=admin NC_PASS=admin \
  *       npx playwright test --project=chromium chat-attachments-model-capabilities
  *
- * Covers openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md (REQ-CATT-004).
+ * Covers openspec/specs/chat-attachments/spec.md (REQ-CATT-004).
  */
 
 import { expect, test } from '@playwright/test'

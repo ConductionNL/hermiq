@@ -21,15 +21,15 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Kernel\Contracts\AttachmentStoreInterface;
 use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
-use OCA\Hermiq\Service\Chat\AttachmentStore;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
@@ -43,7 +43,7 @@ use Throwable;
 /**
  * Chat attachment uploads.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
  */
 class ChatAttachmentController extends Controller {
 
@@ -53,7 +53,7 @@ class ChatAttachmentController extends Controller {
 	 * @param string          $appName     The app name.
 	 * @param IRequest        $request     The request.
 	 * @param IUserSession    $userSession The caller.
-	 * @param AttachmentStore $store       Keeps the file in the caller's Files.
+	 * @param AttachmentStoreInterface $store       Keeps the file in the caller's Files.
 	 * @param IL10N           $l10n        Errors in the caller's language.
 	 * @param LoggerInterface $logger      A write failure, never the file.
 	 */
@@ -61,7 +61,7 @@ class ChatAttachmentController extends Controller {
 		string $appName,
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly AttachmentStore $store,
+		private readonly AttachmentStoreInterface $store,
 		private readonly IL10N $l10n,
 		private readonly LoggerInterface $logger,
 	) {
@@ -73,7 +73,7 @@ class ChatAttachmentController extends Controller {
 	 *
 	 * @return JSONResponse 200 with the file, 400 with an error, 401 signed out, 500 when it could not be saved.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 60, period: 60)]

@@ -27,7 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\AiFeature;
 
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 
 /**
  * Refuses a run on a provider that may train, where the organisation forbids it.
@@ -39,11 +39,11 @@ class DataUseGate {
 	/**
 	 * Constructor.
 	 *
-	 * @param TenantModelPolicyService $policies The effective model policy.
+	 * @param EffectiveModelPolicy $policies The effective model policy.
 	 * @param ProviderDataUseRegistry $registry The providers' declarations.
 	 */
 	public function __construct(
-		private readonly TenantModelPolicyService $policies,
+		private readonly EffectiveModelPolicy $policies,
 		private readonly ProviderDataUseRegistry $registry,
 	) {
 	}//end __construct()

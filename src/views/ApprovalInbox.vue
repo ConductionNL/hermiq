@@ -14,10 +14,11 @@
 
   A standard nav page — NOT a dashboard (dashboard-antipattern gate). The org
   kill-switch (KillSwitchToggle) sits in the header, shown only to org sub-admins /
-  instance admins via a backend capability flag.
+  instance admins via a backend capability flag. Below it, administrators see the
+  per-department switches (DepartmentSwitchList).
 
-  @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
-  @spec openspec/changes/human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
+  @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
+  @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
 -->
 <template>
 	<div class="approval-inbox">
@@ -27,6 +28,8 @@
 			</h2>
 			<KillSwitchToggle />
 		</div>
+
+		<DepartmentSwitchList />
 
 		<NcNoteCard
 			v-if="error"
@@ -50,7 +53,33 @@
 			</template>
 		</NcEmptyContent>
 
-		<table v-else class="approval-inbox__table">
+		<div
+			v-if="!loading && approvals.length > 0"
+			class="approval-inbox__filters"
+			role="group"
+			:aria-label="t('hermiq', 'Show')">
+			<NcButton
+				:variant="filter === 'all' ? 'primary' : 'tertiary'"
+				:aria-pressed="filter === 'all' ? 'true' : 'false'"
+				data-testid="approval-filter-all"
+				@click="filter = 'all'">
+				{{ t('hermiq', 'All') }}
+			</NcButton>
+			<NcButton
+				:variant="filter === 'drafts' ? 'primary' : 'tertiary'"
+				:aria-pressed="filter === 'drafts' ? 'true' : 'false'"
+				data-testid="approval-filter-drafts"
+				@click="filter = 'drafts'">
+				{{ t('hermiq', 'Drafts ({count})', { count: draftCount }) }}
+			</NcButton>
+		</div>
+
+		<NcEmptyContent
+			v-if="!loading && approvals.length > 0 && visibleApprovals.length === 0"
+			:name="t('hermiq', 'No drafts waiting')"
+			:description="t('hermiq', 'Text an agent wants to send is held here when its owner asked to check it first.')" />
+
+		<table v-else-if="!loading && visibleApprovals.length > 0" class="approval-inbox__table">
 			<thead>
 				<tr>
 					<th scope="col">
@@ -73,13 +102,52 @@
 				</tr>
 			</thead>
 			<tbody>
-				<tr v-for="approval in approvals" :key="approval.id">
+				<tr v-for="approval in visibleApprovals" :key="approval.id">
 					<td class="approval-inbox__name">
 						{{ scheduleName(approval) }}
 					</td>
 					<td>{{ agentName(approval) }}</td>
 					<td class="approval-inbox__prompt">
-						{{ approval.prompt || '—' }}
+						<!-- Oversight-ask-and-hold: a question is answered right here; the
+						     run continues with the answer. -->
+						<AgentQuestionCard
+							v-if="approval.sourceType === 'question' && approval.question"
+							:question="approval.question"
+							:disabled="actioningId === approval.id"
+							@answer="answer(approval, $event)" />
+						<span v-else-if="approval.sourceType === 'draft'" class="approval-inbox__draft">
+							{{ draftExcerpt(approval) }}
+						</span>
+						<template v-else>
+							{{ approval.prompt || '—' }}
+						</template>
+						<span
+							v-if="computerAction(approval)"
+							class="approval-inbox__computer"
+							data-testid="approval-computer-action">
+							<span>{{ t('hermiq', 'Machine: {target}', { target: computerAction(approval).target }) }}</span>
+							<span>{{ computerAction(approval).label }}</span>
+							<NcButton
+								variant="tertiary"
+								:aria-label="t('hermiq', 'Show the screen of this machine')"
+								data-testid="approval-show-screen"
+								@click="showScreen(approval)">
+								{{ t('hermiq', 'Show the screen') }}
+							</NcButton>
+							<span
+								v-if="screens[approval.id]"
+								class="approval-inbox__screen"
+								data-testid="approval-screen">
+								<img
+									:src="`data:${screens[approval.id].mimeType};base64,${screens[approval.id].image}`"
+									:alt="t('hermiq', 'Screen of {target}', { target: computerAction(approval).target })">
+								<span
+									v-if="pointStyle(screens[approval.id])"
+									class="approval-inbox__point"
+									data-testid="approval-screen-point"
+									:style="pointStyle(screens[approval.id])" />
+							</span>
+						</span>
 					</td>
 					<td>{{ formatDate(approval.requestedAt) }}</td>
 					<td class="approval-inbox__row-actions">
@@ -90,6 +158,15 @@
 							{{ t('hermiq', 'Details') }}
 						</NcButton>
 						<NcButton
+							v-if="approval.sourceType === 'draft'"
+							variant="primary"
+							:disabled="actioningId === approval.id"
+							data-testid="approval-review-draft"
+							@click="draftTarget = approval">
+							{{ t('hermiq', 'Review') }}
+						</NcButton>
+						<NcButton
+							v-else-if="approval.sourceType !== 'question'"
 							variant="primary"
 							:disabled="actioningId === approval.id"
 							:aria-label="t('hermiq', 'Approve run')"
@@ -100,11 +177,20 @@
 							{{ t('hermiq', 'Approve') }}
 						</NcButton>
 						<NcButton
+							v-if="computerAction(approval)"
+							variant="secondary"
+							:disabled="actioningId === approval.id"
+							:aria-label="t('hermiq', 'Approve the actions on this machine in this run for 15 minutes')"
+							data-testid="approval-machine-run"
+							@click="approve(approval, 'machine-run')">
+							{{ t('hermiq', 'Approve for 15 minutes') }}
+						</NcButton>
+						<NcButton
 							variant="error"
 							:disabled="actioningId === approval.id"
-							:aria-label="t('hermiq', 'Deny run')"
+							:aria-label="approval.sourceType === 'draft' ? t('hermiq', 'Discard draft') : t('hermiq', 'Deny run')"
 							@click="openDeny(approval)">
-							{{ t('hermiq', 'Deny') }}
+							{{ approval.sourceType === 'draft' ? t('hermiq', 'Discard') : t('hermiq', 'Deny') }}
 						</NcButton>
 					</td>
 				</tr>
@@ -117,6 +203,12 @@
 			@close="previewTarget = null"
 			@approve="approveFromPreview"
 			@deny="denyFromPreview" />
+		<DraftReviewModal
+			:show="draftTarget !== null"
+			:draft="draftTarget"
+			@close="draftTarget = null"
+			@released="onReleased"
+			@discard="discardFromReview" />
 		<ApprovalDenyModal
 			:show="showDeny"
 			:approval="denyTarget"
@@ -128,19 +220,27 @@
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
+import AgentQuestionCard from '../components/AgentQuestionCard.vue'
+import DepartmentSwitchList from '../components/DepartmentSwitchList.vue'
 import KillSwitchToggle from '../components/KillSwitchToggle.vue'
 import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
 import ApprovalPreviewModal from '../modals/ApprovalPreviewModal.vue'
-import { approveApproval, listPendingApprovals } from '../api/approvals.js'
+import DraftReviewModal, { draftFields } from '../modals/DraftReviewModal.vue'
+import { answerApproval, approvalScreenshot, approveApproval, listPendingApprovals } from '../api/approvals.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
+import { dateOrText } from '../utils/displayDate.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'ApprovalInbox',
 
 	components: {
+		AgentQuestionCard,
 		ApprovalDenyModal,
 		ApprovalPreviewModal,
 		CheckDecagram,
+		DepartmentSwitchList,
+		DraftReviewModal,
 		KillSwitchToggle,
 		NcButton,
 		NcEmptyContent,
@@ -150,6 +250,8 @@ export default {
 
 	data() {
 		return {
+			// The live screens a reviewer asked for, by approval id; never stored.
+			screens: {},
 			approvals: [],
 			scheduleMap: {},
 			agentMap: {},
@@ -159,11 +261,39 @@ export default {
 			denyTarget: null,
 			actioningId: '',
 			previewTarget: null,
+			// Oversight-ask-and-hold: the "Drafts" filter and the draft under review.
+			filter: 'all',
+			draftTarget: null,
 		}
 	},
 
+	computed: {
+		/**
+		 * The approvals the current filter shows.
+		 *
+		 * @return {Array<object>}
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 */
+		visibleApprovals() {
+			if (this.filter === 'drafts') {
+				return this.approvals.filter((approval) => approval.sourceType === 'draft')
+			}
+			return this.approvals
+		},
+
+		/**
+		 * How many held drafts wait.
+		 *
+		 * @return {number}
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 */
+		draftCount() {
+			return this.approvals.filter((approval) => approval.sourceType === 'draft').length
+		},
+	},
+
 	/**
-	 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 	 */
 	created() {
 		this.store = useScheduleStore()
@@ -178,7 +308,7 @@ export default {
 		 * Load pending approvals plus the schedule + agent name lookups in parallel.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		async load() {
 			this.loading = true
@@ -195,10 +325,7 @@ export default {
 				)
 				this.agentMap = this.byUuid(Array.isArray(agents) ? agents : [])
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.loading = false
 			}
@@ -209,7 +336,7 @@ export default {
 		 *
 		 * @param {Array<object>} items The objects to index.
 		 * @return {object} A uuid → object map.
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		byUuid(items) {
 			const map = {}
@@ -227,7 +354,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {string} The schedule name (falls back to the id).
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		scheduleName(approval) {
 			const schedule = this.scheduleMap[String(approval.scheduleId)]
@@ -239,7 +366,7 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {string} The agent name (falls back to the id).
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		agentName(approval) {
 			const agent = this.agentMap[String(approval.agentId)]
@@ -251,18 +378,9 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or a dash.
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			if (Number.isNaN(date.getTime())) {
-				return String(value)
-			}
-			return date.toLocaleString()
-		},
+		formatDate: dateOrText,
 
 		/**
 		 * Approve from the details dialog.
@@ -292,23 +410,73 @@ export default {
 		 * Approve an approval (runs the gated agent server-side) and reload.
 		 *
 		 * @param {object} approval The approval record.
+		 * @param {string} [scope] `machine-run` also approves a computer action's machine for its run for 15 minutes.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
-		async approve(approval) {
+		async approve(approval, scope = '') {
 			this.actioningId = approval.id
 			this.error = ''
 			try {
-				await approveApproval(approval.id)
+				await (scope ? approveApproval(approval.id, scope) : approveApproval(approval.id))
 				await this.load()
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.actioningId = ''
 			}
+		},
+
+		/**
+		 * What a held computer action does, for the reviewer: the machine and the
+		 * action with its point; null for any other approval.
+		 *
+		 * @param {object} approval The approval record.
+		 * @return {{target: string, label: string}|null} The machine and the action.
+		 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+		 */
+		computerAction(approval) {
+			const args = approval?.toolArguments || {}
+			const labels = {
+				'hermiq.computerClick': () => this.t('hermiq', 'Click at {x}, {y}', { x: String(args.x ?? ''), y: String(args.y ?? '') }),
+				'hermiq.computerType': () => this.t('hermiq', 'Type text'),
+				'hermiq.computerKey': () => this.t('hermiq', 'Press keys'),
+			}
+			const label = labels[approval?.toolId]
+			if (!label) {
+				return null
+			}
+			return { target: String(args.target || ''), label: label() }
+		},
+
+		/**
+		 * Read the machine's screen now for a held computer action.
+		 *
+		 * @param {object} approval The approval record.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+		 */
+		async showScreen(approval) {
+			this.error = ''
+			try {
+				this.screens = { ...this.screens, [approval.id]: await approvalScreenshot(approval.id) }
+			} catch (e) {
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
+			}
+		},
+
+		/**
+		 * Where the action's point sits on the screen, as a share of its size.
+		 *
+		 * @param {{width: number, height: number, x: number|null, y: number|null}} screen The screen.
+		 * @return {object|null} The point's position, or null without one.
+		 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-every-computer-action-passes-the-approval-gate-req-computer-003
+		 */
+		pointStyle(screen) {
+			if (!screen?.width || !screen?.height || screen.x === null || screen.y === null || screen.x === undefined || screen.y === undefined) {
+				return null
+			}
+			return { left: `${(screen.x / screen.width) * 100}%`, top: `${(screen.y / screen.height) * 100}%` }
 		},
 
 		/**
@@ -316,8 +484,65 @@ export default {
 		 *
 		 * @param {object} approval The approval record.
 		 * @return {void}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
+		/**
+		 * Answer an agent's question; the run is dispatched again with the answer.
+		 *
+		 * @param {object} approval The question approval.
+		 * @param {string} answer The chosen or typed answer.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+		 */
+		async answer(approval, answer) {
+			this.actioningId = approval.id
+			this.error = ''
+			try {
+				await answerApproval(approval.id, answer)
+				await this.load()
+			} catch (e) {
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
+			} finally {
+				this.actioningId = ''
+			}
+		},
+
+		/**
+		 * The first line of a held draft, for its row.
+		 *
+		 * @param {object} approval The draft approval.
+		 * @return {string}
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 */
+		draftExcerpt(approval) {
+			const fields = draftFields(approval.draft)
+			const line = (fields.subject || fields.text).split('\n')[0].trim()
+			return line.length > 120 ? `${line.slice(0, 119)}…` : (line || '—')
+		},
+
+		/**
+		 * A draft was released: close the review and reload.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 */
+		async onReleased() {
+			this.draftTarget = null
+			await this.load()
+		},
+
+		/**
+		 * Discard from the review: ask for a reason in the deny dialog.
+		 *
+		 * @return {void}
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+		 */
+		discardFromReview() {
+			const approval = this.draftTarget
+			this.draftTarget = null
+			this.openDeny(approval)
+		},
+
 		openDeny(approval) {
 			this.denyTarget = approval
 			this.showDeny = true
@@ -327,7 +552,7 @@ export default {
 		 * Reload after a decision (deny) clears a row.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		async onDecided() {
 			await this.load()
@@ -355,6 +580,12 @@ export default {
 	margin: 0;
 	font-size: 22px;
 	font-weight: 600;
+}
+
+.approval-inbox__filters {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 12px;
 }
 
 .approval-inbox__loading {
@@ -400,5 +631,36 @@ export default {
 	height: 1px;
 	overflow: hidden;
 	clip-path: inset(50%);
+}
+
+.approval-inbox__screen {
+	position: relative;
+	display: inline-block;
+	max-width: 480px;
+	margin-top: 4px;
+}
+
+.approval-inbox__screen img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--color-border);
+}
+
+.approval-inbox__point {
+	position: absolute;
+	width: 16px;
+	height: 16px;
+	margin: -8px 0 0 -8px;
+	border: 3px solid var(--color-error);
+	border-radius: 50%;
+	pointer-events: none;
+}
+
+.approval-inbox__computer {
+	display: flex;
+	flex-direction: column;
+	margin-top: 4px;
+	color: var(--color-text-maxcontrast);
 }
 </style>

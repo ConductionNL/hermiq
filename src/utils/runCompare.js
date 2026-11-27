@@ -62,62 +62,117 @@ function seconds(ms) {
  * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
  */
 export function summaryLine(left, right, comparison, t) {
-	const parts = []
-	if (left.status === right.status) {
-		parts.push(t('hermiq', 'Same outcome.'))
-	} else if (isFailure(left.status) !== isFailure(right.status)) {
-		const [ok, failed, failedName] = isFailure(right.status)
-			? ['A', 'B', 'right']
-			: ['B', 'A', 'left']
-		const stoppedAt = lastStep(comparison, failedName)
-		parts.push(
-			stoppedAt
-				? t(
-						'hermiq',
-						'Different outcome. Run {ok} succeeded, run {failed} failed at {step}.',
-						{ ok, failed, step: stoppedAt },
-					)
-				: t(
-						'hermiq',
-						'Different outcome. Run {ok} succeeded, run {failed} failed.',
-						{ ok, failed },
-					),
-		)
-	} else {
-		parts.push(t('hermiq', 'Different outcome.'))
-	}
+	const pair = { left, right, comparison, t }
+	return [
+		outcomeSentence(pair),
+		...extraCallSentences(pair),
+		...durationSentences(pair),
+	].join(' ')
+}
 
+/**
+ * Whether the two runs ended the same way, and where the failing one stopped.
+ *
+ * @param {object} pair `{left, right, comparison, t}` as summaryLine() takes them.
+ * @return {string} The outcome sentence.
+ *
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ */
+function outcomeSentence(pair) {
+	const { left, right, t } = pair
+	if (left.status === right.status) {
+		return t('hermiq', 'Same outcome.')
+	}
+	if (isFailure(left.status) === isFailure(right.status)) {
+		return t('hermiq', 'Different outcome.')
+	}
+	return failedOutcomeSentence(pair)
+}
+
+/**
+ * The outcome sentence when exactly one run failed: which one, and at which step.
+ *
+ * @param {object} pair The two runs, as summaryLine() takes them.
+ * @param {object} pair.right The right run.
+ * @param {object} pair.comparison The server's comparison.
+ * @param {function(string, string, object=): string} pair.t The translate function.
+ * @return {string} The sentence.
+ *
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ */
+function failedOutcomeSentence({ right, comparison, t }) {
+	const [ok, failed, failedName] = isFailure(right.status)
+		? ['A', 'B', 'right']
+		: ['B', 'A', 'left']
+	const stoppedAt = lastStep(comparison, failedName)
+	return stoppedAt
+		? t(
+				'hermiq',
+				'Different outcome. Run {ok} succeeded, run {failed} failed at {step}.',
+				{ ok, failed, step: stoppedAt },
+			)
+		: t(
+				'hermiq',
+				'Different outcome. Run {ok} succeeded, run {failed} failed.',
+				{
+					ok,
+					failed,
+				},
+			)
+}
+
+/**
+ * One sentence per tool a run called more often than the other, run B first.
+ *
+ * @param {object} pair The two runs, as summaryLine() takes them.
+ * @param {object} pair.comparison The server's comparison.
+ * @param {function(string, string, object=): string} pair.t The translate function.
+ * @return {Array<string>} The sentences.
+ *
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ */
+function extraCallSentences({ comparison, t }) {
 	const extra = extraCalls(comparison)
-	for (const [side, label] of [
+	return [
 		['right', 'B'],
 		['left', 'A'],
-	]) {
-		for (const [name, count] of Object.entries(extra[side])) {
-			parts.push(
-				count === 1
-					? t('hermiq', 'Run {run} called {tool} once more.', {
-							run: label,
-							tool: name,
-						})
-					: t('hermiq', 'Run {run} called {tool} {count} times more.', {
-							run: label,
-							tool: name,
-							count,
-						}),
-			)
-		}
-	}
+	].flatMap(([side, label]) =>
+		Object.entries(extra[side]).map(([name, count]) =>
+			count === 1
+				? t('hermiq', 'Run {run} called {tool} once more.', {
+						run: label,
+						tool: name,
+					})
+				: t('hermiq', 'Run {run} called {tool} {count} times more.', {
+						run: label,
+						tool: name,
+						count,
+					}),
+		),
+	)
+}
 
+/**
+ * The time difference, when run B took at least 0.1 s more or less.
+ *
+ * @param {object} pair The two runs, as summaryLine() takes them.
+ * @param {object} pair.left The left run.
+ * @param {object} pair.right The right run.
+ * @param {function(string, string, object=): string} pair.t The translate function.
+ * @return {Array<string>} No sentence or one.
+ *
+ * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-a-person-can-compare-any-two-runs-they-may-see-req-rcmp-001
+ */
+function durationSentences({ left, right, t }) {
 	const diff = Number(right.durationMs) - Number(left.durationMs)
-	if (Number.isFinite(diff) && Math.abs(diff) >= 100) {
-		parts.push(
-			diff > 0
-				? t('hermiq', 'Run B took {time} longer.', { time: seconds(diff) })
-				: t('hermiq', 'Run B took {time} less.', { time: seconds(diff) }),
-		)
+	if (!Number.isFinite(diff) || Math.abs(diff) < 100) {
+		return []
 	}
-
-	return parts.join(' ')
+	return [
+		diff > 0
+			? t('hermiq', 'Run B took {time} longer.', { time: seconds(diff) })
+			: t('hermiq', 'Run B took {time} less.', { time: seconds(diff) }),
+	]
 }
 
 /**

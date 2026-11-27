@@ -1,0 +1,29 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AgentRunOperationsWidget > shows the line for an estimate 1`] = `
+[
+  "<p data-v-d391619d="" class="agent-run-ops-widget__estimate">Estimate: ~1234 tokens per run (average of the last 5 runs)</p>",
+]
+`;
+
+exports[`AgentRunOperationsWidget > shows the line for no estimate 1`] = `[]`;
+
+exports[`AgentRunOperationsWidget > shows the line for too little history 1`] = `
+[
+  "<p data-v-d391619d="" class="agent-run-ops-widget__estimate agent-run-ops-widget__estimate--empty">Not enough run history yet for a cost estimate.</p>",
+]
+`;
+
+exports[`ScheduleFormModal > shows the line for an estimate 1`] = `
+[
+  "<p data-v-dacb78c2="" class="schedule-form__estimate">Estimate: ~1234 tokens per run (average of the last 5 runs)</p>",
+]
+`;
+
+exports[`ScheduleFormModal > shows the line for no estimate 1`] = `[]`;
+
+exports[`ScheduleFormModal > shows the line for too little history 1`] = `
+[
+  "<p data-v-dacb78c2="" class="schedule-form__estimate schedule-form__estimate--empty">Not enough run history yet for a cost estimate.</p>",
+]
+`;

@@ -152,6 +152,76 @@ import CloseThick from 'vue-material-design-icons/CloseThick.vue'
 import SkillMaturityDots from './SkillMaturityDots.vue'
 import { attestSkillL4, qualifySkill } from '../api/skills.js'
 import { useSkillStore } from '../store/store.js'
+import { busyAction, BusyFields } from '../utils/busyAction.js'
+
+/**
+ * The line for a level the system checks by itself.
+ *
+ * @param {object} vm The component, for t() and formatDate().
+ * @param {object} [entry] The level's evidence.
+ * @return {string} The line, or '' when it was never checked.
+ */
+function checkedLine(vm, entry) {
+	if (!entry?.checkedAt) {
+		return ''
+	}
+	return vm.t('hermiq', 'Checked {date}', {
+		date: vm.formatDate(entry.checkedAt),
+	})
+}
+
+/**
+ * The line for an attested level, with the note when there is one.
+ *
+ * @param {object} vm The component, for t() and formatDate().
+ * @param {object} entry The level's evidence.
+ * @return {string} The line.
+ */
+function attestedLine(vm, entry) {
+	const base = vm.t('hermiq', 'Attested by {user} on {date}', {
+		user: entry.attestedBy,
+		date: vm.formatDate(entry.attestedAt),
+	})
+	return entry.note ? `${base} — ${entry.note}` : base
+}
+
+/**
+ * The evidence lines of levels 4 to 7, by level. A level without its evidence reads as ''.
+ *
+ * @type {Object<number, Function>}
+ */
+const EVIDENCE_LINES = {
+	4: (vm, { l4 }) => (l4?.attestedBy ? attestedLine(vm, l4) : ''),
+	5: (vm, { l5 }) =>
+		l5?.lastValidated
+			? vm.t(
+					'hermiq',
+					'Pass rate {rate}, baseline delta {delta}, validated {date}',
+					{
+						rate: String(l5.passRate ?? '—'),
+						delta: String(l5.baselineDelta ?? '—'),
+						date: vm.formatDate(l5.lastValidated),
+					},
+				)
+			: '',
+	6: (vm, { l6 }) =>
+		l6?.lastConsolidatedAt
+			? vm.t('hermiq', '{count} learnings, consolidated {date}', {
+					count: String(l6.learningsCount ?? 0),
+					date: vm.formatDate(l6.lastConsolidatedAt),
+				})
+			: '',
+	7: (vm, { l7 }) =>
+		l7?.lastExecutedAt
+			? vm.t('hermiq', 'Chain executed {date}', {
+					date: vm.formatDate(l7.lastExecutedAt),
+				})
+			: '',
+}
+
+const QUALIFY_FIELDS = new BusyFields('qualifying', 'error')
+
+const ATTEST_FIELDS = new BusyFields('attesting', 'attestError')
 
 export default {
 	name: 'SkillMaturityScorecard',
@@ -301,47 +371,9 @@ export default {
 		 */
 		evidenceSummary(level, evidence) {
 			if (level <= 3) {
-				const checkedAt = evidence[`l${level}`]?.checkedAt
-				if (checkedAt) {
-					return this.t('hermiq', 'Checked {date}', {
-						date: this.formatDate(checkedAt),
-					})
-				}
-				return ''
+				return checkedLine(this, evidence[`l${level}`])
 			}
-			if (level === 4 && evidence.l4?.attestedBy) {
-				const base = this.t('hermiq', 'Attested by {user} on {date}', {
-					user: evidence.l4.attestedBy,
-					date: this.formatDate(evidence.l4.attestedAt),
-				})
-				if (evidence.l4.note) {
-					return `${base} — ${evidence.l4.note}`
-				}
-				return base
-			}
-			if (level === 5 && evidence.l5?.lastValidated) {
-				return this.t(
-					'hermiq',
-					'Pass rate {rate}, baseline delta {delta}, validated {date}',
-					{
-						rate: String(evidence.l5.passRate ?? '—'),
-						delta: String(evidence.l5.baselineDelta ?? '—'),
-						date: this.formatDate(evidence.l5.lastValidated),
-					},
-				)
-			}
-			if (level === 6 && evidence.l6?.lastConsolidatedAt) {
-				return this.t('hermiq', '{count} learnings, consolidated {date}', {
-					count: String(evidence.l6.learningsCount ?? 0),
-					date: this.formatDate(evidence.l6.lastConsolidatedAt),
-				})
-			}
-			if (level === 7 && evidence.l7?.lastExecutedAt) {
-				return this.t('hermiq', 'Chain executed {date}', {
-					date: this.formatDate(evidence.l7.lastExecutedAt),
-				})
-			}
-			return ''
+			return EVIDENCE_LINES[level]?.(this, evidence) ?? ''
 		},
 
 		/**
@@ -390,20 +422,11 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async doQualify() {
-			this.qualifying = true
-			this.error = ''
-			try {
+			await busyAction(this, QUALIFY_FIELDS)(async () => {
 				const result = await qualifySkill(this.skillId)
 				this.scorecard = result.scorecard || []
 				await this.fetchSkill()
-			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
-			} finally {
-				this.qualifying = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -414,9 +437,7 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async doAttest() {
-			this.attesting = true
-			this.attestError = ''
-			try {
+			await busyAction(this, ATTEST_FIELDS)(async () => {
 				const result = await attestSkillL4(
 					this.skillId,
 					this.attestNote.trim(),
@@ -424,14 +445,7 @@ export default {
 				this.scorecard = result.scorecard || []
 				this.attestNote = ''
 				await this.fetchSkill()
-			} catch (e) {
-				this.attestError =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
-			} finally {
-				this.attesting = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 	},
 }

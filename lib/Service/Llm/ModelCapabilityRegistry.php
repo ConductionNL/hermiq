@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
  */
 
 declare(strict_types=1);
@@ -34,15 +34,16 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Llm;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ModelCapabilityRegistryInterface;
 use OCP\IAppConfig;
 
 /**
  * Reads and writes the administered input capabilities of each provider and model.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
  */
-class ModelCapabilityRegistry {
+class ModelCapabilityRegistry implements ModelCapabilityRegistryInterface {
 
 	/**
 	 * The model reads images natively.
@@ -92,7 +93,7 @@ class ModelCapabilityRegistry {
 	 *
 	 * @return array<string, list<string>> The declared map.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function all(): array {
 		$out = [];
@@ -111,7 +112,7 @@ class ModelCapabilityRegistry {
 	 *
 	 * @return list<string> The declared capabilities.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function forModel(string $provider, string $model): array {
 		$stored = $this->stored();
@@ -129,7 +130,7 @@ class ModelCapabilityRegistry {
 	 *
 	 * @return bool True only when an administrator declared it.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function supports(string $provider, string $model, string $capability): bool {
 		return in_array($capability, $this->forModel(provider: $provider, model: $model), true);
@@ -146,7 +147,7 @@ class ModelCapabilityRegistry {
 	 *
 	 * @throws InvalidArgumentException When the provider, model or a capability is not valid.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function declare(string $provider, string $model, array $capabilities): array {
 		$declared = $this->declareMany(declarations: [$provider . '/' . $model => $capabilities]);
@@ -165,7 +166,7 @@ class ModelCapabilityRegistry {
 	 *
 	 * @throws InvalidArgumentException When any entry is not valid; nothing is written then.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function declareMany(array $declarations): array {
 		$normalized = $this->normalizeDeclarations(declarations: $declarations);
@@ -176,7 +177,7 @@ class ModelCapabilityRegistry {
 		}
 
 		$this->appConfig->setValueString(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			self::CONFIG_KEY,
 			(string)json_encode($stored)
 		);
@@ -193,7 +194,7 @@ class ModelCapabilityRegistry {
 	 *
 	 * @throws InvalidArgumentException When a key or a capability is not valid.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 	 */
 	public function normalizeDeclarations(array $declarations): array {
 		$out = [];
@@ -291,7 +292,7 @@ class ModelCapabilityRegistry {
 	 * @return array<mixed> The stored map.
 	 */
 	private function stored(): array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_KEY, '');
 		if ($raw === '') {
 			return [];
 		}

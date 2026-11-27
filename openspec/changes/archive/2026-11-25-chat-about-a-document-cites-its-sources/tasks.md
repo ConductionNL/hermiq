@@ -1,0 +1,71 @@
+# Tasks: chat-about-a-document-cites-its-sources
+
+<!-- HYDRA CAP: max 20 unindented `- [ ]` lines. This file uses 16. -->
+
+Kind: code. Size M. Rows `filinq:wk-ai-chat`, `ch-citations` (hermiq).
+
+## Implementation tasks
+
+### Task 1: A turn carries a scope
+- **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001`
+- **files**: `lib/Controller/ChatController.php` (`extractMessageRequestParams()`), `lib/Controller/ChatStreamController.php`, `lib/Service/Engine/Engine.php`
+- **acceptance_criteria**:
+  - GIVEN a turn with `scope: {type: "file", fileId}` WHEN it is parsed THEN the scope reaches `retrieveContext()` unchanged; any other shape is dropped with a 400
+- [x] Implement
+- [x] Test (PHPUnit on the controller parsing)
+
+### Task 2: Retrieval honours a file or folder scope
+- **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-a-collection-req-dchat-002`
+- **files**: `lib/Service/Engine/ContextRetrievalHandler.php` (`searchScoped()`), new `lib/Service/Chat/ScopedPassageSource.php` (reads an unindexed file through `AttachmentTextSource` as the speaker and splits it into numbered passages with page numbers), `tests/Unit/Service/Engine/ContextRetrievalScopeTest.php`
+- **acceptance_criteria**:
+  - GIVEN a folder scope WHEN results come back from inside and outside the folder THEN only the inside ones are kept
+  - GIVEN a file the speaker cannot open WHEN the turn is scoped to it THEN 404 and no model call
+- [x] Implement
+- [x] Test
+
+### Task 3: The answer cites numbered sources, or says nothing matched
+- **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003`
+- **files**: `lib/Service/Engine/ContextAssembler.php` (numbered passages and the citation instruction), `lib/Service/Engine/ResponseGenerationHandler.php` (stores `sources` in citation order with `page`), `lib/Controller/ChatController.php` (`serializeMessage()`), `tests/Unit/Service/Engine/ScopedCitationTest.php`
+- **acceptance_criteria**:
+  - GIVEN two passages used WHEN the answer is stored THEN markers [1] and [2] match `sources[0]` and `sources[1]`
+  - GIVEN no passage in scope WHEN the turn runs THEN the model is not asked to answer from general knowledge and the reply says the document does not answer it
+- [x] Implement
+- [x] Test
+
+### Task 4: The companion shows the scope chip and the sources (nextcloud-vue)
+- **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-companion-shows-the-scope-and-the-sources-req-dchat-004`
+- **files**: ConductionNL/nextcloud-vue `src/components/CnAiCompanion/CnAiChatPanel.vue` (scope from `context.fileId` and `pageKind`, removable chip, `scope` on each send), `src/components/CnAiCompanion/CnAiMessageList.vue` (source list under an answer, links through `generateUrl('/f/{fileId}')`), `tests/components/CnAiChatPanel.spec.js`; Dutch and English strings
+- **acceptance_criteria**:
+  - GIVEN a context with a `fileId` WHEN the panel opens THEN the chip reads "Over dit document" and the next send carries the scope
+  - GIVEN an answer with sources WHEN it renders THEN each source is a link with the file name and page
+- [x] Implement (PR in ConductionNL/nextcloud-vue, release, bump the hermiq and filinq locks)
+  - 2026-11-24: nextcloud-vue#2333 (released in 2.215.0): `src/utils/aiChatScope.js` (`turnScopeOf()`), the scope chip in `CnAiChatPanel.vue`, `body.scope` and kept `sources` in `useAiChatStream.js`, the source list in `CnAiMessageList.vue`, nl/en strings. hermiq raised to ^2.215.0 here; filinq in ConductionNL/filinq#2318.
+- [x] Test
+  - nextcloud-vue `tests/components/CnAiChatPanelScope.spec.js`, `tests/components/CnAiMessageListSources.spec.js`, `tests/composables/useAiChatStreamScope.spec.js`, `tests/utils/aiChatScope.spec.js`.
+
+### Task 5: filinq passes the open document or folder to the companion
+- **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-companion-shows-the-scope-and-the-sources-req-dchat-004`
+- **files**: ConductionNL/filinq `src/App.vue` (companion page context) and the document and dossier views that know the open file id
+- **acceptance_criteria**:
+  - GIVEN a filinq document page WHEN the companion opens THEN its context carries that document's `fileId` and `pageKind: "document"`; on a dossier, the dossier folder's id and `pageKind: "folder"`
+- [x] Implement (PR in ConductionNL/filinq)
+  - 2026-11-24: ConductionNL/filinq#2318 (filinq change `companion-knows-the-open-document`): the file viewer sets `pageKind: "document"` and the open file id, a dossier `pageKind: "folder"` and its home folder id (new `folderId` on the dossier detail), both released on leaving; vitest `tests/vitest/companionContext.spec.js`, PHPUnit `testDetailNamesTheHomeFolder`.
+
+### Task 6: The chat page links every answer's sources
+- **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-the-chat-page-lists-the-sources-of-every-answer-as-links-req-dchat-005`
+- **files**: `src/views/Chat.vue` (the `chat-page__sources` list: a link through `generateUrl('/f/{fileId}')` for `type === 'file'`, page when present), `tests/javascript/views/ChatSources.spec.js`
+- **acceptance_criteria**:
+  - GIVEN an unscoped answer with two file sources WHEN it renders THEN each source is a link to its file; a non-file source shows its name only
+- [x] Implement
+- [x] Test
+
+### Task 7: End to end
+- **spec_ref**: `openspec/changes/chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-every-scoped-answer-cites-its-sources-req-dchat-003`
+- **files**: `tests/e2e/spec-coverage/document-chat.spec.ts`, `docs/features/document-chat.md`
+  - 2026-11-24: `docs/features/document-chat.md` written (the chip, the source list, the API shape).
+  - 2026-11-21: `tests/e2e/spec-coverage/document-chat.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, sidecar or Talk is needed); not run here, it needs a running Nextcloud.
+- **acceptance_criteria**:
+  - The four `@e2e` scenarios pass on the dev instance with a stub model; docs show the chip and the source list
+- [x] Implement
+- [x] Test
+  - 2026-11-25: run live, 5/5 (sandbox Nextcloud 34 on PostgreSQL 16, OpenRegister main, hermiq development + this change's PR, filinq development, and a stub chat model that always cites [1]): unscoped linked sources, file scope only that document, folder scope stays inside (the better match outside the folder is not used), nothing in scope says so with no sources, filinq My Documents page shows "About this document" and links the source. The scoped scenarios read plain-text documents; PDF text in a scope comes from OpenRegister's text facade (vector-rag). One red fixed on the way: every scoped answer failed to store (source `id` was an integer, the turn schema types it as a string).

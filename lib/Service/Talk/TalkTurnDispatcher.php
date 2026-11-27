@@ -36,7 +36,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#4-out-of-request-turn-execution-one-service-two-hand-offs
  */
 
 declare(strict_types=1);
@@ -44,6 +44,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Talk;
 
 use OCA\Hermiq\BackgroundJob\TalkTurnJob;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnDispatcherInterface;
 use OCP\BackgroundJob\IJobList;
 use OCP\TaskProcessing\IManager as ITaskProcessingManager;
 use Psr\Log\LoggerInterface;
@@ -54,9 +55,9 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
  */
-class TalkTurnDispatcher {
+class TalkTurnDispatcher implements TalkTurnDispatcherInterface {
 
 	/**
 	 * Core's triggerable-provider interface, referenced BY NAME.
@@ -82,51 +83,135 @@ class TalkTurnDispatcher {
 	 * @param IJobList $jobList The background job list (fallback path).
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param ITaskProcessingManager|null $taskManager Core TaskProcessing manager (fast path).
+	 * @param TalkInstantPath|null $instant The executor, claims, post-response runner and switch (instant path).
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function __construct(
 		private readonly IJobList $jobList,
 		private readonly LoggerInterface $logger,
 		private readonly ?ITaskProcessingManager $taskManager = null,
+		private readonly ?TalkInstantPath $instant = null,
 	) {
 	}//end __construct()
 
 	/**
 	 * Hand the turn off for execution outside this request.
 	 *
-	 * @param string $conversationUuid The bound conversation.
-	 * @param string $speakerUid The uid whose turn this is.
-	 * @param string $message The message text.
-	 * @param string $roomToken The room to answer in.
+	 * The durable enqueue always comes first. Then the immediate path: a
+	 * registered triggerable runner is nudged (path A); otherwise the turn is
+	 * run in this process once the sender's response is out (path B). Neither
+	 * path holds the sender's request, and the queued job stays behind as the
+	 * safety net either way — the turn's claim keeps the two from both running it.
 	 *
-	 * @return string The path taken: `triggered` or `queued`.
+	 * @param TalkTurn $turn The turn: conversation, speaker, message, room, and the
+	 *                       optional turn id ('' runs it unclaimed), agent ('' resolves
+	 *                       it from the room's session), addressing message and chain.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @return string The path taken: `triggered`, `instant` or `queued`.
+	 *
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-turns-execute-immediately-with-claim-based-exactly-once-semantics
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
-	public function dispatch(string $conversationUuid, string $speakerUid, string $message, string $roomToken): string {
-		$argument = [
-			'conversationUuid' => $conversationUuid,
-			'speakerUid' => $speakerUid,
-			'message' => $message,
-			'roomToken' => $roomToken,
-		];
+	public function dispatch(TalkTurn $turn): string {
+		$argument = $this->jobArgument(turn: $turn);
 
-		// The queued job is the durable hand-off and today it is the ONLY one
-		// that actually executes a turn: the fast path needs a registered
-		// ITriggerableProvider that pulls Hermiq turns, and no such runner
-		// ships yet (hermiq's existing TaskProcessing providers are all
-		// ISynchronousProvider, which core runs on the same cron tick).
-		//
-		// `triggerFastPath()` is the seam that activates when one does. It is
-		// deliberately a nudge only — the queued job stays the durable record
-		// either way, so a turn can never be lost between the two mechanisms.
+		// The queued job is the durable hand-off: it is enqueued for EVERY turn,
+		// whatever path runs it, so a turn can never be lost between mechanisms.
 		$this->jobList->add(TalkTurnJob::class, $argument);
 
 		if ($this->triggerFastPath() === true) {
 			return 'triggered';
 		}
 
+		if ($this->deferInstant(argument: $argument) === true) {
+			return 'instant';
+		}
+
 		return 'queued';
 	}//end dispatch()
+
+	/**
+	 * The queued job's argument for a turn: the four required fields, and each
+	 * optional one only when it is set, so a job without them reads as before.
+	 *
+	 * @param TalkTurn $turn The turn.
+	 *
+	 * @return array<string, mixed> The job argument.
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
+	 */
+	private function jobArgument(TalkTurn $turn): array {
+		$argument = [
+			'conversationUuid' => $turn->conversationUuid,
+			'speakerUid' => $turn->speakerUid,
+			'message' => $turn->message,
+			'roomToken' => $turn->roomToken,
+		];
+		$extra = ['turnId' => $turn->turnId, 'agentId' => $turn->agentId, 'messageId' => $turn->messageId];
+		foreach ($extra as $key => $value) {
+			if ($value !== '') {
+				$argument[$key] = $value;
+			}
+		}
+
+		if ($turn->chain !== []) {
+			$argument['chain'] = $turn->chain;
+		}
+
+		return $argument;
+	}//end jobArgument()
+
+	/**
+	 * Schedule the turn to run in this process after the response (path B).
+	 *
+	 * Only with a turn id and atomic claims: without them the instant run and
+	 * the queued job could both answer. At run time a slot of the concurrent
+	 * instant-turns cap is taken; with the cap full the turn simply stays on the
+	 * queue, which is logged.
+	 *
+	 * @param array $argument The hand-off argument, as enqueued.
+	 *
+	 * @return bool True when the turn was scheduled to run after the response.
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#2-immediate-execution-paths
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
+	 */
+	private function deferInstant(array $argument): bool {
+		$instant = $this->instant;
+		if ($instant === null) {
+			return false;
+		}
+
+		$claims = $instant->claims;
+		if (($argument['turnId'] ?? '') === '' || $claims->isAtomic() === false || $instant->enabled() === false) {
+			return false;
+		}
+
+		$executor = $instant->executor;
+		$cap = $instant->cap();
+		$instant->postResponse->defer(
+			work: function () use ($executor, $claims, $cap, $argument): void {
+				if ($claims->takeSlot(cap: $cap) === false) {
+					$this->logger->info(
+						message: '[TalkTurnDispatcher] Instant-turn cap reached; the turn stays on the queue',
+						context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $argument['roomToken'], 'cap' => $cap]
+					);
+					return;
+				}
+
+				try {
+					$executor->execute(argument: $argument);
+				} finally {
+					$claims->releaseSlot();
+				}
+			},
+			budgetSeconds: $claims->timeoutSeconds()
+		);
+
+		return true;
+	}//end deferInstant()
 
 	/**
 	 * Nudge a triggerable runner so the queued turn is picked up immediately.
@@ -138,7 +223,8 @@ class TalkTurnDispatcher {
 	 *
 	 * @return bool True when a triggerable runner was actually nudged.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	private function triggerFastPath(): bool {
 		if ($this->taskManager === null) {
@@ -167,11 +253,7 @@ class TalkTurnDispatcher {
 			// still carries the turn.
 			$this->logger->debug(
 				message: '[TalkTurnDispatcher] Could not nudge a triggerable runner; the queued turn stands',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'error' => $e->getMessage(),
-				]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
 			);
 		}//end try
 
@@ -186,7 +268,8 @@ class TalkTurnDispatcher {
 	 *
 	 * @return bool True when a triggerable provider is available.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function hasTriggerableProvider(): bool {
 		if ($this->taskManager === null) {
@@ -202,11 +285,7 @@ class TalkTurnDispatcher {
 		} catch (Throwable $e) {
 			$this->logger->debug(
 				message: '[TalkTurnDispatcher] Could not enumerate TaskProcessing providers; using the queued fallback',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'error' => $e->getMessage(),
-				]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
 			);
 		}
 

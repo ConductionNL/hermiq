@@ -27,7 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 
 /**
@@ -51,7 +51,7 @@ final class NcNativeWriteToolDescriptors {
 	 */
 	public const ALL = [
 			[
-				'id' => Application::APP_ID . '.createCalendarEvent',
+				'id' => AppIdentity::APP_ID . '.createCalendarEvent',
 				'subject' => 'calendarEvent',
 				'action' => 'create',
 				// 🔴 `external`, NOT `user`, and this is the whole point of the
@@ -96,7 +96,7 @@ final class NcNativeWriteToolDescriptors {
 				'scope' => 'create',
 			],
 			[
-				'id' => Application::APP_ID . '.upsertContact',
+				'id' => AppIdentity::APP_ID . '.upsertContact',
 				// `upsert`, not `create` or `update`. It may do EITHER, so
 				// declaring one of them would let a grant that reads as
 				// "may update existing contacts" also create new ones.
@@ -130,7 +130,7 @@ final class NcNativeWriteToolDescriptors {
 				'scope' => 'create',
 			],
 			[
-				'id' => Application::APP_ID . '.listNotes',
+				'id' => AppIdentity::APP_ID . '.listNotes',
 				'subject' => 'note',
 				'action' => 'list',
 				'reach' => ToolReachResolver::REACH_USER,
@@ -148,7 +148,7 @@ final class NcNativeWriteToolDescriptors {
 				'scope' => 'read',
 			],
 			[
-				'id' => Application::APP_ID . '.createNote',
+				'id' => AppIdentity::APP_ID . '.createNote',
 				'subject' => 'note',
 				'action' => 'create',
 				'reach' => ToolReachResolver::REACH_USER,
@@ -169,7 +169,7 @@ final class NcNativeWriteToolDescriptors {
 				'scope' => 'create',
 			],
 			[
-				'id' => Application::APP_ID . '.updateNote',
+				'id' => AppIdentity::APP_ID . '.updateNote',
 				'subject' => 'note',
 				'action' => 'update',
 				'reach' => ToolReachResolver::REACH_USER,
@@ -192,6 +192,50 @@ final class NcNativeWriteToolDescriptors {
 				],
 				'readOnlyHint' => false,
 				'destructiveHint' => true,
+				'idempotentHint' => false,
+				'scope' => 'update',
+			],
+			[
+				'id' => AppIdentity::APP_ID . '.createFile',
+				'subject' => 'file',
+				'action' => 'create',
+				'reach' => ToolReachResolver::REACH_USER,
+				'name' => 'Create file',
+				'description' => 'Create a new file in the acting user\'s own Files. The path is relative to their '
+					. 'files; a path outside them is refused, and an existing file is never overwritten.',
+				'inputSchema' => [
+					'type' => 'object',
+					'properties' => [
+						'path' => ['type' => 'string', 'description' => 'Path of the new file, relative to the user\'s files.'],
+						'content' => ['type' => 'string', 'description' => 'The text to write, at most one megabyte.'],
+					],
+					'required' => ['path'],
+				],
+				// Create-only: it refuses an existing path, so nothing is lost.
+				'readOnlyHint' => false,
+				'destructiveHint' => false,
+				'idempotentHint' => false,
+				'scope' => 'create',
+			],
+			[
+				'id' => AppIdentity::APP_ID . '.moveFile',
+				'subject' => 'file',
+				'action' => 'move',
+				'reach' => ToolReachResolver::REACH_USER,
+				'name' => 'Move file',
+				'description' => 'Move a file within the acting user\'s own Files to a free path in a folder that exists. '
+					. 'Paths outside their files are refused, and nothing at the target is overwritten.',
+				'inputSchema' => [
+					'type' => 'object',
+					'properties' => [
+						'from' => ['type' => 'string', 'description' => 'Current path of the file, relative to the user\'s files.'],
+						'to' => ['type' => 'string', 'description' => 'New path of the file, relative to the user\'s files.'],
+					],
+					'required' => ['from', 'to'],
+				],
+				// A move is reversible by moving back, and refuses an occupied target.
+				'readOnlyHint' => false,
+				'destructiveHint' => false,
 				'idempotentHint' => false,
 				'scope' => 'update',
 			],

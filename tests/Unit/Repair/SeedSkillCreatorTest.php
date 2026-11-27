@@ -36,6 +36,8 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * Tests for the hermiq-skill-conversational-authoring SeedSkillCreator repair step.
@@ -62,6 +64,13 @@ class SeedSkillCreatorTest extends TestCase {
 			public array $saved = [];
 
 			/**
+			 * The error saveObject() throws, if any.
+			 *
+			 * @var \Throwable|null
+			 */
+			public ?\Throwable $saveError = null;
+
+			/**
 			 * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
 			 */
 			public function __construct(
@@ -84,25 +93,26 @@ class SeedSkillCreatorTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				// openregister#2211 (insert-only saves) added this. A double that
-				// drifts from the real signature is a FATAL, not a failed
-				// assertion: PHP refuses to declare the class and the whole
-				// suite dies before it runs.
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				// Added by openregister (duplicate detection), seen 2026-09-16.
-				bool $_dedupOverride = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
+				if ($this->saveError !== null) {
+					throw $this->saveError;
+				}
+
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = ['schema' => (string)$schema, 'object' => $payload];
 
@@ -313,4 +323,45 @@ class SeedSkillCreatorTest extends TestCase {
 		$this->addToAssertionCount(1);
 
 	}//end testNoopsWhenOpenRegisterUnavailable()
+
+	/**
+	 * The step names what it seeds.
+	 *
+	 * @return void
+	 */
+	public function testName(): void {
+		$step = new SeedSkillCreator(
+			container: $this->container(objectService: $this->objectService([])),
+			logger: $this->createMock(LoggerInterface::class),
+			freshness: new SeedFreshnessService(),
+		);
+
+		$this->assertSame('Seed skill-creator skill (hermiq-skill-conversational-authoring)', $step->getName());
+	}//end testName()
+
+	/**
+	 * A failed write is reported and logged, never thrown; rows that are not
+	 * objects are not mistaken for the existing skill.
+	 *
+	 * @return void
+	 */
+	public function testAFailedWriteIsReportedNotThrown(): void {
+		$objectService = $this->objectService(['agentskill' => [['name' => 'skill-creator']]]);
+		$objectService->saveError = new RuntimeException('register locked');
+
+		$output = $this->createMock(IOutput::class);
+		$output->expects($this->once())->method('warning')->with('Could not seed skill-creator skill: register locked');
+		$output->expects($this->never())->method('info');
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('error')->with('[hermiq] skill-creator seed failed: register locked');
+
+		$step = new SeedSkillCreator(
+			container: $this->container(objectService: $objectService),
+			logger: $logger,
+			freshness: new SeedFreshnessService(),
+		);
+		$step->run(output: $output);
+
+		$this->assertSame([], $objectService->saved);
+	}//end testAFailedWriteIsReportedNotThrown()
 }//end class

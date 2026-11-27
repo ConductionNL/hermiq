@@ -48,15 +48,9 @@ class RegisterAgentLeafListenerTest extends TestCase {
 	/**
 	 * Build the listener with an identity l10n and a logger that REMEMBERS.
 	 *
-	 * The listener wraps its registration in `catch (Throwable)` and turns any
-	 * failure into a warning, so with a plain mock logger a failed
-	 * registration reaches the assertions as nothing but `assertCount(1, …)`
-	 * finding 0. That is how this test reported "actual size 0" for weeks
-	 * while the reason -- `Undefined constant …LeafDescriptor::LOADS_VIA_OWN_SCRIPT`
-	 * -- was sitting in a message nobody captured.
-	 *
-	 * Capturing the warnings costs one property and makes the failure name its
-	 * own cause.
+	 * The listener turns a registration failure into a warning, so the logger
+	 * keeps them and the first assertion can name the cause when the leaf did
+	 * not register.
 	 *
 	 * @return RegisterAgentLeafListener
 	 */
@@ -105,6 +99,12 @@ class RegisterAgentLeafListenerTest extends TestCase {
 		// hand-off, so the server descriptor declares renderMode 'mount' to match
 		// the JS registration under the shared id (openregister#2127, gate-24).
 		$this->assertSame(LeafDescriptor::RENDER_MODE_MOUNT, $descriptor->getRenderMode());
+
+		// Hermiq loads its own bundle on every page (Util::addInitScript) and ships
+		// no `hermiq-leaves.js`, so the descriptor declares that Hermiq loads its
+		// own script. Whether the registry reports a leaf without a shared bundle
+		// is the registry's decision; it needs this declaration to make it.
+		$this->assertSame(LeafDescriptor::LOADS_VIA_OWN_SCRIPT, $descriptor->getLoadStrategy());
 
 		// Render-only: no data provider.
 		$this->assertNull($leaves[0]['provider']);

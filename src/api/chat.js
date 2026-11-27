@@ -42,6 +42,22 @@ import { generateOcsUrl, generateUrl } from '@nextcloud/router'
 
 /** Hermiq chat API base path (agent-engine-port routes). */
 const CHAT_BASE = '/apps/hermiq/api/chat'
+
+// The RAG settings a synchronous turn may carry, in payload order.
+const RAG_FIELDS = [
+	'includeObjects',
+	'includeFiles',
+	'numSourcesFiles',
+	'numSourcesObjects',
+]
+
+// What each non-terminal stream event hands to its handler.
+const FRAME_HANDLERS = new Map([
+	['token', (handlers, data) => handlers.onToken?.(data.delta || '')],
+	['tool_call', (handlers, data) => handlers.onToolCall?.(data)],
+	['tool_result', (handlers, data) => handlers.onToolResult?.(data)],
+	['heartbeat', (handlers) => handlers.onHeartbeat?.()],
+])
 /**
  * Hermiq sessions API base path.
  *
@@ -52,26 +68,68 @@ const CHAT_BASE = '/apps/hermiq/api/chat'
 const SESSIONS_BASE = '/apps/hermiq/api/sessions'
 
 /**
+ * The most session uuids one bulk request may carry (the server refuses more with 400).
+ */
+const BULK_MAX = 100
+
+/**
  * List the current user's sessions (server-side user-scoped).
  *
  * @param {object} [options] List options.
  * @param {boolean} [options.archived] True to list archived (soft-deleted) sessions.
  * @param {number} [options.limit] Page size (default 50).
  * @param {number} [options.offset] Page offset (default 0).
- * @return {Promise<{results: Array<object>, total: number}>} The page envelope.
+ * @param {string} [options.search] A search term: only the caller's own sessions whose title
+ *   or turns contain it come back, each with a `match` (`{ turnUuid, excerpt }` or `{ title: true }`).
+ * @return {Promise<{results: Array<object>, total: number, truncated: boolean}>} The page envelope;
+ *   `truncated` says a search did not reach the oldest sessions.
+ * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
  */
 export async function listSessions({
 	archived = false,
 	limit = 50,
 	offset = 0,
+	search = '',
 } = {}) {
-	const response = await axios.get(generateUrl(SESSIONS_BASE), {
-		params: { _deleted: archived ? 'true' : 'false', limit, offset },
-	})
+	const params = { _deleted: archived ? 'true' : 'false', limit, offset }
+	const term = String(search || '').trim()
+	if (term !== '') {
+		params.search = term
+	}
+	const response = await axios.get(generateUrl(SESSIONS_BASE), { params })
 	return {
 		results: Array.isArray(response.data?.results) ? response.data.results : [],
 		total: response.data?.total ?? 0,
+		truncated: response.data?.truncated === true,
 	}
+}
+
+/**
+ * Archive, restore or permanently delete several of the caller's sessions at once.
+ *
+ * The server checks each uuid as the caller's own and answers per uuid: `ok`,
+ * `not_found` (missing, or not the caller's) or `refused` (the write failed).
+ *
+ * The route takes at most 100 uuids per request, so a longer selection is sent
+ * in consecutive requests of 100 and the answers are joined.
+ *
+ * @param {'archive'|'restore'|'delete'} action What to do with them.
+ * @param {Array<string>} uuids The session uuids.
+ * @return {Promise<Array<{uuid: string, status: string}>>} The outcome per uuid.
+ * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+ */
+export async function bulkSessions(action, uuids) {
+	const results = []
+	for (let start = 0; start < uuids.length; start += BULK_MAX) {
+		const response = await axios.post(generateUrl(`${SESSIONS_BASE}/bulk`), {
+			action,
+			uuids: uuids.slice(start, start + BULK_MAX),
+		})
+		if (Array.isArray(response.data?.results)) {
+			results.push(...response.data.results)
+		}
+	}
+	return results
 }
 
 /**
@@ -113,12 +171,22 @@ export async function listMessages(uuid, { limit = 50, offset = 0 } = {}) {
  *
  * @param {string} agentUuid The agent object UUID.
  * @param {string} [title] Optional explicit title.
+ * @param {{projectKey?: string, projectName?: string}|null} [project] The project the
+ *        session works in (memory-project-scopes): an existing key, or a name for a new
+ *        project. Fixed for the life of the session.
  * @return {Promise<object>} The created session.
+ * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
  */
-export async function createSession(agentUuid, title) {
+export async function createSession(agentUuid, title, project = null) {
 	const payload = { agentUuid }
 	if (title) {
 		payload.title = title
+	}
+	if (project?.projectKey) {
+		payload.projectKey = project.projectKey
+	}
+	if (project?.projectName) {
+		payload.projectName = project.projectName
 	}
 	const response = await axios.post(generateUrl(SESSIONS_BASE), payload)
 	return response.data
@@ -134,6 +202,23 @@ export async function createSession(agentUuid, title) {
 export async function renameSession(uuid, title) {
 	const response = await axios.patch(generateUrl(`${SESSIONS_BASE}/${uuid}`), {
 		title,
+	})
+	return response.data
+}
+
+/**
+ * Start a new session from one of a session's answers ("Fork from here"). The
+ * new session has the same agent and every turn up to and including that answer;
+ * the source stays as it was. Only the owner may fork: anyone else gets a 404.
+ *
+ * @param {string} uuid The source session UUID.
+ * @param {string} turnUuid The assistant turn to fork at.
+ * @return {Promise<{uuid: string, title: string, agentId: string, forkedFrom: object, messageCount: number}>} The new session.
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+ */
+export async function forkSession(uuid, turnUuid) {
+	const response = await axios.post(generateUrl(`${SESSIONS_BASE}/${uuid}/fork`), {
+		turnUuid,
 	})
 	return response.data
 }
@@ -201,6 +286,100 @@ export async function removeParticipant(uuid, uid) {
 		),
 	)
 	return response.data.results || []
+}
+
+/**
+ * The read-only shares of a session (owner only).
+ *
+ * @param {string} uuid The session UUID.
+ * @return {Promise<Array<{type: string, id: string, displayName: string, sharedBy: string, sharedAt: string}>>} The shares.
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ */
+export async function listShares(uuid) {
+	const response = await axios.get(
+		generateUrl(`${SESSIONS_BASE}/${encodeURIComponent(uuid)}/shares`),
+	)
+	return response.data.results || []
+}
+
+/**
+ * Share a session read-only with a user or a group (owner only).
+ *
+ * @param {string} uuid The session UUID.
+ * @param {string} type `user` or `group`.
+ * @param {string} id The user id or group id.
+ * @return {Promise<Array<object>>} The shares after the change.
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ */
+export async function addShare(uuid, type, id) {
+	const response = await axios.post(
+		generateUrl(`${SESSIONS_BASE}/${encodeURIComponent(uuid)}/shares`),
+		{ type, id },
+	)
+	return response.data.results || []
+}
+
+/**
+ * Take a read-only share back (owner only).
+ *
+ * @param {string} uuid The session UUID.
+ * @param {string} type `user` or `group`.
+ * @param {string} id The user id or group id.
+ * @return {Promise<Array<object>>} The shares after the change.
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-can-revoke-a-share-at-once-req-sshare-003
+ */
+export async function removeShare(uuid, type, id) {
+	const response = await axios.delete(
+		generateUrl(
+			`${SESSIONS_BASE}/${encodeURIComponent(uuid)}/shares/${encodeURIComponent(type)}/${encodeURIComponent(id)}`,
+		),
+	)
+	return response.data.results || []
+}
+
+/**
+ * The sessions shared with the current user, for "Shared with you".
+ *
+ * @return {Promise<Array<object>>} The shared sessions, newest first.
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+ */
+export async function listSharedSessions() {
+	const response = await axios.get(generateUrl(SESSIONS_BASE), {
+		params: { shared: 'true', limit: 50, offset: 0 },
+	})
+	return Array.isArray(response.data?.results) ? response.data.results : []
+}
+
+/**
+ * Search users and groups the owner may share with, through Nextcloud's
+ * collaborator search, which applies the instance's sharing rules.
+ *
+ * @param {string} search The typed text.
+ * @return {Promise<Array<{type: string, id: string, displayName: string}>>} Matching users and groups.
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ */
+export async function searchSharees(search) {
+	const response = await axios.get(generateOcsUrl('core/autocomplete/get'), {
+		params: { search, itemType: '', itemId: '', shareTypes: [0, 1], limit: 10 },
+	})
+	return shareeOptions(response.data?.ocs?.data || [])
+}
+
+/**
+ * The collaborator search's answer as share options.
+ *
+ * @param {Array<{id: string, label?: string, source?: string}>} items The autocomplete items.
+ * @return {Array<{type: string, id: string, displayName: string}>} The options.
+ * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+ */
+export function shareeOptions(items) {
+	return items
+		.filter((item) => item && item.id && (item.source === 'users' || item.source === 'groups'))
+		.map((item) => ({
+			type: item.source === 'groups' ? 'group' : 'user',
+			id: item.id,
+			displayName: item.label || item.id,
+		}))
 }
 
 /**
@@ -292,6 +471,7 @@ export async function deleteSessionPermanent(uuid) {
  *   numSourcesFiles, numSourcesObjects).
  * @param {Array<{fileId: number, origin: string}>} [options.attachments] Files on
  *   this turn, by file id; the server reads each one as the sender.
+ * @param {boolean} [options.answerCacheBypass] True to ask the model again instead of the answer cache.
  * @return {Promise<object>} The engine result ({message, messageId, sources, usage,
  *   session}).
  */
@@ -303,40 +483,81 @@ export async function sendChatMessage({
 	tools,
 	ragSettings,
 	attachments,
+	answerCacheBypass,
 }) {
-	const payload = { message }
-	if (Array.isArray(attachments) && attachments.length > 0) {
-		payload.attachments = attachments
-	}
-	if (sessionUuid) {
-		payload.conversation = sessionUuid // wire key: ChatController reads getParam('conversation')
-	} else if (agentUuid) {
-		payload.agentUuid = agentUuid
-	}
-	if (Array.isArray(views) && views.length > 0) {
-		payload.views = views
-	}
-	if (Array.isArray(tools) && tools.length > 0) {
-		payload.tools = tools
-	}
-	if (ragSettings && typeof ragSettings === 'object') {
-		const { includeObjects, includeFiles, numSourcesFiles, numSourcesObjects } =
-			ragSettings
-		if (includeObjects !== undefined) {
-			payload.includeObjects = includeObjects
-		}
-		if (includeFiles !== undefined) {
-			payload.includeFiles = includeFiles
-		}
-		if (numSourcesFiles !== undefined) {
-			payload.numSourcesFiles = numSourcesFiles
-		}
-		if (numSourcesObjects !== undefined) {
-			payload.numSourcesObjects = numSourcesObjects
-		}
+	// wire key: ChatController reads getParam('conversation')
+	const payload = {
+		...turnBody(
+			{ message, sessionUuid, agentUuid, attachments, answerCacheBypass },
+			'conversation',
+		),
+		...nonEmptyLists({ views, tools }),
+		...ragFields(ragSettings),
 	}
 	const response = await axios.post(generateUrl(`${CHAT_BASE}/send`), payload)
 	return response.data
+}
+
+/**
+ * The part of a turn both send paths carry: the message, the files on it, and
+ * the session it continues or, without one, the agent that starts a new one.
+ *
+ * @param {object} turn The turn.
+ * @param {string} turn.message The user message text.
+ * @param {string} [turn.sessionUuid] Existing session UUID.
+ * @param {string} [turn.agentUuid] Agent UUID (only when no session exists yet).
+ * @param {Array<{fileId: number, origin: string}>} [turn.attachments] Files on this turn.
+ * @param {boolean} [turn.answerCacheBypass] True to ask the model again instead of the answer cache.
+ * @param {string} sessionKey The wire key the endpoint reads the session from.
+ * @return {object} The request body.
+ */
+function turnBody({ message, sessionUuid, agentUuid, attachments, answerCacheBypass }, sessionKey) {
+	const body = { message }
+	// "Ask the model again" (models-prompt-and-answer-cache): sent only when true.
+	if (answerCacheBypass === true) {
+		body.answerCacheBypass = true
+	}
+	// Files on this turn, by file id (chat-attachments-and-images); omitted when none.
+	if (Array.isArray(attachments) && attachments.length > 0) {
+		body.attachments = attachments
+	}
+	if (sessionUuid) {
+		body[sessionKey] = sessionUuid
+	} else if (agentUuid) {
+		body.agentUuid = agentUuid
+	}
+	return body
+}
+
+/**
+ * The given lists that hold at least one entry.
+ *
+ * @param {object} lists Named lists, e.g. `{views, tools}`.
+ * @return {object} Only the non-empty lists, in the given order.
+ */
+function nonEmptyLists(lists) {
+	return Object.fromEntries(
+		Object.entries(lists).filter(
+			([, list]) => Array.isArray(list) && list.length > 0,
+		),
+	)
+}
+
+/**
+ * The RAG settings a turn sets, as top-level payload fields.
+ *
+ * @param {object} [ragSettings] `{includeObjects, includeFiles, numSourcesFiles, numSourcesObjects}`.
+ * @return {object} The settings that are not undefined.
+ */
+function ragFields(ragSettings) {
+	if (!ragSettings || typeof ragSettings !== 'object') {
+		return {}
+	}
+	return Object.fromEntries(
+		RAG_FIELDS.map((key) => [key, ragSettings[key]]).filter(
+			([, value]) => value !== undefined,
+		),
+	)
 }
 
 /**
@@ -346,7 +567,7 @@ export async function sendChatMessage({
  *
  * @param {File} file The file the person chose.
  * @return {Promise<{path: string, name: string, fileId: number, mimeType: string, size: number}>}
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
  */
 export async function uploadChatAttachment(file) {
 	const form = new FormData()
@@ -360,7 +581,7 @@ export async function uploadChatAttachment(file) {
  * text-to-image provider is installed (chat-attachments-and-images D7).
  *
  * @return {Promise<boolean>} True when the action may be shown.
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+ * @spec openspec/specs/image-generation/spec.md#scenario-no-provider-no-button
  */
 export async function getImageAvailability() {
 	const response = await axios.get(generateUrl(`${CHAT_BASE}/images/availability`))
@@ -374,7 +595,7 @@ export async function getImageAvailability() {
  * @param {string} sessionId The session UUID.
  * @param {string} prompt What the image shows.
  * @return {Promise<{userTurn: object, assistantTurn: object}>} The two turns.
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+ * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
  */
 export async function createChatImage(sessionId, prompt) {
 	const response = await axios.post(generateUrl(`${CHAT_BASE}/images`), {
@@ -451,6 +672,7 @@ function parseSseFrame(frame) {
  * @param {string} [options.agentUuid] Agent UUID (only when no session exists yet).
  * @param {Array<{fileId: number, origin: string}>} [options.attachments] Files on
  *   this turn, by file id; the server reads each one as the sender.
+ * @param {boolean} [options.answerCacheBypass] True to ask the model again instead of the answer cache.
  * @param {object} [handlers] Event handlers.
  * @param {Function} [handlers.onToken] (delta: string) — incremental assistant text.
  * @param {Function} [handlers.onToolCall] (payload: object) — a tool invocation started.
@@ -463,20 +685,34 @@ function parseSseFrame(frame) {
  *   `error` event (no fallback — the turn failed server-side).
  */
 export async function streamChatMessage(
-	{ message, sessionUuid, agentUuid, attachments },
+	{ message, sessionUuid, agentUuid, attachments, answerCacheBypass },
 	handlers = {},
 ) {
-	const body = { message }
-	// Files on this turn, by file id (chat-attachments-and-images); omitted when none.
-	if (Array.isArray(attachments) && attachments.length > 0) {
-		body.attachments = attachments
-	}
-	if (sessionUuid) {
-		body.conversationUuid = sessionUuid // wire key: the stream endpoint reads conversationUuid
-	} else if (agentUuid) {
-		body.agentUuid = agentUuid
-	}
+	// wire key: the stream endpoint reads conversationUuid
+	const body = turnBody(
+		{ message, sessionUuid, agentUuid, attachments, answerCacheBypass },
+		'conversationUuid',
+	)
+	const response = await openStream(body)
+	const outcome = { final: null, error: null }
+	const handleFrame = (rawFrame) => dispatchFrame(rawFrame, { handlers, outcome })
+	const rest = await readFrames(response.body.getReader(), handleFrame)
 
+	// Flush a trailing frame that arrived without the final blank line.
+	if (rest.trim() !== '') {
+		handleFrame(rest)
+	}
+	return settledPayload(outcome)
+}
+
+/**
+ * POST the turn to the stream endpoint and return the open response.
+ *
+ * @param {object} body The request body.
+ * @return {Promise<Response>} The response, OK and with a body.
+ * @throws {ChatStreamError} transport=true when the connection or the handshake fails.
+ */
+async function openStream(body) {
 	let response
 	try {
 		response = await fetch(generateUrl(`${CHAT_BASE}/stream`), {
@@ -494,88 +730,117 @@ export async function streamChatMessage(
 		})
 	}
 
+	assertStreamOpen(response)
+	return response
+}
+
+/**
+ * Refuse a handshake that did not open a readable stream.
+ *
+ * @param {Response} response The stream endpoint's response.
+ * @return {void}
+ * @throws {ChatStreamError} transport=true on a non-OK status or a missing body.
+ */
+function assertStreamOpen(response) {
 	if (!response.ok || !response.body) {
 		throw new ChatStreamError(
 			`Stream endpoint returned HTTP ${response.status}`,
 			{ transport: true },
 		)
 	}
+}
 
-	const reader = response.body.getReader()
+/**
+ * Hand one raw frame to its handler, or record it as the terminal outcome.
+ *
+ * @param {string} rawFrame The frame text.
+ * @param {object} stream The stream's state.
+ * @param {object} stream.handlers The caller's event handlers.
+ * @param {{final: object|null, error: object|null}} stream.outcome Takes a terminal payload.
+ * @return {void}
+ */
+function dispatchFrame(rawFrame, { handlers, outcome }) {
+	const frame = parseSseFrame(rawFrame)
+	if (!frame) {
+		return
+	}
+	if (frame.event === 'final' || frame.event === 'error') {
+		outcome[frame.event] = frame.data
+		return
+	}
+	FRAME_HANDLERS.get(frame.event)?.(handlers, frame.data)
+}
+
+/**
+ * Read the stream to its end, handing every complete frame over as it arrives.
+ *
+ * @param {ReadableStreamDefaultReader} reader The body reader.
+ * @param {function(string): void} handleFrame Called with each complete raw frame.
+ * @return {Promise<string>} What is left after the last blank line.
+ * @throws {ChatStreamError} transport=true when the connection drops.
+ */
+async function readFrames(reader, handleFrame) {
 	const decoder = new TextDecoder()
 	let buffer = ''
-	let finalPayload = null
-	let errorPayload = null
-
-	const handleFrame = (rawFrame) => {
-		const frame = parseSseFrame(rawFrame)
-		if (!frame) {
-			return
-		}
-		switch (frame.event) {
-			case 'token':
-				handlers.onToken?.(frame.data.delta || '')
-				break
-			case 'tool_call':
-				handlers.onToolCall?.(frame.data)
-				break
-			case 'tool_result':
-				handlers.onToolResult?.(frame.data)
-				break
-			case 'heartbeat':
-				handlers.onHeartbeat?.()
-				break
-			case 'final':
-				finalPayload = frame.data
-				break
-			case 'error':
-				errorPayload = frame.data
-				break
-		}
-	}
-
 	try {
 		for (;;) {
 			const { done, value } = await reader.read()
 			if (done) {
-				break
+				return buffer
 			}
 			buffer += decoder.decode(value, { stream: true })
-			let boundary = buffer.search(/\r?\n\r?\n/)
-			while (boundary !== -1) {
-				const rawFrame = buffer.slice(0, boundary)
-				buffer = buffer.slice(boundary).replace(/^\r?\n\r?\n/, '')
-				handleFrame(rawFrame)
-				boundary = buffer.search(/\r?\n\r?\n/)
-			}
+			buffer = handleCompleteFrames(buffer, handleFrame)
 		}
 	} catch (e) {
 		throw new ChatStreamError(e?.message || 'Stream connection dropped', {
 			transport: true,
 		})
 	}
+}
 
-	// Flush a trailing frame that arrived without the final blank line.
-	if (buffer.trim() !== '') {
-		handleFrame(buffer)
+/**
+ * Hand every frame the buffer completes to the handler.
+ *
+ * @param {string} buffer The text read so far.
+ * @param {function(string): void} handleFrame Called with each complete raw frame.
+ * @return {string} The incomplete rest.
+ */
+function handleCompleteFrames(buffer, handleFrame) {
+	let rest = buffer
+	let boundary = rest.search(/\r?\n\r?\n/)
+	while (boundary !== -1) {
+		const rawFrame = rest.slice(0, boundary)
+		rest = rest.slice(boundary).replace(/^\r?\n\r?\n/, '')
+		handleFrame(rawFrame)
+		boundary = rest.search(/\r?\n\r?\n/)
 	}
+	return rest
+}
 
-	if (errorPayload !== null) {
-		throw new ChatStreamError(errorPayload.message || 'The chat turn failed', {
+/**
+ * The `final` payload, or the error the stream ended with.
+ *
+ * @param {{final: object|null, error: object|null}} outcome The terminal events seen.
+ * @return {object} The `final` payload.
+ * @throws {ChatStreamError} transport=false on an `error` event; transport=true
+ *   when the stream ended without a terminal event, so the caller retries over
+ *   POST /send (ADR-034 ladder).
+ */
+function settledPayload({ final, error }) {
+	if (error !== null) {
+		throw new ChatStreamError(error.message || 'The chat turn failed', {
 			transport: false,
-			code: errorPayload.code || '',
+			code: error.code || '',
 		})
 	}
 
-	if (finalPayload === null) {
-		// The stream ended without a terminal event — treat as a transport
-		// failure so the caller retries over POST /send (ADR-034 ladder).
+	if (final === null) {
 		throw new ChatStreamError('Stream ended without a terminal event', {
 			transport: true,
 		})
 	}
 
-	return finalPayload
+	return final
 }
 
 /**
@@ -648,4 +913,51 @@ export async function stopGoal(goalId) {
 		generateUrl(`/apps/hermiq/api/goals/${goalId}/stop`),
 	)
 	return response.data
+}
+
+/**
+ * Start an agent's pooled CLI process for a session before its first question
+ * (warm-start-and-cli-step-visibility). Called when a session opens or starts
+ * with an agent, so the process start happens while the person is still typing.
+ *
+ * Never throws: a warm-up is an optimisation the next turn does not depend on,
+ * so any failure, including a refused or unreachable request, reads as "not
+ * warmed" and is not shown.
+ *
+ * @param {string} agentUuid The session's agent.
+ * @param {string} sessionUuid The session.
+ * @return {Promise<boolean>} Whether a process was warmed.
+ * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#requirement-the-cli-process-is-warmed-before-the-first-question-not-by-it
+ */
+export async function warmChat(agentUuid, sessionUuid) {
+	if (!agentUuid || !sessionUuid) {
+		return false
+	}
+	try {
+		// wire key: ChatController::warm() reads getParam('conversation')
+		const response = await axios.post(generateUrl(`${CHAT_BASE}/warm`), {
+			agentUuid,
+			conversation: sessionUuid,
+		})
+		return response?.data?.warmed === true
+	} catch {
+		return false
+	}
+}
+
+/**
+ * The handoffs of one session: the work an agent started there and waits for
+ * (flows-hand-off-and-wait). Read from OpenRegister with the person's own session,
+ * whose read rule shows each person only the handoffs they requested.
+ *
+ * @param {string} sessionUuid The session.
+ * @return {Promise<Array<object>>} The handoffs, in any order.
+ * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+ */
+export async function listHandoffs(sessionUuid) {
+	const response = await axios.get(generateUrl('/apps/openregister/api/objects/hermiq/agenthandoff'), {
+		params: { conversationId: sessionUuid, _limit: 100 },
+	})
+	const rows = Array.isArray(response.data?.results) ? response.data.results : []
+	return rows.filter((row) => row && row.conversationId === sessionUuid)
 }

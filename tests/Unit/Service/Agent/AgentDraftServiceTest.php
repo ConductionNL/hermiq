@@ -14,7 +14,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 
 declare(strict_types=1);
@@ -23,9 +23,9 @@ namespace OCA\Hermiq\Tests\Unit\Service\Agent;
 
 use OCA\Hermiq\Service\Agent\AgentDraftService;
 use OCA\Hermiq\Service\Agent\AgentDraftUnreadableException;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\OrganisationMapper;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCP\IGroupManager;
 use OCP\IL10N;
 use PHPUnit\Framework\TestCase;
@@ -33,7 +33,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for AgentDraftService.
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 class AgentDraftServiceTest extends TestCase {
 
@@ -41,9 +41,11 @@ class AgentDraftServiceTest extends TestCase {
 	 * The service: a catalogue of three tools, an organisation that allows only
 	 * ollama/qwen2.5, and a person who is in the group legal only.
 	 *
+	 * @param array<string, mixed>|null $policy The effective model policy, or null for that default.
+	 *
 	 * @return AgentDraftService
 	 */
-	private function service(): AgentDraftService {
+	private function service(?array $policy = null): AgentDraftService {
 		$tools = $this->createMock(ToolRegistryFacade::class);
 		$tools->method('describeTools')->willReturn(
 			[
@@ -53,12 +55,16 @@ class AgentDraftServiceTest extends TestCase {
 			]
 		);
 
-		$policies = $this->createMock(TenantModelPolicyService::class);
+		$policies = $this->createMock(EffectiveModelPolicy::class);
 		$policies->method('isAllowed')->willReturnCallback(
 			static fn (string $organisation, string $provider, string $model): bool => $organisation === 'org-1' && $provider === 'ollama' && $model === 'qwen2.5'
 		);
 		$policies->method('effectivePolicyFor')->willReturn(
-			['source' => 'organisation', 'allowed' => [['provider' => 'ollama', 'models' => ['qwen2.5', 'llama3.1']]], 'defaultModel' => null]
+			$policy ?? [
+				'source' => 'organisation',
+				'allowed' => [['provider' => 'ollama', 'models' => ['qwen2.5', 'llama3.1']]],
+				'defaultModel' => null,
+			]
 		);
 
 		$groups = $this->createMock(IGroupManager::class);
@@ -103,11 +109,64 @@ class AgentDraftServiceTest extends TestCase {
 	}//end draft()
 
 	/**
+	 * The model suggestion is the policy's default when it names one, else the
+	 * closest allowed provider or provider/model; and a draft reads to the exact
+	 * form shape (an unknown sharing mode is only-me, an empty schedule is none).
+	 *
+	 * @return void
+	 */
+	public function testSuggestionsAndTheExactReadShape(): void {
+		$withDefault = ['allowed' => [], 'defaultModel' => ['provider' => 'ollama', 'model' => 'llama3.1']];
+		$providerOnly = [
+			'allowed' => [['provider' => 'fireworks', 'models' => []], ['provider' => 'ollama', 'models' => ['qwen2.5']]],
+			'defaultModel' => ['provider' => '', 'model' => 'x'],
+		];
+		$draft = $this->draft(
+			overrides: [
+				'provider' => ' fireworks ',
+				'model' => 'big',
+				'tools' => [' hermiq.listFiles ', '', 4, ['x']],
+				'sharing' => ['mode' => 'everyone', 'groups' => [' legal ']],
+				'schedule' => [],
+				'startFields' => ['a' => ['key' => 'k']],
+				'extra' => 'dropped',
+			]
+		);
+
+		$first = $this->service(policy: $withDefault)->check(text: $draft, uid: 'alice');
+		$second = $this->service(policy: $providerOnly)->check(text: $draft, uid: 'alice');
+
+		$this->assertSame(
+			expected: [
+				'name' => 'Objections digest',
+				'description' => 'Summarises new objections every Monday.',
+				'prompt' => 'Summarise the objections filed last week for the legal team.',
+				'provider' => 'fireworks',
+				'model' => 'big',
+				'tools' => ['hermiq.listFiles', '4'],
+				'sharing' => ['mode' => 'only-me', 'groups' => ['legal']],
+				'schedule' => null,
+				'startFields' => [['key' => 'k']],
+			],
+			actual: $first['draft']
+		);
+		$this->assertSame(
+			expected: [['field' => 'model', 'message' => 'Not allowed by your organisation', 'suggestion' => 'ollama/llama3.1']],
+			actual: array_values(array_filter($first['findings'], static fn (array $finding): bool => $finding['field'] === 'model'))
+		);
+		$this->assertSame(
+			expected: [['field' => 'model', 'message' => 'Not allowed by your organisation', 'suggestion' => 'fireworks']],
+			actual: array_values(array_filter($second['findings'], static fn (array $finding): bool => $finding['field'] === 'model'))
+		);
+
+	}//end testSuggestionsAndTheExactReadShape()
+
+	/**
 	 * A draft that works as written comes back whole with no findings.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 	 */
 	public function testAGoodDraftHasNoFindings(): void {
 		$checked = $this->service()->check(text: $this->draft(), uid: 'teamlead');
@@ -124,7 +183,7 @@ class AgentDraftServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 	 */
 	public function testEachProblemIsAFindingBesideItsField(): void {
 		$checked = $this->service()->check(
@@ -159,7 +218,7 @@ class AgentDraftServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 	 */
 	public function testAnUnreadableDraftIsRefused(): void {
 		foreach (['{"name": "x",', '["a list"]', '{"description": "no name"}', ''] as $text) {

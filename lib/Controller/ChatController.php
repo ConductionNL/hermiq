@@ -31,31 +31,40 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\Service\AppAssistantResolver;
+use OCA\Hermiq\Service\Chat\SessionLinks;
 use Exception;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Engine\Engine;
-use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
-use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
-use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\EngineInterface;
+use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
+use OCA\Hermiq\Kernel\Contracts\ProviderFactoryInterface;
+use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkTurnMirrorInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolAccessRequestServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
-use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
-use OCA\Hermiq\Service\Literacy\LiteracyRequirement;
-use OCA\Hermiq\Service\Engine\RunStepBus;
+use OCA\Hermiq\Service\AiFeature\DataUseViolationException;
+use OCA\Hermiq\Service\AnswerCache\AnswerCacheService;
+use OCA\Hermiq\Service\AppAssistantResolver;
+use OCA\Hermiq\Service\Chat\AttachmentRefusedException;
+use OCA\Hermiq\Service\Chat\SessionSubject;
+use OCA\Hermiq\Service\Chat\TurnScope;
+use OCA\Hermiq\Service\Chat\TurnScopeException;
+use OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
-use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\GuardrailBlockedException;
+use OCA\Hermiq\Service\Literacy\LiteracyRequiredException;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
@@ -71,7 +80,7 @@ use Psr\Log\LoggerInterface;
  * per-object ownership (`userId` on the conversation payload) in the method
  * body — gate-7 no-admin-idor.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Ported chat surface composes the
  * engine facade, the OR object read/write path, session, l10n and logging; each is
@@ -133,38 +142,44 @@ class ChatController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param Engine $engine In-app agent engine facade (ported ChatService).
+	 * @param EngineInterface $engine In-app agent engine facade (ported ChatService).
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IL10N $l10n Localization service for translations.
-	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
-	 * @param ProviderFactory $providerFactory Pre-warms an agent's pooled CLI process.
-	 * @param ToolAccessRequestService $accessRequests Raises and resolves an agent's
+	 * @param RunStepBusInterface $runStepBus Publishes run steps to whichever surface is watching.
+	 * @param ProviderFactoryInterface $providerFactory Pre-warms an agent's pooled CLI process.
+	 * @param ToolAccessRequestServiceInterface $accessRequests Raises and resolves an agent's
 	 *                                                 requests for tools it lacks.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param ConversationParticipation $participation Owner-or-listed-participant guard
 	 *                                                 (talk-shared-sessions). Defaulted so every
 	 *                                                 existing caller constructs unchanged.
-	 * @param LiteracyRequirement|null $literacy The course requirement (compliance-ai-literacy).
+	 * @param LiteracyRequirementInterface|null $literacy The course requirement (compliance-ai-literacy).
 	 * @param AppAssistantResolver|null $assistants The agent for an app when a chat names none (agents-bound-to-their-app).
+	 * @param TalkTurnMirrorInterface|null $mirror Mirrors a turn into the session's Talk room.
+	 * @param SessionLinks|null $sessionLinks Records what the session is about when a turn is sent (session-entity-links).
+	 * @param AnswerCacheService|null   $answerCache The answer cache, so a thumbs down removes the entry that served a reply.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly Engine $engine,
+		private readonly EngineInterface $engine,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
 		private readonly IL10N $l10n,
-		private readonly RunStepBus $runStepBus,
-		private readonly ProviderFactory $providerFactory,
-		private readonly ToolAccessRequestService $accessRequests,
+		private readonly RunStepBusInterface $runStepBus,
+		private readonly ProviderFactoryInterface $providerFactory,
+		private readonly ToolAccessRequestServiceInterface $accessRequests,
 		private readonly LoggerInterface $logger,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
-		private readonly ?LiteracyRequirement $literacy = null,
+		private readonly ?LiteracyRequirementInterface $literacy = null,
 		private readonly ?AppAssistantResolver $assistants = null,
+		private readonly ?TalkTurnMirrorInterface $mirror = null,
+		private readonly ?SessionLinks $sessionLinks = null,
+		private readonly ?AnswerCacheService $answerCache = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -208,8 +223,7 @@ class ChatController extends Controller {
 
 			$agent = $this->objectService->find(
 				id: $agentUuid,
-				register: self::REGISTER_SLUG,
-				schema: 'agent'
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: 'agent')
 			);
 			if ($agent === null) {
 				return new JSONResponse(data: ['warmed' => false], statusCode: 200);
@@ -272,7 +286,10 @@ class ChatController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) carried in with session-entity-links; splitting it is
+	 * follow-up work, not part of this merge.
 	 */
 	public function sendMessage(): JSONResponse {
 		try {
@@ -302,11 +319,7 @@ class ChatController extends Controller {
 			);
 
 			// Resolve conversation (load existing or create new).
-			$conversation = $this->resolveConversation(
-				conversationUuid: $params['conversationUuid'],
-				agentUuid: $this->agentForRequest(params: $params, userId: $userId),
-				userId: $userId
-			);
+			$conversation = $this->resolveConversation(turn: $this->turnOf(params: $params, userId: $userId));
 
 			// Verify user has access to conversation (gate-7 ownership guard).
 			$this->verifyConversationAccess(conversation: $conversation, userId: $userId);
@@ -342,11 +355,34 @@ class ChatController extends Controller {
 				ragSettings: $params['ragSettings'],
 				context: $params['context'],
 				trace: $trace,
-				attachments: $params['attachments']
+				attachments: $params['attachments'],
+				turnChannel: 'hermiq',
+				answerCacheBypass: $params['answerCacheBypass']
 			);
 
 			// Add conversation UUID to result for frontend.
 			$result['conversation'] = $conversation->getUuid();
+
+			// Oversight-ask-and-hold: the question the agent asked the person, or null.
+			$result['question'] = $trace->question();
+
+			// A session with a Talk room gets this turn in the room too, queued so
+			// the answer here never waits on Talk (chat-carry-a-conversation-across-channels D2).
+			$this->mirror?->enqueue(
+				session: (array)$conversation->getObject(),
+				sessionId: (string)$conversation->getUuid(),
+				userId: $userId,
+				question: (string)$params['message'],
+				answer: (string)($result['message'] ?? '')
+			);
+
+			// Session-entity-links D2: a SENT turn records what the page it came
+			// from shows; opening the panel records nothing.
+			$this->sessionLinks?->recordTurn(
+				sessionUuid: (string)$conversation->getUuid(),
+				context: (array)$params['context'],
+				userId: $userId
+			);
 
 			// The tool calls this turn made over the governed MCP transport.
 			// `CnAiMessageList` already renders `message.toolCalls` with
@@ -383,29 +419,14 @@ class ChatController extends Controller {
 	 *
 	 * @return JSONResponse The error response.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function sendMessageFailureResponse(Exception $exception): JSONResponse {
-		// An exception code outside the HTTP range is not a status — a library
-		// throwing code 0 or 23 would otherwise become a nonsense response.
-		$statusCode = (int)$exception->getCode();
-		if ($statusCode < 400 || $statusCode >= 600) {
-			$statusCode = 500;
-		}
-
+		$statusCode = $this->failureStatusCode(exception: $exception);
 		$this->logSendMessageFailure(exception: $exception, statusCode: $statusCode);
 
 		$data = [
-			'error' => match ($statusCode) {
-				400 => $this->l10n->t('Missing conversation or agentUuid'),
-				401 => $this->l10n->t('Authentication required'),
-				403 => $this->l10n->t('Access denied'),
-				404 => $this->l10n->t('Conversation not found'),
-				409 => $this->l10n->t('This agent is switched off.'),
-				422 => $this->l10n->t('Message blocked by the organisation\'s guardrail policy'),
-				503 => $this->l10n->t('AI service not configured'),
-				default => $this->l10n->t('Failed to process message'),
-			},
+			'error' => $this->failureError(statusCode: $statusCode),
 			'message' => $exception->getMessage(),
 		];
 
@@ -416,42 +437,133 @@ class ChatController extends Controller {
 			$data['errorCode'] = 'guardrail_blocked';
 		}
 
-		// A refused pinned credential stops the turn; the person reads why
-		// (operations-a-credential-per-agent), not the engine's wrapped text.
+		return new JSONResponse(data: $this->withRefusalSentence(data: $data, exception: $exception), statusCode: $statusCode);
+	}//end sendMessageFailureResponse()
+
+	/**
+	 * The HTTP status for a failed turn: the exception code when it is an HTTP error
+	 * status. A code outside that range is not a status — a library throwing code 0
+	 * or 23 would otherwise become a nonsense response — so it becomes 500.
+	 *
+	 * @param Exception $exception The failure.
+	 *
+	 * @return int The status code.
+	 */
+	private function failureStatusCode(Exception $exception): int {
+		$statusCode = (int)$exception->getCode();
+		if ($statusCode < 400 || $statusCode >= 600) {
+			return 500;
+		}
+
+		return $statusCode;
+
+	}//end failureStatusCode()
+
+	/**
+	 * The error sentence for a failed turn's status.
+	 *
+	 * @param int $statusCode The status code.
+	 *
+	 * @return string The translated error sentence.
+	 */
+	private function failureError(int $statusCode): string {
+		return match ($statusCode) {
+			400 => $this->l10n->t('Missing conversation or agentUuid'),
+			401 => $this->l10n->t('Authentication required'),
+			403 => $this->l10n->t('Access denied'),
+			404 => $this->l10n->t('Conversation not found'),
+			409 => $this->l10n->t('This agent is switched off.'),
+			422 => $this->l10n->t('Message blocked by the organisation\'s guardrail policy'),
+			503 => $this->l10n->t('AI service not configured'),
+			default => $this->l10n->t('Failed to process message'),
+		};
+
+	}//end failureError()
+
+	/**
+	 * Replace the failure's message and code with the sentence of the first known
+	 * refusal in its cause chain, so the person reads why rather than the engine's
+	 * wrapped text.
+	 *
+	 * @param array<string, mixed> $data The failure response data.
+	 * @param Exception $exception The failure.
+	 *
+	 * @return array<string, mixed> The response data.
+	 */
+	private function withRefusalSentence(array $data, Exception $exception): array {
 		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
-			if ($cause instanceof PinnedCredentialRefusedException) {
-				$data['message'] = $this->l10n->t('The credential pinned to this agent cannot be used for this run.');
-				$data['errorCode'] = PinnedCredentialRefusedException::ERROR_CODE;
-				break;
-			}
-
-			// The agent is switched off (agents-switch-off-and-stop): no answer, the sentence.
-			if ($cause instanceof AgentSwitchedOffException) {
-				$data['message'] = $this->l10n->t('This agent is switched off.');
-				$data['errorCode'] = AgentSwitchedOffException::ERROR_CODE;
-				break;
-			}
-
-			// The organisation requires the course Working with AI first
-			// (compliance-ai-literacy): the person gets the message and the link.
-			if ($cause instanceof LiteracyRequiredException) {
-				$data['message'] = $this->l10n->t('Finish the short course Working with AI first.');
-				$data['errorCode'] = LiteracyRequiredException::ERROR_CODE;
-				$data['courseUrl'] = LiteracyRequiredException::COURSE_PATH;
-				break;
-			}
-
-			// The organisation only allows providers that never train on its data
-			// (models-no-training-guarantee); the person reads that, not the step text.
-			if ($cause instanceof DataUseViolationException) {
-				$data['message'] = $this->l10n->t('This assistant cannot answer: your organisation only allows AI providers that never train on its data.');
-				$data['errorCode'] = DataUseViolationException::ERROR_CODE;
-				break;
+			$sentence = $this->refusalSentence(cause: $cause);
+			if ($sentence !== null) {
+				return array_merge($data, $sentence);
 			}
 		}
 
-		return new JSONResponse(data: $data, statusCode: $statusCode);
-	}//end sendMessageFailureResponse()
+		return $data;
+
+	}//end withRefusalSentence()
+
+	/**
+	 * The message, stable code and (for the literacy course) link of a known refusal.
+	 *
+	 * @param \Throwable $cause One exception in the failure's cause chain.
+	 *
+	 * @return array<string, string>|null The fields to set, or null for any other exception.
+	 */
+	private function refusalSentence(\Throwable $cause): ?array {
+		$errorCode = $this->refusalCode(cause: $cause);
+		if ($errorCode === null) {
+			return null;
+		}
+
+		$fields = ['message' => $this->refusalMessages()[$errorCode], 'errorCode' => $errorCode];
+		if ($errorCode === LiteracyRequiredException::ERROR_CODE) {
+			$fields['courseUrl'] = LiteracyRequiredException::COURSE_PATH;
+		}
+
+		return $fields;
+
+	}//end refusalSentence()
+
+	/**
+	 * The stable code of a known refusal, checked in this order.
+	 *
+	 * @param \Throwable $cause One exception in the failure's cause chain.
+	 *
+	 * @return string|null The refusal's code, or null for any other exception.
+	 */
+	private function refusalCode(\Throwable $cause): ?string {
+		return match (true) {
+			$cause instanceof PinnedCredentialRefusedException => PinnedCredentialRefusedException::ERROR_CODE,
+			$cause instanceof AgentSwitchedOffException => AgentSwitchedOffException::ERROR_CODE,
+			$cause instanceof LiteracyRequiredException => LiteracyRequiredException::ERROR_CODE,
+			$cause instanceof DataUseViolationException => DataUseViolationException::ERROR_CODE,
+			default => null,
+		};
+
+	}//end refusalCode()
+
+	/**
+	 * The sentence the person reads for each known refusal, keyed by its code.
+	 *
+	 * A refused pinned credential stops the turn (operations-a-credential-per-agent);
+	 * a switched-off agent gives no answer, only the sentence (agents-switch-off-and-stop);
+	 * the organisation may require the course Working with AI first
+	 * (compliance-ai-literacy); and it may only allow providers that never train on its
+	 * data (models-no-training-guarantee).
+	 *
+	 * @return array<string, string> The translated sentences.
+	 */
+	private function refusalMessages(): array {
+		return [
+			PinnedCredentialRefusedException::ERROR_CODE => $this->l10n->t('The credential pinned to this agent cannot be used for this run.'),
+			AgentSwitchedOffException::ERROR_CODE => $this->l10n->t('This agent is switched off.'),
+			LiteracyRequiredException::ERROR_CODE => $this->l10n->t('Finish the short course Working with AI first.'),
+			DataUseViolationException::ERROR_CODE => $this->l10n->t(
+				'This assistant cannot answer: your organisation only allows AI providers that never train on its data.'
+			),
+		];
+
+	}//end refusalMessages()
 
 	/**
 	 * The answer for a failure caused by a refused attachment: its status (400, or
@@ -461,7 +573,7 @@ class ChatController extends Controller {
 	 *
 	 * @return JSONResponse|null
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	private function attachmentRefusalResponse(Exception $exception): ?JSONResponse {
 		for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
@@ -536,7 +648,7 @@ class ChatController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function getHistory(): JSONResponse {
 		try {
@@ -618,7 +730,7 @@ class ChatController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function clearHistory(): JSONResponse {
 		try {
@@ -707,7 +819,7 @@ class ChatController extends Controller {
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength)
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 	 */
 	public function sendFeedback(string $conversationUuid, string $messageId): JSONResponse {
 		try {
@@ -746,8 +858,7 @@ class ChatController extends Controller {
 			// above and the sessionId check below scope it to this conversation.
 			$message = $this->objectService->find(
 				id: $messageId,
-				register: self::REGISTER_SLUG,
-				schema: self::MESSAGE_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::MESSAGE_SCHEMA),
 				_rbac: false
 			);
 			if ($message === null
@@ -786,11 +897,14 @@ class ChatController extends Controller {
 			// sessionId check above are the guard, and `userId` is the caller.
 			$feedback = $this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $payload),
-				register: self::REGISTER_SLUG,
-				schema: self::FEEDBACK_SCHEMA,
-				uuid: $feedbackUuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::FEEDBACK_SCHEMA),
+					uuid: $feedbackUuid
+				),
 				_rbac: false
 			);
+
+			$this->forgetCachedAnswer(type: $type, message: $message);
 
 			$this->logger->info(
 				message: '[ChatController] Message feedback saved',
@@ -844,7 +958,7 @@ class ChatController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function getChatStats(): JSONResponse {
 		try {
@@ -894,65 +1008,75 @@ class ChatController extends Controller {
 	 * @psalm-return array{conversationUuid: string, agentUuid: string,
 	 *     message: string, attachments: list<mixed>, selectedViews: array, selectedTools: array,
 	 *     ragSettings: array{includeObjects: bool|mixed, includeFiles: bool|mixed,
-	 *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array}
+	 *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array,
+	 *     answerCacheBypass: bool}
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
 	 */
 	private function extractMessageRequestParams(): array {
-		// Extract basic parameters.
-		$conversationUuid = (string)$this->request->getParam('conversation');
-		$agentUuid = (string)$this->request->getParam('agentUuid');
-		$message = (string)$this->request->getParam('message');
+		return [
+			'conversationUuid' => (string)$this->request->getParam('conversation'),
+			'agentUuid' => (string)$this->request->getParam('agentUuid'),
+			'message' => (string)$this->request->getParam('message'),
+			// Chat-attachments-and-images: the files the turn names; the engine reads
+			// each one as the speaker, so nothing here is trusted beyond its shape.
+			'attachments' => array_values($this->arrayParam(key: 'attachments')),
+			'selectedViews' => $this->arrayParam(key: 'views'),
+			'selectedTools' => $this->arrayParam(key: 'tools'),
+			'ragSettings' => $this->ragSettingsParam(),
+			// Optional CnAiContext snapshot; anything that is not an array is
+			// silently dropped (missing context is fine).
+			'context' => $this->arrayParam(key: 'context'),
+			// Models-prompt-and-answer-cache: "Ask the model again" resends the
+			// question with the answer cache bypassed. Only a real true counts.
+			'answerCacheBypass' => in_array($this->request->getParam('answerCacheBypass'), [true, 'true', '1', 1], true),
+		];
+	}//end extractMessageRequestParams()
 
-		// Extract selectedViews array.
-		$viewsParam = $this->request->getParam('views');
-		$selectedViews = [];
-		if ($viewsParam !== null && is_array($viewsParam) === true) {
-			$selectedViews = $viewsParam;
+	/**
+	 * A request parameter when it is an array, `[]` otherwise.
+	 *
+	 * @param string $key The parameter name.
+	 *
+	 * @return array<mixed> The parameter value.
+	 */
+	private function arrayParam(string $key): array {
+		$value = $this->request->getParam($key);
+		if (is_array($value) === true) {
+			return $value;
 		}
 
-		// Extract selectedTools array.
-		$toolsParam = $this->request->getParam('tools');
-		$selectedTools = [];
-		if ($toolsParam !== null && is_array($toolsParam) === true) {
-			$selectedTools = $toolsParam;
-		}
+		return [];
 
-		// Extract RAG configuration settings.
-		$ragSettings = [
+	}//end arrayParam()
+
+	/**
+	 * The turn's RAG configuration, each setting defaulted when absent, plus the
+	 * turn's `scope` (one file or folder) when it carries one.
+	 *
+	 * @return array<string, mixed> The RAG settings.
+	 *
+	 * @throws TurnScopeException With code 400 when the scope has any other shape.
+	 *
+	 * @spec openspec/changes/archive/2026-11-25-chat-about-a-document-cites-its-sources/specs/document-chat/spec.md#requirement-a-turn-can-be-about-one-document-req-dchat-001
+	 */
+	private function ragSettingsParam(): array {
+		$settings = [
 			'includeObjects' => ($this->request->getParam('includeObjects') ?? true),
 			'includeFiles' => ($this->request->getParam('includeFiles') ?? true),
 			'numSourcesFiles' => ($this->request->getParam('numSourcesFiles') ?? 5),
 			'numSourcesObjects' => ($this->request->getParam('numSourcesObjects') ?? 5),
 		];
 
-		// Extract optional CnAiContext snapshot; anything that is not an
-		// associative array is silently dropped (missing context is fine).
-		$contextParam = $this->request->getParam('context');
-		$context = [];
-		if (is_array($contextParam) === true) {
-			$context = $contextParam;
+		$scope = (new TurnScope())->parse(value: $this->request->getParam('scope'));
+		if ($scope !== null) {
+			$settings['scope'] = $scope;
 		}
 
-		// Chat-attachments-and-images: the files the turn names; the engine reads
-		// each one as the speaker, so nothing here is trusted beyond its shape.
-		$attachmentsParam = $this->request->getParam('attachments');
-		$attachments = [];
-		if (is_array($attachmentsParam) === true) {
-			$attachments = array_values($attachmentsParam);
-		}
+		return $settings;
 
-		return [
-			'conversationUuid' => $conversationUuid,
-			'agentUuid' => $agentUuid,
-			'message' => $message,
-			'attachments' => $attachments,
-			'selectedViews' => $selectedViews,
-			'selectedTools' => $selectedTools,
-			'ragSettings' => $ragSettings,
-			'context' => $context,
-		];
-	}//end extractMessageRequestParams()
+	}//end ragSettingsParam()
 
 	/**
 	 * The agent a new conversation starts with: the one the request names, else
@@ -977,27 +1101,46 @@ class ChatController extends Controller {
 	}//end agentForRequest()
 
 	/**
-	 * Resolve conversation from UUID or create a new one with the agent.
+	 * The turn a conversation is resolved for: the requested conversation, the
+	 * agent it starts with, the user and the page context.
 	 *
-	 * @param string $conversationUuid Conversation UUID (empty if creating new).
-	 * @param string $agentUuid Agent UUID (empty if using existing conversation).
-	 * @param string $userId Current user id.
+	 * @param array<string, mixed> $params The extracted request parameters.
+	 * @param string               $userId The user.
+	 *
+	 * @return array{conversationUuid: string, agentUuid: string, userId: string, context: array}
+	 *
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 */
+	private function turnOf(array $params, string $userId): array {
+		return [
+			'conversationUuid' => (string)$params['conversationUuid'],
+			'agentUuid' => $this->agentForRequest(params: $params, userId: $userId),
+			'userId' => $userId,
+			'context' => (array)$params['context'],
+		];
+	}//end turnOf()
+
+	/**
+	 * Resolve conversation from UUID or create a new one with the agent. An
+	 * empty conversation UUID creates one; an empty agent UUID needs one.
+	 *
+	 * @param array{conversationUuid: string, agentUuid: string, userId: string, context: array} $turn The conversation, agent, user and page context.
 	 *
 	 * @return ObjectEntity The resolved or created conversation.
 	 *
 	 * @throws Exception If both parameters are empty or if entities are not found.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
-	private function resolveConversation(string $conversationUuid, string $agentUuid, string $userId): ObjectEntity {
+	private function resolveConversation(array $turn): ObjectEntity {
 		// Load existing conversation by UUID.
-		if (empty($conversationUuid) === false) {
-			return $this->findConversation(uuid: $conversationUuid);
+		if (empty($turn['conversationUuid']) === false) {
+			return $this->findConversation(uuid: $turn['conversationUuid']);
 		}
 
 		// Create new conversation with specified agent.
-		if (empty($agentUuid) === false) {
-			return $this->createNewConversation(agentUuid: $agentUuid, userId: $userId);
+		if (empty($turn['agentUuid']) === false) {
+			return $this->createNewConversation(turn: $turn);
 		}
 
 		// Neither parameter provided.
@@ -1013,13 +1156,12 @@ class ChatController extends Controller {
 	 *
 	 * @throws Exception If the conversation is not found (code 404).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function findConversation(string $uuid): ObjectEntity {
 		$conversation = $this->objectService->find(
 			id: $uuid,
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 		);
 		if ($conversation === null) {
 			throw new Exception('The conversation with UUID ' . $uuid . ' does not exist', 404);
@@ -1033,22 +1175,25 @@ class ChatController extends Controller {
 	 *
 	 * Mirrors OR ChatController::createNewConversation(); the organisation is
 	 * assigned by ObjectService multitenancy on save (OR set it explicitly).
+	 * The session records the record its page context names as its subject,
+	 * when the caller can read that record.
 	 *
-	 * @param string $agentUuid Agent UUID.
-	 * @param string $userId Current user id.
+	 * @param array{agentUuid: string, userId: string, context: array} $turn The agent, the user and the page context.
 	 *
 	 * @return ObjectEntity The newly created conversation.
 	 *
 	 * @throws Exception If the agent is not found (code 404).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
 	 */
-	private function createNewConversation(string $agentUuid, string $userId): ObjectEntity {
+	private function createNewConversation(array $turn): ObjectEntity {
+		$agentUuid = $turn['agentUuid'];
+		$userId = $turn['userId'];
 		// Look up agent by UUID.
 		$agent = $this->objectService->find(
 			id: $agentUuid,
-			register: self::REGISTER_SLUG,
-			schema: self::AGENT_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 		);
 		if ($agent === null) {
 			throw new Exception('The agent with UUID ' . $agentUuid . ' does not exist', 404);
@@ -1067,16 +1212,19 @@ class ChatController extends Controller {
 		// (hermiq#1086). The guard is here instead: the agent was read above under
 		// the caller's own read rule, and the session is always the caller's.
 		// OpenRegister still stamps `_owner` from the user session.
+		$subject = new SessionSubject(objectService: $this->objectService);
 		$conversation = $this->objectService->saveObject(
 			object: $this->sanitizeForSave(
-				data: [
-					'userId' => $userId,
-					'agentId' => (string)$agent->getUuid(),
-					'title' => $defaultTitle,
-				]
+				data: $subject->stamp(
+					session: [
+						'userId' => $userId,
+						'agentId' => (string)$agent->getUuid(),
+						'title' => $defaultTitle,
+					],
+					context: $turn['context']
+				)
 			),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)),
 			_rbac: false
 		);
 
@@ -1109,8 +1257,8 @@ class ChatController extends Controller {
 	 *
 	 * @throws Exception If the user does not have access (code 403).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
 	 */
 	private function verifyConversationAccess(ObjectEntity $conversation, string $userId): void {
 		if ($this->participation->mayTakeTurn(conversationData: $conversation->getObject(), userId: $userId) === false) {
@@ -1137,7 +1285,7 @@ class ChatController extends Controller {
 	 *                   successfully" for a conversation that was never
 	 *                   archived.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function archiveConversation(ObjectEntity $conversation, string $userId): void {
 		$data = $conversation->getObject();
@@ -1152,9 +1300,10 @@ class ChatController extends Controller {
 
 		$this->objectService->saveObject(
 			object: $this->sanitizeForSave(data: $data),
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
-			uuid: (string)$conversation->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+				uuid: (string)$conversation->getUuid()
+			)
 		);
 	}//end archiveConversation()
 
@@ -1167,7 +1316,7 @@ class ChatController extends Controller {
 	 *
 	 * @return array<int, ObjectEntity> Message objects.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function findMessages(string $conversationId, int $limit, int $offset): array {
 		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and
@@ -1180,7 +1329,7 @@ class ChatController extends Controller {
 			->findAll(
 				config: [
 					'filters' => ['sessionId' => $conversationId],
-					'sort' => ['created' => 'ASC'],
+					'sort' => ['_created' => 'ASC'],
 					'limit' => $limit,
 					'offset' => $offset,
 				],
@@ -1197,7 +1346,7 @@ class ChatController extends Controller {
 	 *
 	 * @return int Message count.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function countMessages(string $conversationId): int {
 		$paginated = $this->objectService
@@ -1222,7 +1371,7 @@ class ChatController extends Controller {
 	 *
 	 * @return int Object count.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function countObjects(string $schema): int {
 		$paginated = $this->objectService
@@ -1234,6 +1383,35 @@ class ChatController extends Controller {
 	}//end countObjects()
 
 	/**
+	 * Delete the answer-cache entry that served a message given a thumbs down.
+	 *
+	 * Anyone who may rate the turn may remove the entry, so a wrong cached
+	 * answer is not served again. A message the model answered carries no entry.
+	 *
+	 * @param string       $type    The feedback type, `positive` or `negative`.
+	 * @param ObjectEntity $message The rated message.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	private function forgetCachedAnswer(string $type, ObjectEntity $message): void {
+		if ($type !== 'negative' || $this->answerCache === null) {
+			return;
+		}
+
+		$served = ($message->getObject()['answerCache'] ?? null);
+		if (is_array($served) === false) {
+			return;
+		}
+
+		$entryId = (string)($served['entryId'] ?? '');
+		if ($entryId !== '') {
+			$this->answerCache->remove(entryId: $entryId);
+		}
+	}//end forgetCachedAnswer()
+
+	/**
 	 * Find the caller's existing feedback object for a message, if any.
 	 *
 	 * @param string $messageId Message UUID.
@@ -1241,7 +1419,7 @@ class ChatController extends Controller {
 	 *
 	 * @return ObjectEntity|null The existing feedback object, or null.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function findExistingFeedback(string $messageId, string $userId): ?ObjectEntity {
 		$existing = $this->objectService
@@ -1273,7 +1451,7 @@ class ChatController extends Controller {
 	 *
 	 * @return array<string, mixed> Serialized message.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function serializeMessage(ObjectEntity $message): array {
 		$data = $message->getObject();
@@ -1305,7 +1483,7 @@ class ChatController extends Controller {
 	 *
 	 * @return array<string, mixed> Serialized feedback.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function serializeFeedback(ObjectEntity $feedback): array {
 		$data = $feedback->getObject();
@@ -1330,7 +1508,7 @@ class ChatController extends Controller {
 	 *
 	 * @throws Exception If no user is authenticated (code 401).
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	private function requireUserId(): string {
 		$user = $this->userSession->getUser();

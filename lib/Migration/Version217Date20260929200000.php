@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use OCP\Migration\SimpleMigrationStep;
 /**
  * Creates hermiq_run_tokens.
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
 class Version217Date20260929200000 extends SimpleMigrationStep {
 
@@ -59,7 +59,7 @@ class Version217Date20260929200000 extends SimpleMigrationStep {
 	 *
 	 * @SuppressWarnings(PHPMD.UnusedFormalParameter) The signature is fixed by SimpleMigrationStep.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
 	 */
 	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ISchemaWrapper {
 		/*

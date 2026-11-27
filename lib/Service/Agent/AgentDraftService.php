@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 
 declare(strict_types=1);
@@ -31,9 +31,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Agent;
 
 use Cron\CronExpression;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Kernel\Contracts\AgentDraftServiceInterface;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\OrganisationMapper;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCP\IGroupManager;
 use OCP\IL10N;
 use Throwable;
@@ -41,9 +42,9 @@ use Throwable;
 /**
  * Read and check an agent draft.
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
-class AgentDraftService {
+class AgentDraftService implements AgentDraftServiceInterface {
 
 	/**
 	 * The schedule kinds the schedule form offers.
@@ -56,14 +57,14 @@ class AgentDraftService {
 	 * Constructor.
 	 *
 	 * @param ToolRegistryFacade       $tools         The tool catalogue the agent form offers.
-	 * @param TenantModelPolicyService $policies      The organisation's model policy.
+	 * @param EffectiveModelPolicy $policies      The organisation's model policy.
 	 * @param IGroupManager            $groups        Group existence and membership.
 	 * @param OrganisationMapper       $organisations The person's active organisation.
 	 * @param IL10N                    $l10n          The findings' language.
 	 */
 	public function __construct(
 		private readonly ToolRegistryFacade $tools,
-		private readonly TenantModelPolicyService $policies,
+		private readonly EffectiveModelPolicy $policies,
 		private readonly IGroupManager $groups,
 		private readonly OrganisationMapper $organisations,
 		private readonly IL10N $l10n,
@@ -80,14 +81,14 @@ class AgentDraftService {
 	 *
 	 * @throws AgentDraftUnreadableException When the text is not a JSON object with a name.
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 	 */
 	public function check(string $text, string $uid): array {
 		$draft = $this->read(text: $text);
 
 		$findings = array_merge(
 			$this->toolFindings(tools: $draft['tools']),
-			$this->modelFindings(provider: $draft['provider'], model: $draft['model'], uid: $uid),
+			$this->modelFindings(proposed: new DraftModel(provider: $draft['provider'], model: $draft['model']), uid: $uid),
 			$this->groupFindings(groups: $draft['sharing']['groups'], uid: $uid),
 			$this->scheduleFindings(schedule: $draft['schedule'])
 		);
@@ -111,17 +112,6 @@ class AgentDraftService {
 			throw new AgentDraftUnreadableException();
 		}
 
-		$sharing = (array)($data['sharing'] ?? []);
-		$mode = (string)($sharing['mode'] ?? 'only-me');
-		if (in_array($mode, ['only-me', 'groups', 'organisation'], true) === false) {
-			$mode = 'only-me';
-		}
-
-		$schedule = null;
-		if (is_array($data['schedule'] ?? null) === true && $data['schedule'] !== []) {
-			$schedule = $data['schedule'];
-		}
-
 		return [
 			'name' => trim((string)$data['name']),
 			'description' => trim((string)($data['description'] ?? '')),
@@ -129,8 +119,8 @@ class AgentDraftService {
 			'provider' => trim((string)($data['provider'] ?? '')),
 			'model' => trim((string)($data['model'] ?? '')),
 			'tools' => $this->strings(values: ($data['tools'] ?? [])),
-			'sharing' => ['mode' => $mode, 'groups' => $this->strings(values: ($sharing['groups'] ?? []))],
-			'schedule' => $schedule,
+			'sharing' => $this->sharingOf(sharing: (array)($data['sharing'] ?? [])),
+			'schedule' => $this->scheduleOf(schedule: ($data['schedule'] ?? null)),
 			'startFields' => array_values((array)($data['startFields'] ?? [])),
 		];
 	}//end read()
@@ -169,21 +159,51 @@ class AgentDraftService {
 	}//end toolFindings()
 
 	/**
+	 * The draft's sharing: its mode (only-me unless groups or organisation) and its groups.
+	 *
+	 * @param array<array-key, mixed> $sharing The draft's sharing block.
+	 *
+	 * @return array{mode: string, groups: array<int, string>}
+	 */
+	private function sharingOf(array $sharing): array {
+		$mode = (string)($sharing['mode'] ?? 'only-me');
+		if (in_array($mode, ['only-me', 'groups', 'organisation'], true) === false) {
+			$mode = 'only-me';
+		}
+
+		return ['mode' => $mode, 'groups' => $this->strings(values: ($sharing['groups'] ?? []))];
+	}//end sharingOf()
+
+	/**
+	 * The draft's schedule, or null when it has none.
+	 *
+	 * @param mixed $schedule The draft's schedule block.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function scheduleOf(mixed $schedule): ?array {
+		if (is_array($schedule) === true && $schedule !== []) {
+			return $schedule;
+		}
+
+		return null;
+	}//end scheduleOf()
+
+	/**
 	 * A provider or model the organisation's policy does not allow, with an allowed one.
 	 *
-	 * @param string $provider The proposed provider.
-	 * @param string $model    The proposed model.
-	 * @param string $uid      The person.
+	 * @param DraftModel $proposed The proposed provider and model.
+	 * @param string     $uid      The person.
 	 *
 	 * @return array<int, array{field: string, message: string, suggestion: string}>
 	 */
-	private function modelFindings(string $provider, string $model, string $uid): array {
-		if ($provider === '' && $model === '') {
+	private function modelFindings(DraftModel $proposed, string $uid): array {
+		if ($proposed->provider === '' && $proposed->model === '') {
 			return [];
 		}
 
 		$organisation = (string)($this->organisations->getActiveOrganisationWithFallback($uid) ?? '');
-		if ($this->policies->isAllowed(organisation: $organisation, provider: $provider, model: $model) === true) {
+		if ($this->policies->isAllowed(organisation: $organisation, provider: $proposed->provider, model: $proposed->model) === true) {
 			return [];
 		}
 
@@ -191,7 +211,7 @@ class AgentDraftService {
 			[
 				'field' => 'model',
 				'message' => $this->l10n->t('Not allowed by your organisation'),
-				'suggestion' => $this->allowedModel(organisation: $organisation, provider: $provider, model: $model),
+				'suggestion' => $this->allowedModel(organisation: $organisation, proposed: $proposed),
 			],
 		];
 	}//end modelFindings()
@@ -199,13 +219,12 @@ class AgentDraftService {
 	/**
 	 * The allowed model closest to the proposed one, as `provider/model`, or a provider alone.
 	 *
-	 * @param string $organisation The organisation.
-	 * @param string $provider     The proposed provider.
-	 * @param string $model        The proposed model.
+	 * @param string     $organisation The organisation.
+	 * @param DraftModel $proposed     The proposed provider and model.
 	 *
 	 * @return string
 	 */
-	private function allowedModel(string $organisation, string $provider, string $model): string {
+	private function allowedModel(string $organisation, DraftModel $proposed): string {
 		$policy = $this->policies->effectivePolicyFor(organisation: $organisation);
 
 		$default = ($policy['defaultModel'] ?? null);
@@ -213,21 +232,7 @@ class AgentDraftService {
 			return $default['provider'] . '/' . $default['model'];
 		}
 
-		$candidates = [];
-		foreach ((array)($policy['allowed'] ?? []) as $entry) {
-			$allowedProvider = (string)($entry['provider'] ?? '');
-			$models = (array)($entry['models'] ?? []);
-			if ($models === []) {
-				$candidates[] = $allowedProvider;
-				continue;
-			}
-
-			foreach ($models as $allowedModel) {
-				$candidates[] = $allowedProvider . '/' . $allowedModel;
-			}
-		}
-
-		return $this->closest(wanted: $provider . '/' . $model, candidates: $candidates);
+		return $this->closest(wanted: $proposed->wanted(), candidates: (new AllowedModels(allowed: (array)($policy['allowed'] ?? [])))->candidates());
 	}//end allowedModel()
 
 	/**

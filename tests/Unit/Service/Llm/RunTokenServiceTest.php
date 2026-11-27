@@ -20,6 +20,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Llm;
 
+use OCA\Hermiq\Service\Llm\RunTokenRequest;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Tests\Unit\Support\InMemoryRunTokenStore;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -85,6 +86,34 @@ final class RunTokenServiceTest extends TestCase {
 		$this->assertSame('conv-1', $binding['conversationId']);
 
 	}//end testMintThenVerifyReturnsBinding()
+
+	/**
+	 * A sign-in token carries its hosts and dies with its TTL; a run token carries none.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/agent-credentials/spec.md#requirement-a-user-can-sign-in-with-a-claude-subscription-req-signin-001
+	 */
+	public function testASignInTokenCarriesItsHostsUntilItExpires(): void {
+		$service = $this->service(new InMemoryRunTokenStore());
+		$request = new RunTokenRequest(runId: 'sign-in:1', agentId: '');
+		$request->userId = 'alice';
+		$request->ttlSeconds = 600;
+		$request->egressHosts = ['claude.ai', 'console.anthropic.com'];
+
+		$token = $service->mintFor(request: $request);
+
+		$this->assertSame(
+			['runId' => 'sign-in:1', 'agentId' => '', 'userId' => 'alice', 'conversationId' => '', 'egressHosts' => ['claude.ai', 'console.anthropic.com']],
+			$service->verify(token: $token)
+		);
+		$run = $service->mint(runId: 'run-1', agentId: 'agent-1', userId: 'alice');
+		$this->assertArrayNotHasKey('egressHosts', $service->verify(token: $run));
+
+		$this->now += 600;
+		$this->assertNull($service->verify(token: $token));
+
+	}//end testASignInTokenCarriesItsHostsUntilItExpires()
 
 	/**
 	 * A missing/empty/unknown token is rejected.
@@ -265,4 +294,93 @@ final class RunTokenServiceTest extends TestCase {
 		$this->assertCount(2, $store->rows);
 
 	}//end testRecordsAreSweptAfterTheRecognitionWindow()
+
+	/**
+	 * The stored record binds run, agent, user and conversation to the token's
+	 * digest; the TTL is the turn default unless a positive override is given,
+	 * and the record is kept for the recognition hour after that.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
+	 */
+	public function testTheStoredRecordAndItsLifetime(): void {
+		$store = new InMemoryRunTokenStore();
+		$service = $this->service($store);
+
+		$token = $service->mint(runId: 'run-1', agentId: 'agent-1', userId: 'alice', conversationId: 'conv/ü');
+		$row = $store->rows[hash('sha256', $token)];
+		$this->assertSame(
+			['runId' => 'run-1', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => 'conv/ü', 'hash' => hash('sha256', $token)],
+			json_decode($row['record'], true)
+		);
+		$this->assertStringContainsString('conv/ü', $row['record'], 'Slashes and unicode are stored unescaped.');
+		$default = ($row['expiresAt'] - $this->now);
+		$this->assertGreaterThan(0, $default);
+		$this->assertSame($row['expiresAt'] + 3600, $row['retainUntil']);
+
+		foreach ([0 => $default, -5 => $default, 1800 => 1800] as $override => $ttl) {
+			$minted = $service->mint(runId: 'run-2', agentId: 'agent-1', userId: 'alice', ttlSeconds: $override);
+			$this->assertSame($this->now + $ttl, $store->rows[hash('sha256', $minted)]['expiresAt']);
+		}
+
+	}//end testTheStoredRecordAndItsLifetime()
+
+	/**
+	 * A record that does not decode, or carries no digest, or another digest, verifies to nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	public function testAMalformedRecordVerifiesToNothing(): void {
+		$store = new InMemoryRunTokenStore();
+		$service = $this->service($store);
+
+		foreach (['not json', '{"runId":"r"}', '{"hash":5}', '{"hash":"other","runId":"r"}'] as $record) {
+			$store->put(digest: hash('sha256', 'presented'), record: $record, expiresAt: $this->now + 60, retainUntil: $this->now + 3660);
+			$this->assertNull($service->verify(token: 'presented'), $record);
+		}
+
+		$store->put(digest: hash('sha256', 'presented'), record: '{"hash":"' . hash('sha256', 'presented') . '"}', expiresAt: $this->now + 60, retainUntil: $this->now + 3660);
+		$this->assertSame(['runId' => '', 'agentId' => '', 'userId' => '', 'conversationId' => ''], $service->verify(token: 'presented'));
+
+	}//end testAMalformedRecordVerifiesToNothing()
+
+	/**
+	 * A run in a project carries its project key in the record and the binding.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testAProjectKeyIsBoundIntoTheToken(): void {
+		$store = new InMemoryRunTokenStore();
+		$service = $this->service($store);
+
+		$token = $service->mint(runId: 'run-1', agentId: 'agent-1', userId: 'alice', conversationId: 'conv-1', projectKey: 'omgevingsvisie-2040');
+
+		$this->assertSame('omgevingsvisie-2040', json_decode($store->rows[hash('sha256', $token)]['record'], true)['projectKey']);
+		$this->assertSame(
+			['runId' => 'run-1', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => 'conv-1', 'projectKey' => 'omgevingsvisie-2040'],
+			$service->verify(token: $token)
+		);
+	}//end testAProjectKeyIsBoundIntoTheToken()
+
+	/**
+	 * A run outside a project stores and returns no project key.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testARunOutsideAProjectCarriesNoProjectKey(): void {
+		$store = new InMemoryRunTokenStore();
+		$service = $this->service($store);
+
+		$token = $service->mint(runId: 'run-1', agentId: 'agent-1', userId: 'alice');
+
+		$this->assertArrayNotHasKey('projectKey', json_decode($store->rows[hash('sha256', $token)]['record'], true));
+		$this->assertArrayNotHasKey('projectKey', (array)$service->verify(token: $token));
+	}//end testARunOutsideAProjectCarriesNoProjectKey()
 }//end class

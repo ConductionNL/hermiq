@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Hermiq gives people one place to read what its agents did: a Reports page that lists the reports the app has, each as a card that opens the report. Today it holds one report, AI oversight, the EU AI Act Art. 14 record of what a human did with each AI suggestion that was not gated. This spec describes the page as built (hermiq#765, moved under Advanced in hermiq#1106). The oversight report itself, how advisory decisions are recorded and what its log shows, is specified in `openspec/changes/ai-oversight-advisory-approvals`. Reports on a schedule are not built: every report is read on demand.
+Hermiq gives people one place to read what its agents did: a Reports page that lists the reports the app has, each as a card that opens the report. Today it holds one report, AI oversight, the EU AI Act Art. 14 record of what a human did with each AI suggestion that was not gated. This spec describes the page as built (hermiq#765, moved under Advanced in hermiq#1106). The oversight report itself, how advisory decisions are recorded and what its log shows, is specified in `openspec/specs/ai-oversight/spec.md`. A person can also subscribe to a report weekly or monthly and receive it as a notification (archived change `2026-11-20-reports-on-a-schedule`).
 
 Code: `src/manifest.json` menu entry `ReportsMenu` (section `settings`, order 95), page `Reports` (route `/reports`, type `reports`) and page `AiOversight` (route `/ai-oversight`, type `dashboard`); `lib/Service/AiOversightService.php` writes the records the report reads.
 
@@ -36,3 +36,26 @@ The AI oversight report SHALL read `Approval` objects in the `hermiq` register w
 - **WHEN** a person opens `/ai-oversight`
 - **THEN** that approval appears in neither the counts nor the log
 - @e2e exclude the advisory-only filter is task 4.2 of ai-oversight-advisory-approvals, not yet written
+
+### Requirement: A person SHALL receive a report on a schedule they choose
+
+A person SHALL be able to subscribe to any report on the Reports page, weekly or monthly, and
+cancel the subscription again. A background job SHALL send each due report as a Nextcloud
+notification that opens the report for the period it covers. The report SHALL show only what
+that person may read, as when they open it themselves.
+
+Rows: `ob-reports` (hermiq matrix).
+
+#### Scenario: A weekly subscription sends the report every week
+- **GIVEN** a person subscribed to the AI oversight report weekly
+- **WHEN** a week has passed since the last one was sent
+- **THEN** they get a notification that opens the AI oversight report for that week
+
+@e2e exclude a browser test cannot wait out a week for the hourly job; the due calculation and the notification's link to that week are asserted in ReportSubscriptionJobTest::testAWeeklySubscriptionSendsTheReportForThatWeek and ReportSubscriptionScheduleTest.
+
+#### Scenario: A cancelled subscription sends nothing
+- **GIVEN** a person cancelled their subscription to a report
+- **WHEN** the next period ends
+- **THEN** no notification for that report reaches them
+
+@e2e exclude the absence of a notification after a period ends needs the hourly job and a period to pass; asserted in ReportSubscriptionJobTest::testACancelledSubscriptionSendsNothing.

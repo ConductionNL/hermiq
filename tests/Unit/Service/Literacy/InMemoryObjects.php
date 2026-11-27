@@ -24,6 +24,8 @@ namespace OCA\Hermiq\Tests\Unit\Service\Literacy;
 use DateTime;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * In-memory object store.
@@ -109,20 +111,22 @@ final class InMemoryObjects extends ObjectService {
 
 	public function saveObject(
 		array|ObjectEntity $object,
-		?array $extend = [],
-		mixed $register = null,
-		mixed $schema = null,
-		?string $uuid = null,
+		ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 		bool $_rbac = true,
-		bool $_multitenancy = true,
-		bool $silent = false,
-		bool $_validation = true,
-		?array $uploadedFiles = null,
-		?\OCP\IUser $currentUser = null,
-		bool $failIfExists = false,
-		bool $_unowned = false,
-		bool $_dedupOverride = false,
+		bool $_multitenancy = true
 	): ObjectEntity {
+		$extend = $options->extend ?? [];
+		$register = $options->target->register;
+		$schema = $options->target->schema;
+		$uuid = $options->uuid;
+		$silent = $options->policy->silent ?? false;
+		$_validation = $options->policy->validation ?? true;
+		$uploadedFiles = $options->uploadedFiles;
+		$currentUser = $options->actor->currentUser;
+		$failIfExists = $options->policy->failIfExists ?? false;
+		$_unowned = $options->actor->unowned ?? false;
+		$_dedupOverride = $options->policy->dedupOverride ?? false;
+		$_owner = $options->actor->owner;
 		$data = is_array($object) === true ? $object : $object->getObject();
 		$self = (array)($data['@self'] ?? []);
 		unset($data['@self']);

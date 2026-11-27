@@ -1,0 +1,211 @@
+{
+  "$comment": [
+    "The safety net under the per-issue lock — openspec/changes/hydra-flows-first-port task 3.1,",
+    "hardened under openspec/changes/builder-write-access-hardening task 0.",
+    "",
+    "`hydra-sequencer.flow.json` takes a lock so two runs never work one issue at",
+    "once. A crashed run never gives it back, and without this the issue stays",
+    "locked forever: the SAFE direction, and a pipeline that quietly stops moving.",
+    "That is what `hydra-supervisor.sh`'s `reap_zombie_running_labels` and",
+    "`check_timeouts` exist for.",
+    "",
+    "🔑 THE REAPER REAPS BY AGE, NOT BY REPOSITORY (task 0.1). This flow used to",
+    "  filter `name` on `\"ZZ issue-lock {{repo}}\"`. A schedule tick's payload is",
+    "  ONLY `{flowId, scheduledAt}` (`FlowScheduleService::fire()`), so under its",
+    "  own trigger `{{repo}}` rendered EMPTY, the filter became",
+    "  `\"ZZ issue-lock \"`, and it matched nothing — every ten minutes, reporting",
+    "  `completed`. It reaped correctly only when a caller passed `repo` in a test",
+    "  payload, which is exactly what kept it hidden.",
+    "  Threading a repo in from somewhere would have been the wrong fix. A lock is",
+    "  stale because it is OLD, not because of which repository it belongs to, and",
+    "  a scheduled tick has no repository and no list of them to iterate. So the",
+    "  repo left the filter entirely: `name` is now the CONSTANT marker every lock",
+    "  writer produces identically, and the age does the selecting. The reaper's",
+    "  filter contains no placeholder a trigger has to supply — only `cutoff`,",
+    "  which it computes itself.",
+    "",
+    "🔑 THE AGE IS `@self.created` AGAIN, and the `notes` epoch-stamp hack is GONE.",
+    "  The previous revision stamped an epoch into the lock's `notes` because",
+    "  `MagicSearchHandler::applyMetadataFilters()` turned ANY array value into",
+    "  `IN (…)`, so `@self.created` with `lt` silently matched nothing — a",
+    "  positive control with a cutoff in 2027 returned 0 rows too. openregister#2269",
+    "  fixed that: `@self` now takes the same `gte|lte|gt|lt|in|notIn|ne` vocabulary",
+    "  as a schema property, on BOTH the single-table and the UNION path.",
+    "  Re-measured against the running instance rather than read off the changelog",
+    "  on 2026-08-02: over the 14 live agentflow rows, `created lt 2026-07-25` → 2,",
+    "  `created gte 2026-08-01` → 10, `created lt 2020-01-01` → 0. So the age is",
+    "  metadata again, which is where it belonged: `notes` is a human field the",
+    "  flow SEEDER already writes provenance into, and a lexicographic range over",
+    "  it would have compared lock epochs against English prose.",
+    "  ⚠️ THAT ALSO CLOSED A LIVE HAZARD. `notes` is empty on several real",
+    "  agentflow rows, and `'' < '1785…'` is TRUE — so the moment the `name` filter",
+    "  stopped being the thing that saved us, a `notes` range would have matched",
+    "  REAL FLOWS. Reaping by a text column nobody constrains is one filter edit",
+    "  away from deleting the control plane.",
+    "",
+    "🔑 THE CUTOFF IS `Y-m-d H:i:s`, NOT AN ISO STRING WITH AN OFFSET. `_created` is",
+    "  `timestamp without time zone`; Postgres casts a value carrying an offset and",
+    "  then DISCARDS it, so `…T14:30:00+02:00` would silently compare as 14:30 UTC",
+    "  and reap two hours' worth of live locks. Nextcloud pins",
+    "  `date_default_timezone_set('UTC')` in `lib/base.php` and `_created` is",
+    "  written in UTC, so a naive UTC stamp is the one form that cannot drift.",
+    "",
+    "🔑 THE DELETE NAMES THE ROW BY `uuid`. `ObjectReadNode::read()` always put the",
+    "  uuid on the item saying it was 'what a follow-up write or delete needs to",
+    "  name this row', and `ObjectWriteNode::findMatch()` was the one place that",
+    "  could not use it — `uuid` went into the schema-property bag, hit",
+    "  `applyObjectFilters()`'s `WHERE 1 = 0`, and the delete matched nothing while",
+    "  the run reported `completed`. openregister#2270 routes it to the `@self` bag.",
+    "  So the lock's identity no longer has to be smuggled through `description`.",
+    "",
+    "🔑 `fanOut: true` on the read is what makes the delete expressible at all.",
+    "Without it the read returns ONE item holding a list, and nothing in the engine",
+    "expands a list inside an item's json back into items — `openregister.loop`",
+    "batches the items on the WALK, not the entries of a field. The delete then",
+    "sees a single item and fails with `the match value for … could not be",
+    "resolved from the item`. Measured; openregister#2237 added the fan-out for",
+    "this.",
+    "",
+    "🔑 A FILTER THAT RENDERS EMPTY NOW FAILS THE RUN (task 0.3). The read's own",
+    "  `onError: stop` never fired here, because nothing was going wrong as far as",
+    "  the engine could tell: a filter is authored text, and",
+    "  `FlowValueTemplate::render()` cannot fail — a path the item does not carry",
+    "  becomes the empty string. openregister#2278 makes `openregister.object-read`",
+    "  refuse a filter whose placeholder resolved to nothing (absent, null, or the",
+    "  empty string), the same way `ObjectWriteNode::findMatch()` already refuses",
+    "  an unfilled MATCH key. That guard is why this flow can be trusted to keep",
+    "  telling the truth if somebody reintroduces a placeholder it cannot fill.",
+    "  Note what it does NOT do: reading zero rows is still a perfectly ordinary",
+    "  tick. 'Nothing was stale' and 'I could not ask the question' are different",
+    "  answers, and only the second is an error.",
+    "",
+    "⚠️ Deletion here is OpenRegister's ordinary delete, so it SOFT-deletes: the row",
+    "  survives with `_deleted` set and drops out of reads. Verified — after a reap",
+    "  the stale lock was `soft_deleted = t` and the fresh one `f`. That is the",
+    "  intended behaviour (the audit trail and archival immutability still apply),",
+    "  and it means a reaped lock is auditable rather than gone.",
+    "",
+    "⚠️ `register`/`schema` are HARDCODED to the same pair `hydra-sequencer`'s",
+    "  `lock-issue` writes, rather than left blank for an importer to bind. The",
+    "  writer hardcodes them; a reader that defers to an importer can be pointed",
+    "  somewhere else without anyone noticing, and 'the reaper reads a different",
+    "  store from the writer' is indistinguishable from 'there was nothing to reap'."
+  ],
+  "name": "Hydra lock reaper",
+  "description": "Release per-issue locks left behind by a crashed run. Reads every lock older than the cutoff — across all repositories, because a lock is stale by age — and deletes them. See openspec/changes/hydra-flows-first-port task 3.1 and builder-write-access-hardening task 0.",
+  "trigger": "schedule",
+  "cron": "*/10 * * * *",
+  "enabled": true,
+  "nodes": [
+    {
+      "id": "start",
+      "type": "openregister.trigger-schedule",
+      "config": {},
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "done",
+      "type": "openregister.end",
+      "config": { "message": "The flow completed." },
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "scope",
+      "type": "openregister.set-fields",
+      "config": {
+        "compute": {
+          "cutoff": {
+            "dateFormat": [
+              {
+                "dateAdd": [
+                  {
+                    "now": []
+                  },
+                  {
+                    "cat": [
+                      "-",
+                      {
+                        "coalesce": [
+                          {
+                            "var": "json.staleAfterMinutes"
+                          },
+                          30
+                        ]
+                      },
+                      " minutes"
+                    ]
+                  }
+                ]
+              },
+              "Y-m-d H:i:s"
+            ]
+          }
+        },
+        "$comment": "The one thing the read needs, computed rather than received. `now()` is used instead of the tick's `context.payload.scheduledAt` deliberately: a value the engine always has cannot render empty, whereas one the payload happens to carry is the exact dependency that made this flow dormant. `cutoff` defaults to 30 minutes and a caller may shorten or lengthen it by seeding `staleAfterMinutes` — that is a DEFAULT applied by `coalesce`, which always produces a value, not a placeholder that can quietly disappear."
+      }
+    },
+    {
+      "id": "find-locks",
+      "type": "openregister.object-read",
+      "config": {
+        "limit": 50,
+        "fanOut": true,
+        "schema": "agentflow",
+        "filters": {
+          "name": "ZZ issue-lock",
+          "@self": {
+            "created": {
+              "lt": "{{cutoff}}"
+            }
+          }
+        },
+        "onError": "stop",
+        "$comment": "`name` is the SAME literal `hydra-sequencer`'s `lock-issue` writes, with no interpolation in either place, so the writer and the reaper cannot drift apart silently again — `test-flow-definitions.sh` checks that agreement and a live reap asserts it. The age is metadata, which is why it is addressed through `@self` rather than as a property.",
+        "register": "hermiq"
+      }
+    },
+    {
+      "id": "release",
+      "type": "openregister.object-write",
+      "config": {
+        "match": [
+          {
+            "value": "{{uuid}}",
+            "property": "uuid"
+          }
+        ],
+        "schema": "agentflow",
+        "onError": "stop",
+        "$comment": "`onNoMatch` is left at its default `error` deliberately. The read and the delete are back to back, so a lock that was just returned and then matches nothing does not mean 'someone else got there first' — it means the identity contract between the read and the delete has broken again, which is the exact failure that made this flow reap nothing while reporting success. Turning it down to `skip` would restore the silence.",
+        "register": "hermiq",
+        "operation": "delete",
+        "confirmDelete": true
+      },
+      "exit": true
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-scope",
+      "from": "start",
+      "to": "scope"
+    },
+    {
+      "id": "release-done",
+      "from": "release",
+      "to": "done"
+    },
+    {
+      "id": "scope-find-locks",
+      "from": "scope",
+      "to": "find-locks",
+      "title": "scoped"
+    },
+    {
+      "id": "find-locks-release",
+      "from": "find-locks",
+      "to": "release",
+      "title": "stale"
+    }
+  ]
+}

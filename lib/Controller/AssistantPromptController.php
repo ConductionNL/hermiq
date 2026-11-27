@@ -20,16 +20,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-the-prompts-the-assistant-offers-must-be-administered-objects
+ * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-the-prompts-the-assistant-offers-must-be-administered-objects
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\Assistant\AssistantPromptLibrary;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AssistantPromptLibraryInterface;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -42,7 +42,7 @@ use Throwable;
 /**
  * Read, administer and switch off the assistant's prompts.
  *
- * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#requirement-disabling-every-prompt-must-be-one-recorded-act
+ * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-disabling-every-prompt-must-be-one-recorded-act
  */
 class AssistantPromptController extends Controller {
 
@@ -50,19 +50,19 @@ class AssistantPromptController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param AssistantPromptLibrary $library The prompt library.
-	 * @param ActionAuthService $actionAuth The ADR-023 action-authorization service.
+	 * @param AssistantPromptLibraryInterface $library The prompt library.
+	 * @param ActionAuthServiceInterface $actionAuth The ADR-023 action-authorization service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AssistantPromptLibrary $library,
-		private readonly ActionAuthService $actionAuth,
+		private readonly AssistantPromptLibraryInterface $library,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -75,7 +75,7 @@ class AssistantPromptController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-order-is-the-administrators
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-order-is-the-administrators
 	 */
 	public function index(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -111,7 +111,7 @@ class AssistantPromptController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-the-text-that-will-be-sent-is-the-text-on-screen
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-the-text-that-will-be-sent-is-the-text-on-screen
 	 */
 	public function save(?string $id = null): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -152,7 +152,7 @@ class AssistantPromptController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/the-declared-tool-surface-and-the-prompt-library/specs/ai-feature-admin-surface/spec.md#scenario-everything-stops-in-one-act
+	 * @spec openspec/specs/ai-feature-admin-surface/spec.md#scenario-everything-stops-in-one-act
 	 */
 	public function disableAll(): JSONResponse {
 		$user = $this->userSession->getUser();

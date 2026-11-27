@@ -23,15 +23,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+ * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Chat;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
 use OCA\Hermiq\Service\NcNative\AgentArtefactMarker;
 use OCA\Hermiq\Service\NcNative\ArtefactMarkingFailedException;
 use OCP\Files\File;
@@ -44,9 +45,9 @@ use Throwable;
 /**
  * Runs a text-to-image task for the person and keeps the result in their Files, marked.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
+ * @spec openspec/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
  */
-class ImageGenerationService {
+class ImageGenerationService implements ImageGenerationServiceInterface {
 
 	/**
 	 * The AiFeature that has to be enabled before an image is created.
@@ -68,14 +69,14 @@ class ImageGenerationService {
 	 * @param IManager            $taskManager Nextcloud TaskProcessing.
 	 * @param GeneratedImageFiles $files       Reads the task's output and writes the PNG to Files.
 	 * @param AgentArtefactMarker $marker      Tags the file "Agent authored".
-	 * @param AiFeatureService    $features    The AI-feature governance register.
+	 * @param AiFeatureLookup     $features    The AI-feature governance register.
 	 * @param LoggerInterface     $logger      Logger.
 	 */
 	public function __construct(
 		private readonly IManager $taskManager,
 		private readonly GeneratedImageFiles $files,
 		private readonly AgentArtefactMarker $marker,
-		private readonly AiFeatureService $features,
+		private readonly AiFeatureLookup $features,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -87,7 +88,7 @@ class ImageGenerationService {
 	 *
 	 * @return bool True when a provider can run TextToImage.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
+	 * @spec openspec/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
 	 */
 	public function isAvailable(?string $uid = null): bool {
 		try {
@@ -108,7 +109,7 @@ class ImageGenerationService {
 	 *
 	 * @return bool True when "Create an image" may be shown.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
+	 * @spec openspec/specs/image-generation/spec.md#requirement-images-are-created-through-nextcloud-taskprocessing-req-cimg-001
 	 */
 	public function canCreate(string $uid): bool {
 		return $this->featureEnabled() === true && $this->isAvailable(uid: $uid) === true;
@@ -122,7 +123,7 @@ class ImageGenerationService {
 	 *
 	 * @return list<array<string, mixed>> The images as generated attachments.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 	 */
 	public function takeCreated(): array {
 		$created = $this->created;
@@ -137,7 +138,7 @@ class ImageGenerationService {
 	 *
 	 * @return array<string, mixed> The fileId, name, mimeType, size and origin `generated`.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 	 */
 	public function asAttachment(array $created): array {
 		return [
@@ -158,7 +159,7 @@ class ImageGenerationService {
 	 *
 	 * @return array<string, mixed> The created file's id, name and path, or an error.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
+	 * @spec openspec/specs/image-generation/spec.md#requirement-an-agent-can-create-an-image-only-with-a-grant-req-cimg-003
 	 */
 	public function invoke(string $uid, string $toolId, array $arguments): array {
 		unset($toolId);
@@ -184,9 +185,36 @@ class ImageGenerationService {
 	 * @throws ImageGenerationException When the feature is off, no provider runs, the task
 	 *                                  fails, or the file cannot be marked.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
 	 */
 	public function create(string $uid, string $prompt): array {
+		$this->assertCanCreate(uid: $uid, prompt: $prompt);
+
+		$file = $this->files->save(uid: $uid, bytes: $this->runTask(uid: $uid, prompt: $prompt));
+		$this->keepOnlyMarked(file: $file);
+
+		return [
+			'fileId' => (int)$file->getId(),
+			'name' => $file->getName(),
+			'path' => GeneratedImageFiles::FOLDER . '/' . $file->getName(),
+			'mimeType' => 'image/png',
+			'size' => (int)$file->getSize(),
+		];
+	}//end create()
+
+	/**
+	 * Refuse a blank prompt, a feature that is not enabled, and a missing provider, in that order.
+	 *
+	 * @param string $uid    The person.
+	 * @param string $prompt What the image shows.
+	 *
+	 * @return void
+	 *
+	 * @throws ImageGenerationException When any of the three is refused.
+	 *
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 */
+	private function assertCanCreate(string $uid, string $prompt): void {
 		if (trim($prompt) === '') {
 			throw new ImageGenerationException('invalid_prompt', 'Describe the image to create.');
 		}
@@ -201,10 +229,20 @@ class ImageGenerationService {
 		if ($this->isAvailable(uid: $uid) === false) {
 			throw new ImageGenerationException('provider_unavailable', 'No text-to-image provider is available.');
 		}
+	}//end assertCanCreate()
 
-		$bytes = $this->runTask(uid: $uid, prompt: $prompt);
-		$file = $this->files->save(uid: $uid, bytes: $bytes);
-
+	/**
+	 * Mark the saved file as agent-authored, or delete it.
+	 *
+	 * @param File $file The saved image.
+	 *
+	 * @return void
+	 *
+	 * @throws ImageGenerationException When the file cannot be marked.
+	 *
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-is-saved-in-files-and-marked-as-agent-authored-req-cimg-002
+	 */
+	private function keepOnlyMarked(File $file): void {
 		try {
 			$this->marker->markFile(fileId: (int)$file->getId());
 		} catch (ArtefactMarkingFailedException $e) {
@@ -215,15 +253,7 @@ class ImageGenerationService {
 				'The image could not be marked as agent-authored, so it was not kept.'
 			);
 		}
-
-		return [
-			'fileId' => (int)$file->getId(),
-			'name' => $file->getName(),
-			'path' => GeneratedImageFiles::FOLDER . '/' . $file->getName(),
-			'mimeType' => 'image/png',
-			'size' => (int)$file->getSize(),
-		];
-	}//end create()
+	}//end keepOnlyMarked()
 
 	/**
 	 * Whether the AiFeature is explicitly enabled.
@@ -255,7 +285,7 @@ class ImageGenerationService {
 	 * @throws ImageGenerationException When the task fails or returns no image.
 	 */
 	private function runTask(string $uid, string $prompt): string {
-		$task = new Task(TextToImage::ID, ['input' => $prompt, 'numberOfImages' => 1], Application::APP_ID, $uid);
+		$task = new Task(TextToImage::ID, ['input' => $prompt, 'numberOfImages' => 1], AppIdentity::APP_ID, $uid);
 		try {
 			$done = $this->taskManager->runTask($task);
 		} catch (Throwable $e) {

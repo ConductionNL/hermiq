@@ -43,6 +43,7 @@ const DECLARED_KEYS = [
 	'web-search',
 	'webhook-delivery',
 	'github-templates',
+	'trace-export',
 ]
 
 /** Rows that link into the admin settings, and the element id each link names. */
@@ -92,6 +93,32 @@ async function requestToken(page: Page): Promise<string> {
 }
 
 /**
+ * Close the setup wizard when it opens over the page. It is driven by an async
+ * status fetch, so it can appear after the first paint; poll until nothing is
+ * left to close (the same pattern as dashboard-and-agents.spec.ts).
+ *
+ * @param page The Playwright page.
+ */
+async function dismissSetupWizard(page: Page): Promise<void> {
+	const modal = page.locator('[data-testid="cn-modal"]')
+	for (let attempt = 0; attempt < 6; attempt++) {
+		if ((await modal.isVisible().catch(() => false)) === false) {
+			await page.waitForTimeout(600)
+			if ((await modal.isVisible().catch(() => false)) === false) {
+				return
+			}
+		}
+		await modal
+			.first()
+			.getByRole('button', { name: 'Close' })
+			.click({ timeout: 2_000 })
+			.catch(() => {})
+		await page.keyboard.press('Escape').catch(() => {})
+		await page.waitForTimeout(700)
+	}
+}
+
+/**
  * Open the Integrations page the way its menu entry does, with the preset.
  *
  * @param page The Playwright page.
@@ -101,12 +128,13 @@ async function openIntegrations(page: Page): Promise<void> {
 		waitUntil: 'domcontentloaded',
 	})
 	await expect(page.locator('.cn-index-page')).toBeVisible({ timeout: 30_000 })
+	await dismissSetupWizard(page)
 }
 
 test.describe('Integrations', () => {
 	// @e2e app-connections::the-declaration-lists-the-six-connections
 	// @e2e app-connections::the-page-opens-on-hermiqs-own-rows
-	test('lists the six declared connections, and only hermiq rows', async ({
+	test('lists the declared connections, and only hermiq rows', async ({
 		page,
 	}) => {
 		const byKey = await connectionsByKey(page.request)
@@ -117,11 +145,13 @@ test.describe('Integrations', () => {
 
 		await openIntegrations(page)
 		for (const key of DECLARED_KEYS) {
+			// By a cell holding exactly the title: another row's description can
+			// name it ("LLM runner ExApp" mentions the AI provider).
 			await expect(
-				page.getByRole('row', {
-					name: new RegExp(String(byKey[key].title), 'i'),
-				}),
-			).toBeVisible()
+				page
+					.getByRole('row')
+					.filter({ has: page.getByText(String(byKey[key].title), { exact: true }) }),
+			).toHaveCount(1)
 		}
 	})
 
@@ -188,8 +218,9 @@ test.describe('Integrations', () => {
 		const settingsApi = `${APP_BASE}/api/settings/web-research`
 
 		// Snapshot what this test changes, so the next run starts from the same page.
-		const before = await page.request.get(settingsApi)
-		expect(before.ok()).toBeTruthy()
+		// The settings route is not exempt from the CSRF check, so the read carries the token too.
+		const before = await page.request.get(settingsApi, { headers })
+		expect(before.ok(), `read web research -> ${before.status()}`).toBeTruthy()
 		const previous = await before.json()
 		test.skip(
 			String(previous.searchEndpoint ?? '') !== '',

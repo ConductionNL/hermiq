@@ -9,7 +9,7 @@
   message and never uses a browser speech engine. The logic lives in
   src/utils/speech.js (createDictation), tested in tests/chat-speech.spec.js.
 
-  @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
+  @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
 -->
 <template>
 	<NcButton
@@ -139,7 +139,7 @@ export default {
 		 * Start or stop the recording.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
 		 */
 		toggle() {
 			return this.dictation.toggle()

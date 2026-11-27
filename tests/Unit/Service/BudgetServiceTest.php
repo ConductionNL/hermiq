@@ -40,6 +40,10 @@ use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectFindOptions as PublishedObjectFindOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * Tests for the cost-guardrails BudgetService.
@@ -88,15 +92,16 @@ class BudgetServiceTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?array $_extend = [],
-				bool $files = false,
-				mixed $register = null,
-				mixed $schema = null,
+				ObjectFindOptions|PublishedObjectFindOptions|null $options = null,
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $_render = true,
-				bool $_audit = true,
+				bool $_multitenancy = true
 			): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
+				$_render = $options?->render ?? true;
+				$_audit = $options?->audit ?? true;
 				foreach (($this->bySchema[(string)$schema] ?? []) as $object) {
 					if ((string)$object->getUuid() === (string)$id) {
 						return $object;
@@ -108,25 +113,22 @@ class BudgetServiceTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				// openregister#2211 (insert-only saves) added this. A double that
-				// drifts from the real signature is a FATAL, not a failed
-				// assertion: PHP refuses to declare the class and the whole
-				// suite dies before it runs.
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				// Added by openregister (duplicate detection), seen 2026-09-16.
-				bool $_dedupOverride = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$this->saved[] = is_array($object) ? $object : $object->getObject();
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'new-budget');
@@ -230,6 +232,7 @@ class BudgetServiceTest extends TestCase {
 	 * @param OrganisationMapper|null $orgMapper Optional custom org mapper.
 	 * @param AnalyticsService|null $analyticsService Optional custom AnalyticsService.
 	 * @param DeliveryService|null $deliveryService Optional custom DeliveryService mock.
+	 * @param LoggerInterface|null $logger Optional logger mock.
 	 *
 	 * @return BudgetService
 	 */
@@ -240,6 +243,7 @@ class BudgetServiceTest extends TestCase {
 		?OrganisationMapper $orgMapper = null,
 		?AnalyticsService $analyticsService = null,
 		?DeliveryService $deliveryService = null,
+		?LoggerInterface $logger = null,
 	): BudgetService {
 		$appConfig = $this->createMock(IAppConfig::class);
 		$appConfig->method('getValueString')->willReturn($eurRate);
@@ -254,7 +258,7 @@ class BudgetServiceTest extends TestCase {
 			organisationMapper: $orgMapper ?? $this->orgMapper('org-owner'),
 			deliveryService: $deliveryService ?? $this->createMock(DeliveryService::class),
 			analyticsService: $analyticsService ?? $this->createMock(AnalyticsService::class),
-			logger: $this->createMock(LoggerInterface::class),
+			logger: $logger ?? $this->createMock(LoggerInterface::class),
 		);
 
 	}//end service()
@@ -760,4 +764,150 @@ class BudgetServiceTest extends TestCase {
 	// home: BudgetController::destroy() deletes through OpenRegister directly,
 	// after findById() and the mayAdminister() check, and that path is covered
 	// by the controller's own tests.
+
+	/**
+	 * checkAndDeliverWarnings() logs and stops when the budgets cannot be read,
+	 * delivering nothing.
+	 *
+	 * @return void
+	 */
+	public function testCheckAndDeliverWarningsLogsWhenBudgetsCannotLoad(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willThrowException(new RuntimeException('register down'));
+		$delivery = $this->createMock(DeliveryService::class);
+		$delivery->expects($this->never())->method('deliverBudgetWarning');
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())
+			->method('warning')
+			->with('Hermiq could not load budgets for the soft-threshold check: register down', $this->arrayHasKey('exception'));
+
+		$service = new BudgetService(
+			objectService: $objectService,
+			auditTrailMapper: $this->createMock(AuditTrailMapper::class),
+			appConfig: $this->createMock(IAppConfig::class),
+			organisationMapper: $this->orgMapper('alice'),
+			deliveryService: $delivery,
+			analyticsService: $this->createMock(AnalyticsService::class),
+			logger: $logger,
+		);
+		$service->checkAndDeliverWarnings(organisation: 'org-a', agentId: null);
+
+	}//end testCheckAndDeliverWarningsLogsWhenBudgetsCannotLoad()
+
+	/**
+	 * checkAndDeliverWarnings() logs a failed delivery and still delivers the next
+	 * due budget's warning.
+	 *
+	 * @return void
+	 */
+	public function testCheckAndDeliverWarningsContinuesAfterAFailedDelivery(): void {
+		$bySchema = [
+			'agentbudget' => [
+				$this->budget('b1', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 100000, 'softThresholdPercent' => 80]),
+				$this->budget('b2', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 90000, 'softThresholdPercent' => 80]),
+			],
+			'schedule' => [$this->schedule('s1', 'org-a', 'agent-1')],
+			'__runs__' => [$this->runEntry('s1', 50000, 35000)],
+		];
+
+		$delivered = [];
+		$delivery = $this->createMock(DeliveryService::class);
+		$delivery->method('deliverBudgetWarning')->willReturnCallback(
+			static function (ObjectEntity $budget, array $recipientUids) use (&$delivered): DeliveryResult {
+				$delivered[] = [$budget->getUuid(), $recipientUids];
+				if ($budget->getUuid() === 'b1') {
+					throw new RuntimeException('notification backend down');
+				}
+
+				return new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null);
+			}
+		);
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())
+			->method('warning')
+			->with('Hermiq could not deliver a budget soft-threshold warning: notification backend down', $this->arrayHasKey('exception'));
+
+		$service = $this->service(bySchema: $bySchema, orgMapper: $this->orgMapper('alice'), deliveryService: $delivery, logger: $logger);
+		$service->checkAndDeliverWarnings(organisation: 'org-a', agentId: null);
+
+		$this->assertSame([['b1', ['alice']], ['b2', ['alice']]], $delivered);
+
+	}//end testCheckAndDeliverWarningsContinuesAfterAFailedDelivery()
+
+	/**
+	 * The dispatch-path budget read is system-wide (RBAC and multitenancy off), asks
+	 * for enabled budgets only, re-checks enabled, and keeps the budgets whose scope
+	 * matches the organisation or the agent, in read order.
+	 *
+	 * @return void
+	 */
+	public function testTheSystemWideBudgetReadKeepsEnabledMatchingBudgets(): void {
+		$matchOrg = $this->budget('org', 'org-a', ['scope' => 'organisation']);
+		$matchAgent = $this->budget('agent', 'org-z', ['scope' => 'agent', 'agentId' => 'agent-1']);
+		$objects = [
+			'not-an-entity',
+			$this->budget('off', 'org-a', ['scope' => 'organisation', 'enabled' => false]),
+			$this->budget('foreign', 'org-b', ['scope' => 'organisation']),
+			$matchOrg,
+			$this->budget('other-agent', 'org-a', ['scope' => 'agent', 'agentId' => 'agent-2']),
+			$this->budget('unset', 'org-a', ['scope' => 'organisation', 'enabled' => null]),
+			$matchAgent,
+		];
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->expects($this->once())
+			->method('findAll')
+			->with(['filters' => ['enabled' => true]], false, false)
+			->willReturn($objects);
+
+		$service = new BudgetService(
+			objectService: $objectService,
+			auditTrailMapper: $this->createMock(AuditTrailMapper::class),
+			appConfig: $this->createMock(IAppConfig::class),
+			organisationMapper: $this->orgMapper('alice'),
+			deliveryService: $this->createMock(DeliveryService::class),
+			analyticsService: $this->createMock(AnalyticsService::class),
+			logger: $this->createMock(LoggerInterface::class),
+		);
+		$read = new \ReflectionMethod(BudgetService::class, 'matchingBudgetsSystemWide');
+
+		$matches = $read->invoke($service, 'org-a', 'agent-1');
+
+		$this->assertSame(['org', 'unset', 'agent'], array_map(static fn (ObjectEntity $budget): string => (string)$budget->getUuid(), $matches));
+
+	}//end testTheSystemWideBudgetReadKeepsEnabledMatchingBudgets()
+
+	/**
+	 * create() refuses each invalid payload with its own message, in the order scope,
+	 * agent, period, limits; a zero limit counts as set.
+	 *
+	 * @return void
+	 */
+	public function testCreateRefusesEachInvalidPayloadWithItsMessage(): void {
+		$service = $this->service(bySchema: []);
+		$cases = [
+			[['scope' => 'team', 'period' => 'yearly'], 'scope must be "organisation" or "agent"'],
+			[['scope' => 'agent', 'agentId' => '  ', 'period' => 'yearly'], 'agentId is required when scope=agent'],
+			[['scope' => 'agent', 'agentId' => 'a-1', 'period' => 'yearly'], 'period must be "daily", "weekly" or "monthly"'],
+			[['scope' => 'organisation', 'period' => 'daily', 'tokenLimit' => '', 'eurLimit' => null], 'At least one of tokenLimit or eurLimit is required'],
+		];
+		foreach ($cases as [$payload, $message]) {
+			try {
+				$service->create(payload: $payload, organisation: 'org-a');
+				$this->fail('Expected a refusal for ' . json_encode($payload));
+			} catch (InvalidArgumentException $e) {
+				$this->assertSame($message, $e->getMessage());
+			}
+		}
+
+		$saved = [];
+		$valid = $this->service(bySchema: [], saved: $saved);
+		$valid->create(payload: ['scope' => 'organisation', 'period' => 'weekly', 'eurLimit' => 0], organisation: 'org-a');
+		$valid->create(payload: ['scope' => 'agent', 'agentId' => 'a-1', 'period' => 'monthly', 'tokenLimit' => '5'], organisation: 'org-a');
+		$this->assertCount(2, $saved);
+
+	}//end testCreateRefusesEachInvalidPayloadWithItsMessage()
 }//end class

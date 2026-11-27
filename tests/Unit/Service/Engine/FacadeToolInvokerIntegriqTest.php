@@ -23,7 +23,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use PHPUnit\Framework\TestCase;
 
 /**

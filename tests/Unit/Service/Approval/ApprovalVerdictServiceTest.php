@@ -290,4 +290,37 @@ class ApprovalVerdictServiceTest extends TestCase {
 		$this->service(approval: $this->approval())->verify(request: $this->request(override: ['binding' => ['x']]));
 
 	}//end testANonStringFieldIsRefused()
+
+	/**
+	 * The whole verdict, in field order, for an approved, a pending, an expired, an
+	 * unreadable-date and an unknown approval: the request fields, then approved,
+	 * reason and the decision (withheld for an identity refusal), then issuedAt.
+	 *
+	 * @return void
+	 */
+	public function testTheWholeVerdictInFieldOrder(): void {
+		$request = $this->request();
+		$tail = static fn (bool $approved, string $reason, ?string $by, ?string $at, ?string $expires): array => [
+			'approved' => $approved,
+			'reason' => $reason,
+			'decidedBy' => $by,
+			'decidedAt' => $at,
+			'expiresAt' => $expires,
+			'issuedAt' => '2026-09-30T10:05:00+00:00',
+		];
+		$cases = [
+			[$this->approval(), $request, $tail(true, 'approved', 'anna', '2026-09-30T10:00:00+00:00', '2026-09-30T11:00:00+00:00')],
+			[$this->approval(['status' => 'pending', 'decidedBy' => null, 'decidedAt' => null]), $request, $tail(false, 'pending', null, null, null)],
+			[$this->approval(['decidedAt' => '2026-09-30T10:00:00+02:00']), $request, $tail(false, 'expired', 'anna', '2026-09-30T08:00:00+00:00', '2026-09-30T09:00:00+00:00')],
+			[$this->approval(['decidedAt' => 'not a date']), $request, $tail(false, 'expired', 'anna', null, null)],
+			[$this->approval(['decidedBy' => 7]), $request, $tail(true, 'approved', null, '2026-09-30T10:00:00+00:00', '2026-09-30T11:00:00+00:00')],
+			[null, $this->request(['approvalId' => 'nope']), $tail(false, 'unknown', null, null, null)],
+			[$this->approval(), $this->request(['actingAgent' => 'g2']), $tail(false, 'binding-mismatch', null, null, null)],
+		];
+		foreach ($cases as $index => [$approval, $asked, $expectedTail]) {
+			$verdict = $this->service(approval: $approval)->verify(request: $asked)['verdict'];
+			$this->assertSame($asked + $expectedTail, $verdict, 'case ' . $index);
+		}
+
+	}//end testTheWholeVerdictInFieldOrder()
 }//end class

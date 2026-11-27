@@ -320,3 +320,80 @@ test.describe('tool grant matrix', () => {
 		).toEqual([])
 	})
 })
+
+/**
+ * structured-tool-grants task 5: a save through the matrix keeps every stored
+ * grant it did not change, including two grants for one tool that differ only
+ * by their argument constraint.
+ *
+ * 🔴 The matrix has destroyed 7 of 8 grants before while every unit test stayed
+ * green, because the tests exercised the codec and not the round trip through
+ * the page. This test therefore goes through the page: the seeded grants are
+ * read by the widget, one unrelated cell is ticked so Save is enabled, and the
+ * stored value afterwards must hold the seeded grants verbatim plus that one.
+ */
+test.describe('tool grant matrix: a save keeps what it did not touch', () => {
+	test.beforeEach(async ({ page }) => {
+		await login(page)
+	})
+
+	// @e2e structured-tool-grants::an-untouched-save-loses-nothing
+	test('an untouched grant, and both constrained grants for one tool, survive a save', async ({
+		page,
+	}) => {
+		const seeded = [
+			'hermiq.listFiles',
+			'openregister.runFlow?flowId=e2e-flow-a',
+			'openregister.runFlow?flowId=e2e-flow-b',
+		]
+
+		await page.goto('/apps/hermiq/', { waitUntil: 'domcontentloaded' })
+		const token = await page.evaluate(() => (window as unknown as { OC: { requestToken: string } }).OC.requestToken)
+		const headers = { requesttoken: token, 'Content-Type': 'application/json', 'OCS-APIRequest': 'true' }
+
+		const created = await page.request.post('/index.php/apps/openregister/api/objects/hermiq/agent', {
+			headers,
+			data: { name: `e2espec-${Date.now()}-grants`, tools: seeded },
+		})
+		expect([200, 201]).toContain(created.status())
+		const body = await created.json()
+		const id = String(body.id ?? body['@self']?.id ?? body.uuid ?? '')
+		expect(id).not.toBe('')
+
+		try {
+			await page.goto(`/apps/hermiq/agents/${id}`, { waitUntil: 'domcontentloaded' })
+			await expect(page.getByText('Tool grants').first()).toBeVisible({ timeout: 30_000 })
+
+			// Nothing changed yet: there is nothing to save, so nothing can be lost.
+			const save = page.getByRole('button', { name: 'Save', exact: true })
+			await expect(save).toBeDisabled()
+
+			// Tick one cell the seed did not grant, so the save has something to write.
+			const toggles = clusterToggles(page)
+			await toggles.first().click()
+			const cell = page.getByRole('checkbox', { name: /^Grant / }).and(page.locator(':not(:checked)')).first()
+			await cell.check()
+			await expect(save).toBeEnabled()
+
+			const written = page.waitForResponse(
+				(res) => res.url().includes(`/api/agents/${id}/tool-grants`) && res.request().method() === 'PUT',
+			)
+			await save.click()
+			expect((await written).status()).toBe(200)
+
+			const stored = await page.request.get(`/index.php/apps/openregister/api/objects/hermiq/agent/${id}`, { headers })
+			expect(stored.status()).toBe(200)
+			const tools = (await stored.json()).tools as unknown
+
+			// The schema declares a list, and the write converges on it.
+			expect(Array.isArray(tools)).toBe(true)
+			const grants = tools as string[]
+			for (const grant of seeded) {
+				expect(grants, `${grant} must survive a save that did not touch it`).toContain(grant)
+			}
+			expect(grants.length, 'exactly one grant was added').toBe(seeded.length + 1)
+		} finally {
+			await page.request.delete(`/index.php/apps/openregister/api/objects/hermiq/agent/${id}`, { headers }).catch(() => null)
+		}
+	})
+})

@@ -19,15 +19,15 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Agent\AgentDraftService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentDraftServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentDraftUnreadableException;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -41,7 +41,7 @@ use Throwable;
 /**
  * Check an agent draft from chat.
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 class AgentDraftController extends Controller {
 
@@ -49,17 +49,17 @@ class AgentDraftController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest          $request     The request.
-	 * @param AgentDraftService $drafts      The draft check.
+	 * @param AgentDraftServiceInterface $drafts      The draft check.
 	 * @param IUserSession      $userSession The signed-in user.
 	 * @param LoggerInterface   $logger      PSR-3 logger.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AgentDraftService $drafts,
+		private readonly AgentDraftServiceInterface $drafts,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -67,7 +67,7 @@ class AgentDraftController extends Controller {
 	 *
 	 * @return JSONResponse `{draft, findings}`, or 422 when the draft cannot be read.
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 	 */
 	#[NoAdminRequired]
 	public function check(): JSONResponse {

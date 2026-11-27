@@ -36,7 +36,7 @@ use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\App\IAppManager;
 use OCP\IAppConfig;
@@ -44,6 +44,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests for AssistantService.
@@ -343,7 +344,9 @@ class AssistantServiceTest extends TestCase {
 			}
 		);
 
-		$this->historyHandler->method('buildMessageHistory')->willReturn([]);
+		$this->historyHandler->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
 		$this->historyHandler->expects($this->exactly(2))->method('storeMessage');
 
 		$this->responseHandler->method('generateResponse')->with(
@@ -549,7 +552,7 @@ class AssistantServiceTest extends TestCase {
 		$this->objectService->method('findAll')->willReturn([$agent]);
 
 		$this->historyHandler->expects($this->never())->method('storeMessage');
-		$this->historyHandler->expects($this->never())->method('buildMessageHistory');
+		$this->historyHandler->expects($this->never())->method('buildTurnHistory');
 
 		$this->responseHandler->method('generateResponse')->willReturn('{"spans":[]}');
 		$this->responseHandler->lastUsage = [];
@@ -676,11 +679,14 @@ class AssistantServiceTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$args = $passed;
 				return $this->entity('conv-new', $passed[0]);
 			}
 		);
-		$this->historyHandler->method('buildMessageHistory')->willReturn([]);
+		$this->historyHandler->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
 		$this->responseHandler->method('generateResponse')->willReturn('Hello.');
 		$this->responseHandler->lastUsage = [];
 
@@ -725,7 +731,12 @@ class AssistantServiceTest extends TestCase {
 	public function testAnUnprovisionedAgentRefusedByTheRegisterGives403AndNoSession(): void {
 		$this->objectService->method('findAll')->willReturn([]);
 		$this->objectService->expects($this->once())->method('saveObject')
-			->with($this->anything(), $this->anything(), 'hermiq', 'agent')
+			->with(...LegacyObjectArgs::with(method: 'saveObject', expected: [
+				'object' => $this->anything(),
+				'extend' => $this->anything(),
+				'register' => 'hermiq',
+				'schema' => 'agent',
+			]))
 			->willThrowException(new \Exception("User 'bob' does not have permission to 'create' objects in schema 'Agent'", 403));
 
 		$this->expectExceptionCode(403);
@@ -741,6 +752,7 @@ class AssistantServiceTest extends TestCase {
 		$calls = new \ArrayObject();
 		$this->objectService->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use ($calls): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$calls[] = $passed;
 				return $this->entity('saved-' . count($calls), $passed[0]);
 			}
@@ -767,7 +779,9 @@ class AssistantServiceTest extends TestCase {
 		$this->objectService->method('findAll')->willReturn([]);
 		$this->objectService->method('find')->willReturnCallback(fn (string $id): ObjectEntity => $this->entity($id, ['tools' => ['__none__']]));
 		$calls = $this->captureSaves();
-		$this->historyHandler->method('buildMessageHistory')->willReturn([]);
+		$this->historyHandler->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
 		$this->responseHandler->method('generateResponse')->willReturn('Hello.');
 		$this->responseHandler->lastUsage = [];
 
@@ -855,7 +869,9 @@ class AssistantServiceTest extends TestCase {
 		$this->objectService->method('findAll')->willReturn([]);
 		$this->objectService->method('find')->willReturnCallback(fn (string $id): ObjectEntity => $this->entity($id, ['tools' => ['__none__']]));
 		$calls = $this->captureSaves();
-		$this->historyHandler->method('buildMessageHistory')->willReturn([]);
+		$this->historyHandler->method('buildTurnHistory')->willReturnCallback(
+			static fn (string $conversationId, ObjectEntity $turn, string $text): array => ['history' => [], 'turnText' => $text]
+		);
 		$this->responseHandler->method('generateResponse')->willReturn('Hello.');
 		$this->responseHandler->lastUsage = [];
 

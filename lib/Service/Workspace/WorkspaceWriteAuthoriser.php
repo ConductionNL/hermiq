@@ -66,23 +66,12 @@ class WorkspaceWriteAuthoriser {
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-an-unapproved-write-is-refused-before-it-happens
 	 */
 	public function assertAuthorised(array $run, string $toolId, array $workspace): array {
-		if ($run['agentId'] === '') {
-			throw new WorkspaceException(
-				errorCode: WorkspaceException::APPROVAL_REQUIRED,
-				message: 'This run has no agent to route an approval to, so it cannot write.'
-			);
-		}
+		$this->assertHasAgent(run: $run);
 
 		$decision = $this->approvals->runPreAuthorisation(agentId: $run['agentId'], runId: $run['runId']);
-		if ($decision !== null && $decision['status'] === 'approved' && $decision['decidedBy'] !== '') {
-			return ['approvalId' => $decision['uuid'], 'decidedBy' => $decision['decidedBy']];
-		}
-
-		if ($decision !== null && $decision['status'] === 'denied') {
-			throw new WorkspaceException(
-				errorCode: WorkspaceException::APPROVAL_DENIED,
-				message: 'A reviewer refused changes to this repository in this run. Do not try again in this run.'
-			);
+		$authorised = $this->authorisedBy(decision: $decision);
+		if ($authorised !== null) {
+			return $authorised;
 		}
 
 		$pending = $decision;
@@ -102,4 +91,58 @@ class WorkspaceWriteAuthoriser {
 				. 'The approval request is ' . $pending['uuid'] . '. Nothing was written.'
 		);
 	}//end assertAuthorised()
+
+	/**
+	 * Refuse a run that has no agent to route an approval to.
+	 *
+	 * @param array{runId: string, agentId: string, userId: string} $run The verified run.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException approval_required when the run has no agent.
+	 */
+	private function assertHasAgent(array $run): void {
+		if ($run['agentId'] === '') {
+			throw new WorkspaceException(
+				errorCode: WorkspaceException::APPROVAL_REQUIRED,
+				message: 'This run has no agent to route an approval to, so it cannot write.'
+			);
+		}
+	}//end assertHasAgent()
+
+	/**
+	 * The authorising decision when the run's pre-authorisation is approved and signed;
+	 * a denied one refuses; anything else is null.
+	 *
+	 * @param array<string, string>|null $decision The run's pre-authorisation, or null.
+	 *
+	 * @return array{approvalId: string, decidedBy: string}|null The decision, or null when still open.
+	 *
+	 * @throws WorkspaceException approval_denied when a reviewer refused.
+	 */
+	private function authorisedBy(?array $decision): ?array {
+		if ($decision !== null && $this->isSignedApproval(decision: $decision) === true) {
+			return ['approvalId' => $decision['uuid'], 'decidedBy' => $decision['decidedBy']];
+		}
+
+		if ($decision !== null && $decision['status'] === 'denied') {
+			throw new WorkspaceException(
+				errorCode: WorkspaceException::APPROVAL_DENIED,
+				message: 'A reviewer refused changes to this repository in this run. Do not try again in this run.'
+			);
+		}
+
+		return null;
+	}//end authorisedBy()
+
+	/**
+	 * Whether the decision is an approval someone signed.
+	 *
+	 * @param array<string, string> $decision The run's pre-authorisation.
+	 *
+	 * @return bool True for an approved decision with a decider.
+	 */
+	private function isSignedApproval(array $decision): bool {
+		return $decision['status'] === 'approved' && $decision['decidedBy'] !== '';
+	}//end isSignedApproval()
 }//end class

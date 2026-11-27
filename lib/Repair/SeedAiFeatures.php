@@ -23,14 +23,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#5-seed-data-adr-001-adr-003-single-write-path
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#5-seed-data-adr-001-adr-003-single-write-path
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\Hermiq\Repair\Support\AiFeatureRows;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -41,7 +43,7 @@ use Throwable;
 /**
  * Seed the realistic AiFeature governance objects via ObjectService (idempotent).
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
  */
 class SeedAiFeatures implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -77,7 +79,7 @@ class SeedAiFeatures implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
 	 */
 	public function getName(): string {
 		return 'Seed AI-feature governance register (ai-feature-governance-register)';
@@ -90,7 +92,7 @@ class SeedAiFeatures implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -133,8 +135,7 @@ class SeedAiFeatures implements IRepairStep {
 
 				$objectService->saveObject(
 					object: $feature,
-					register: self::REGISTER_SLUG,
-					schema: self::AIFEATURE_SCHEMA,
+					options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA)),
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -154,7 +155,8 @@ class SeedAiFeatures implements IRepairStep {
 	 *
 	 * @return array<int, array<string, mixed>> The seed objects.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/chat-translate-a-recording/tasks.md#task-2-the-feature-its-residency-and-the-pre-start-notice
 	 */
 	private function seedFeatures(): array {
 		return [
@@ -170,6 +172,14 @@ class SeedAiFeatures implements IRepairStep {
 				'slug' => 'skill-code-execution',
 				'name' => 'Skill code execution',
 				'description' => 'An installed skill executes code as part of an agent run.',
+				'riskCategory' => 'high',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
+				'slug' => 'agent-code-execution',
+				'name' => 'Agent code execution',
+				'description' => 'An agent runs code it wrote in an isolated sandbox.',
 				'riskCategory' => 'high',
 				'lifecycle' => 'disabled',
 				'tenantId' => '',
@@ -206,6 +216,41 @@ class SeedAiFeatures implements IRepairStep {
 				'lifecycle' => 'disabled',
 				'tenantId' => '',
 			],
+			[
+				// Chat-translate-a-recording D2: off until the organisation's DPO
+				// acknowledges it. Its binding and required residency govern the one
+				// step that may leave the instance, the translation of the transcript.
+				'slug' => 'speech-translation',
+				'name' => 'Translate a recording',
+				'description' => 'Transcribes a recording on this server, translates the text with the model bound to this '
+					. 'feature, and speaks the translation. The spoken result is saved in the requester\'s Files and '
+					. 'tagged Agent authored.',
+				'riskCategory' => 'limited',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
+				// Tools-browser-and-computer-use D4: a screen can show anything, and
+				// it goes to the model provider, so high-risk and off until the DPO
+				// acknowledges it. A tool grant alone never unlocks it.
+				'slug' => 'computer-use',
+				'name' => 'Computer use',
+				'description' => 'An agent operates a desktop application on a registered machine by looking at its screen and clicking.',
+				'riskCategory' => 'high',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
+				// Delivery-public-web-chat D5: an organisation decides to go public,
+				// so the public chat channel stays off until the DPO acknowledges it.
+				'slug' => 'public-chat',
+				'name' => 'Public web chat',
+				'description' => 'An agent answers visitors of a public website or portal who have not signed in, '
+					. 'only from content the organisation declared public, without tools.',
+				'riskCategory' => 'limited',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
 		];
 
 	}//end seedFeatures()
@@ -218,28 +263,9 @@ class SeedAiFeatures implements IRepairStep {
 	 *
 	 * @return bool True when a matching object exists.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-5-1
 	 */
 	private function slugExists(ObjectService $objectService, string $slug): bool {
-		$objects = $objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AIFEATURE_SCHEMA)
-			->findAll(
-				config: ['filters' => ['slug' => $slug], 'limit' => 200],
-				_rbac: false,
-				_multitenancy: false
-			);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['slug'] ?? '') === $slug) {
-				return true;
-			}
-		}
-
-		return false;
+		return (new AiFeatureRows(objectService: $objectService))->exists(slug: $slug);
 	}//end slugExists()
 }//end class

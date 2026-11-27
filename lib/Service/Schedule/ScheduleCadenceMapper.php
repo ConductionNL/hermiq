@@ -29,6 +29,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Schedule;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Flow\Nodes\TriggerScheduleNode;
 use OCP\IConfig;
 
 /**
@@ -52,8 +53,9 @@ class ScheduleCadenceMapper {
 	/**
 	 * The cron expression the engine should fire this schedule on, or null.
 	 *
-	 * `kind=cron` passes through when it has 5 fields AND the timezone
-	 * difference between the owner and the server cannot change its meaning.
+	 * `kind=cron` passes through when it has 5 fields AND either the timezone
+	 * difference between the owner and the server cannot change its meaning,
+	 * or the engine reads the cron in the owner's zone (see mirrorTimezone()).
 	 * `kind=interval` derives a pure-cadence expression when the minutes
 	 * divide an hour, or whole hours divide a day; a cadence survives any
 	 * fixed offset, so it needs no timezone check. `kind=once` never maps:
@@ -103,7 +105,7 @@ class ScheduleCadenceMapper {
 			return 'this interval has no 5-field cron form; it stays local (staged phase 2)';
 		}
 
-		return 'this cron is not a 5-field timezone-safe expression the engine can evaluate; it stays local (staged phase 2)';
+		return 'this cron is not a 5-field expression the engine can evaluate in its owner\'s timezone; it stays local (staged phase 2)';
 	}//end gapReason()
 
 	/**
@@ -122,12 +124,93 @@ class ScheduleCadenceMapper {
 			return null;
 		}
 
-		if ($this->timezoneSafe(fields: $fields, owner: $owner) === false) {
-			return null;
+		if ($this->timezoneSafe(fields: $fields, owner: $owner) === true) {
+			return $cron;
 		}
 
-		return $cron;
+		if ($this->engineTimezoneFor(owner: $owner) !== '') {
+			// The engine reads the cron in the owner's timezone itself, so the
+			// expression travels unchanged with the zone on the trigger node.
+			return $cron;
+		}
+
+		return null;
 	}//end passthroughCron()
+
+	/**
+	 * The timezone the mirror's trigger node must carry, or '' when none is needed.
+	 *
+	 * Only a timezone-SENSITIVE 5-field `kind=cron` needs one: a safe cron
+	 * (same zone, or a pure minute cadence) and every interval mirror without
+	 * it, so mirrors made before the engine read timezones stay untouched.
+	 * A sensitive cron gets the owner's zone when the engine reads the key;
+	 * otherwise '' (and mappedCron() keeps it local).
+	 *
+	 * @param ObjectEntity $schedule The schedule.
+	 *
+	 * @return string The timezone identifier, or ''.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
+	 */
+	public function mirrorTimezone(ObjectEntity $schedule): string {
+		$data = $schedule->getObject();
+		if ((string)($data['kind'] ?? '') !== 'cron') {
+			return '';
+		}
+
+		$fields = preg_split('/\s+/', trim((string)($data['cronExpr'] ?? '')));
+		if (is_array($fields) === false || count($fields) !== 5) {
+			return '';
+		}
+
+		$owner = (string)($schedule->getOwner() ?? '');
+		if ($this->timezoneSafe(fields: $fields, owner: $owner) === true) {
+			return '';
+		}
+
+		return $this->engineTimezoneFor(owner: $owner);
+	}//end mirrorTimezone()
+
+	/**
+	 * The owner's zone when the engine can read a cron in it, else ''.
+	 *
+	 * '' when the installed OpenRegister does not read the trigger's
+	 * `timezone` key, and '' for a zone PHP does not know: the engine would
+	 * silently read such a cron in the server's zone, which is exactly the
+	 * shift this check exists to prevent.
+	 *
+	 * @param string $owner The owner uid.
+	 *
+	 * @return string The timezone identifier, or ''.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
+	 */
+	private function engineTimezoneFor(string $owner): string {
+		if ($this->engineReadsTimezone() === false) {
+			return '';
+		}
+
+		$zone = $this->ownerTimezoneName(owner: $owner);
+		if (in_array(needle: $zone, haystack: timezone_identifiers_list(), strict: true) === false) {
+			return '';
+		}
+
+		return $zone;
+	}//end engineTimezoneFor()
+
+	/**
+	 * Whether the installed OpenRegister reads a schedule trigger's `timezone` key.
+	 *
+	 * The probe OpenRegister documents on `TriggerScheduleNode::CONFIG_TIMEZONE`.
+	 * Protected so a test can pin either engine.
+	 *
+	 * @return boolean True when the engine reads the cron in a named timezone.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
+	 */
+	protected function engineReadsTimezone(): bool {
+		return defined(TriggerScheduleNode::class . '::CONFIG_TIMEZONE');
+	}//end engineReadsTimezone()
 
 	/**
 	 * Whether owner-vs-server timezone difference can change this cron's meaning.
@@ -152,14 +235,35 @@ class ScheduleCadenceMapper {
 			return true;
 		}
 
-		$minuteIsCadence = ($fields[0] === '*' || preg_match('/^\*\/\d+$/', $fields[0]) === 1);
+		$minuteIsCadence = $this->isMinuteCadence(minute: $fields[0]);
 
-		return $minuteIsCadence
-			&& $fields[1] === '*'
+		return $minuteIsCadence && $this->hourAndDateAreUnset(fields: $fields);
+	}//end timezoneSafe()
+
+	/**
+	 * Whether a cron minute field is every minute or a pure every-N-minutes cadence.
+	 *
+	 * @param string $minute The minute field.
+	 *
+	 * @return boolean True for every minute or every N minutes.
+	 */
+	private function isMinuteCadence(string $minute): bool {
+		return $minute === '*' || preg_match('/^\*\/\d+$/', $minute) === 1;
+	}//end isMinuteCadence()
+
+	/**
+	 * Whether the hour, day, month and weekday fields are all `*`.
+	 *
+	 * @param array<int,string> $fields The 5 cron fields.
+	 *
+	 * @return boolean True when none of them is set.
+	 */
+	private function hourAndDateAreUnset(array $fields): bool {
+		return $fields[1] === '*'
 			&& $fields[2] === '*'
 			&& $fields[3] === '*'
 			&& $fields[4] === '*';
-	}//end timezoneSafe()
+	}//end hourAndDateAreUnset()
 
 	/**
 	 * The owner's resolved timezone name, mirroring the dispatcher's rule.
@@ -202,16 +306,38 @@ class ScheduleCadenceMapper {
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
 	 */
 	private function cronForInterval(int $minutes): ?string {
-		if ($minutes >= 1 && $minutes < 60) {
+		if ($this->isUnderAnHour(minutes: $minutes) === true) {
 			return $this->minuteCadence(minutes: $minutes);
 		}
 
-		if ($minutes >= 60 && ($minutes % 60) === 0) {
+		if ($this->isWholeHours(minutes: $minutes) === true) {
 			return $this->hourCadence(hours: intdiv($minutes, 60));
 		}
 
 		return null;
 	}//end cronForInterval()
+
+	/**
+	 * Whether an interval is 1 to 59 minutes.
+	 *
+	 * @param int $minutes The interval in minutes.
+	 *
+	 * @return boolean True when it is shorter than an hour.
+	 */
+	private function isUnderAnHour(int $minutes): bool {
+		return $minutes >= 1 && $minutes < 60;
+	}//end isUnderAnHour()
+
+	/**
+	 * Whether an interval is one or more whole hours.
+	 *
+	 * @param int $minutes The interval in minutes.
+	 *
+	 * @return boolean True when it is a multiple of 60, at least 60.
+	 */
+	private function isWholeHours(int $minutes): bool {
+		return $minutes >= 60 && ($minutes % 60) === 0;
+	}//end isWholeHours()
 
 	/**
 	 * A sub-hour cadence, when the minutes divide an hour evenly.

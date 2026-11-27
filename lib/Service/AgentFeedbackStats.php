@@ -89,39 +89,12 @@ class AgentFeedbackStats
      */
     public function tally(array $visibleAgents, ?string $agentId, array $perAgent): array
     {
-        $feedback = ['positive' => 0, 'negative' => 0];
+        $tally = new FeedbackTally(visibleAgents: $visibleAgents, perAgent: $perAgent);
         foreach ($this->loadFeedback(visibleAgents: $visibleAgents, agentId: $agentId) as $row) {
-            $ratedAgent = (string) ($row['agentId'] ?? '');
-            $type       = (string) ($row['type'] ?? '');
-            if ($type !== 'positive' && $type !== 'negative') {
-                continue;
-            }
-
-            $feedback[$type]++;
-            if (isset($perAgent[$ratedAgent]) === false) {
-                $label = $visibleAgents[$ratedAgent];
-                if ($label === '') {
-                    $label = $ratedAgent;
-                }
-
-                $perAgent[$ratedAgent] = ['agentId' => $ratedAgent, 'name' => $label, 'runs' => 0, 'success' => 0];
-            }
-
-            $perAgent[$ratedAgent][$type] = (($perAgent[$ratedAgent][$type] ?? 0) + 1);
+            $tally->add(row: $row);
         }
 
-        foreach (array_keys($perAgent) as $key) {
-            $perAgent[$key]['positive'] = ($perAgent[$key]['positive'] ?? 0);
-            $perAgent[$key]['negative'] = ($perAgent[$key]['negative'] ?? 0);
-        }
-
-        $rated = ($feedback['positive'] + $feedback['negative']);
-        $feedback['helpfulRate'] = null;
-        if ($rated > 0) {
-            $feedback['helpfulRate'] = round(($feedback['positive'] / $rated), 4);
-        }
-
-        return ['feedback' => $feedback, 'perAgent' => $perAgent];
+        return $tally->result();
 
     }//end tally()
 
@@ -188,23 +161,14 @@ class AgentFeedbackStats
             ->setRegister(self::REGISTER_SLUG)
             ->setSchema(self::FEEDBACK_SCHEMA);
 
-        $query = ['_limit' => self::PAGE_SIZE];
-        if ($agentId !== null && $agentId !== '') {
-            $query['agentId'] = $agentId;
-        }
-
+        $query  = $this->feedbackQuery(agentId: $agentId);
         $rows   = [];
         $offset = 0;
         do {
             $query['_offset'] = $offset;
             $result           = $scoped->searchObjectsPaginated(query: $query);
             $page             = ($result['results'] ?? []);
-            foreach ($page as $object) {
-                $row = $this->visibleRow(object: $object, visibleAgents: $visibleAgents);
-                if ($row !== null) {
-                    $rows[] = $row;
-                }
-            }
+            array_push($rows, ...$this->visibleRows(page: $page, visibleAgents: $visibleAgents));
 
             $offset += self::PAGE_SIZE;
             $total   = (int) ($result['total'] ?? 0);
@@ -213,6 +177,46 @@ class AgentFeedbackStats
         return $rows;
 
     }//end loadFeedback()
+
+    /**
+     * The feedback search query: one page, narrowed to one agent when one is given.
+     *
+     * @param string|null $agentId The agent to narrow to, or null/empty for every agent.
+     *
+     * @return array<string, int|string>
+     */
+    private function feedbackQuery(?string $agentId): array
+    {
+        $query = ['_limit' => self::PAGE_SIZE];
+        if ($agentId !== null && $agentId !== '') {
+            $query['agentId'] = $agentId;
+        }
+
+        return $query;
+
+    }//end feedbackQuery()
+
+    /**
+     * The rows of one result page that are on a visible agent, in page order.
+     *
+     * @param array<int, mixed>     $page          One page of search results.
+     * @param array<string, string> $visibleAgents Map of visible agent UUID to name.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function visibleRows(array $page, array $visibleAgents): array
+    {
+        $rows = [];
+        foreach ($page as $object) {
+            $row = $this->visibleRow(object: $object, visibleAgents: $visibleAgents);
+            if ($row !== null) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+
+    }//end visibleRows()
 
     /**
      * One feedback object as a row, or null when it is not on a visible agent.

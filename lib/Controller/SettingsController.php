@@ -24,8 +24,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\SettingsService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\SettingsServiceInterface;
 use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -44,17 +44,17 @@ class SettingsController extends Controller {
 	 * Constructor for the SettingsController.
 	 *
 	 * @param IRequest $request The request object
-	 * @param SettingsService $settingsService The settings service
+	 * @param SettingsServiceInterface $settingsService The settings service
 	 * @param LoggerInterface $logger Records why a translated failure happened
 	 *
 	 * @return void
 	 */
 	public function __construct(
 		IRequest $request,
-		private SettingsService $settingsService,
+		private SettingsServiceInterface $settingsService,
 		private LoggerInterface $logger,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**

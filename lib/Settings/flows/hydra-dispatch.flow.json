@@ -1,0 +1,173 @@
+{
+  "name": "Hydra dispatch",
+  "description": "Polls the forge for queued work and starts at most POOL_SIZE pipelines at once. Replaces hydra-supervisor.sh's find_free_slot / acquire_slot loop. See openspec/changes/hydra-flows-first-port task 3.5 and design.md D7.",
+  "trigger": "schedule",
+  "cron": "*/5 * * * *",
+  "enabled": false,
+  "$bindings": {
+    "dispatch.agentId": "The uuid of the agent that runs a pipeline stage on the target instance. Instance-specific, so it cannot be checked in; an importer resolves it by name. This field previously read \"Hydra Builder\" — a display name, which `AgentMapper::findByUuid()` matches against the uuid COLUMN and therefore never resolves."
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "openregister.trigger-schedule",
+      "config": {},
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "claim",
+      "type": "openregister.flow-state",
+      "config": {
+        "slots": "slots",
+        "holder": "issueRef",
+        "capacity": 10,
+        "operation": "claim"
+      }
+    },
+    {
+      "id": "gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "dispatch",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.claimed"
+                },
+                true
+              ]
+            }
+          }
+        ],
+        "default": "stop-at-capacity"
+      }
+    },
+    {
+      "id": "dispatch",
+      "type": "hermiq.agent-step",
+      "config": {
+        "output": "stage",
+        "prompt": "Run the pipeline stage for {{issueRef}} in slot {{slot}}.\n\nAnswer with the verdict object your system prompt defines — `ran`, `stage`, `pass`, `failures`, `gates_run`, `gates_failed`, `summary` — and only when the stage actually ran. If you could not run it, answer in plain prose naming what you lacked, and do not emit JSON at all.",
+        "agentId": "b6d0d082-62fb-4f0c-b8bb-eff14b14af2b",
+        "$comment": "`expectJson` is HALF the verdict contract (builder-write-access-hardening task 4.3), and it is the half that catches a REFUSAL: the agent is instructed to answer in prose when it could not run the stage, and HermiqAgentNode::decode() throws on non-JSON, so 'could not run' becomes a thrown step failure rather than an item carrying an empty answer. The other half is the `verdict` router below, which catches a well-formed answer that claims nothing — `{}` decodes perfectly and would sail straight through this step.",
+        "expectJson": true
+      },
+      "onError": "stop"
+    },
+    {
+      "id": "verdict",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "release",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.stage.ran"
+                },
+                true
+              ]
+            }
+          }
+        ],
+        "default": "release-refused",
+        "$comment": "FAIL CLOSED. The shell gate runner's EXIT CODE was the failure count and `hydra-sequencer` routes on `exitCode == 0`; an agent step answers with an object instead, so the contract is restated here rather than inherited. `ran` — not `pass` — is what this routes on, because the two failure modes are not the same fact: a stage that RAN and FAILED is DATA (`ran: true`, `failures: 3`) and belongs on the ok path so the label machine can act on it, while a stage that COULD NOT RUN must never reach a path that reports a completed tick. ⚠️ `default` is mandatory and must be the refusal: RouterNode DROPS an item that matches no rule and has no default, and a dropped item is a run that finishes clean having done nothing — the exact shape of 'no verdict read as passed'. `{}`, a missing `ran`, or `ran: false` all land on `verdict-missing`."
+      }
+    },
+    {
+      "id": "release",
+      "type": "openregister.flow-state",
+      "config": {
+        "slot": "slot",
+        "slots": "slots",
+        "holder": "issueRef",
+        "operation": "release"
+      },
+      "exit": true
+    },
+    {
+      "id": "release-refused",
+      "type": "openregister.flow-state",
+      "config": {
+        "slot": "slot",
+        "slots": "slots",
+        "holder": "issueRef",
+        "$comment": "The slot is released on the refusal path TOO, before the stop. A stage that produced no verdict is a finished tick, not a running one; holding its slot would starve the pool over work that is already over, and would lean on the lock reaper to notice — which is a backstop, not a design.",
+        "operation": "release"
+      }
+    },
+    {
+      "id": "refuse",
+      "type": "openregister.end",
+      "config": {
+        "error": true,
+        "message": "The stage agent returned no verdict: `stage.ran` was not true. The tick is failed, not completed — a stage that could not run must not be indistinguishable from one that ran and found nothing."
+      }
+    },
+    {
+      "id": "stop-at-capacity",
+      "type": "openregister.end",
+      "config": {
+        "error": false,
+        "message": "All slots are occupied. The tick ends without dispatching; the next tick retries."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-claim",
+      "from": "start",
+      "to": "claim"
+    },
+    {
+      "id": "release-refuse",
+      "from": "release",
+      "to": "refuse"
+    },
+    {
+      "id": "claim-gate",
+      "from": "claim",
+      "to": "gate",
+      "title": "claimed"
+    },
+    {
+      "id": "gate-dispatch",
+      "from": "gate",
+      "to": "dispatch",
+      "title": "dispatching"
+    },
+    {
+      "id": "gate-stop-at-capacity",
+      "from": "gate",
+      "to": "stop-at-capacity",
+      "title": "at-capacity"
+    },
+    {
+      "id": "dispatch-verdict",
+      "from": "dispatch",
+      "to": "verdict",
+      "title": "dispatched"
+    },
+    {
+      "id": "verdict-release",
+      "from": "verdict",
+      "to": "release",
+      "title": "verdict-ok"
+    },
+    {
+      "id": "verdict-release-refused",
+      "from": "verdict",
+      "to": "release-refused",
+      "title": "verdict-missing"
+    },
+    {
+      "id": "release-refused-refuse",
+      "from": "release-refused",
+      "to": "refuse",
+      "title": "refused"
+    }
+  ]
+}

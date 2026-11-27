@@ -14,7 +14,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
  */
 
 declare(strict_types=1);
@@ -30,11 +30,13 @@ use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\NullLogger;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * Tests for SeedAgentBuilder.
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
  */
 class SeedAgentBuilderTest extends TestCase {
 
@@ -75,20 +77,22 @@ class SeedAgentBuilderTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				bool $_dedupOverride = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$this->writes++;
 				// A real UUID: the fragments declare format uuid on installedOn and skillInstalls.
 				$hex = md5((string)$schema . '-' . $this->writes);
@@ -122,7 +126,7 @@ class SeedAgentBuilderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
 	 */
 	public function testTwoRunsSeedOneSkillAndOneAgent(): void {
 		$store = $this->store();
@@ -196,7 +200,7 @@ class SeedAgentBuilderTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
 	 */
 	public function testNoToolWritesAHermiqSchema(): void {
 		$register = json_decode((string)file_get_contents(__DIR__ . '/../../../lib/Settings/hermiq_register.json'), true);

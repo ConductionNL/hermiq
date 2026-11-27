@@ -116,6 +116,27 @@ class GraphContextRetrieverTest extends TestCase {
 	}//end testAGraphTurnAssemblesTheVisibleNeighbourhood()
 
 	/**
+	 * The limit caps the result rows, in neighbourhood order, but never the relations.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#scenario-a-graph-mode-turn-assembles-a-neighborhood
+	 */
+	public function testTheLimitCapsTheRowsButNotTheRelations(): void {
+		$full = $this->retriever()->retrieve(query: 'What does Jan Jansen buy?', limit: 10);
+		$one = $this->retriever()->retrieve(query: 'What does Jan Jansen buy?', limit: 1);
+		$none = $this->retriever()->retrieve(query: 'What does Jan Jansen buy?', limit: 0);
+		$negative = $this->retriever()->retrieve(query: 'What does Jan Jansen buy?', limit: -1);
+
+		$this->assertSame(array_slice($full['results'], 0, 1), $one['results']);
+		$this->assertSame([], $none['results']);
+		$this->assertSame([], $negative['results']);
+		$this->assertSame($full['relations'], $one['relations']);
+		$this->assertSame($full['relations'], $none['relations']);
+
+	}//end testTheLimitCapsTheRowsButNotTheRelations()
+
+	/**
 	 * The text is read when the turn runs, so an edit after extraction shows up.
 	 *
 	 * @return void

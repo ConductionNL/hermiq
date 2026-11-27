@@ -29,14 +29,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md
- * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md
+ * @spec openspec/specs/message-translation/spec.md
+ * @spec openspec/specs/message-translation/spec.md
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\MessageTranslationEngineInterface;
+use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Translation\TranslationDisclosure;
 use Psr\Log\LoggerInterface;
@@ -45,9 +47,9 @@ use Throwable;
 /**
  * Gate-then-execute translation of ad-hoc text via the configured LLM provider.
  *
- * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md
+ * @spec openspec/specs/message-translation/spec.md
  */
-class MessageTranslationEngine {
+class MessageTranslationEngine implements MessageTranslationEngineInterface {
 
 	/**
 	 * The AiFeature slug this engine is gated by.
@@ -122,12 +124,12 @@ class MessageTranslationEngine {
 	 *                              `{available: false, reason, translatedByAi: false}` when the
 	 *                              feature is not enabled or the provider fails.
 	 *
-	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
-	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-002-a-successful-translation-always-carries-a-machine-translation-notice
-	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-004-a-provider-failure-degrades-to-unavailable-never-an-unhandled-error
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-006-every-translation-response-carries-its-ai-provenance
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-007-the-source-language-is-the-callers-or-detected-and-marked-as-detected
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-011-the-gate-answers-for-a-caller-without-a-nextcloud-session
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-001-translation-is-gated-by-a-limited-risk-dpo-enabled-aifeature
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-002-a-successful-translation-always-carries-a-machine-translation-notice
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-004-a-provider-failure-degrades-to-unavailable-never-an-unhandled-error
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-006-every-translation-response-carries-its-ai-provenance
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-007-the-source-language-is-the-callers-or-detected-and-marked-as-detected
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-011-the-gate-answers-for-a-caller-without-a-nextcloud-session
 	 */
 	public function translate(
 		string $sourceText,
@@ -143,49 +145,92 @@ class MessageTranslationEngine {
 			return $this->unavailableResult(reason: 'feature-not-enabled');
 		}
 
+		$request = [
+			'sourceText'     => $sourceText,
+			'targetLanguage' => $targetLanguage,
+			'glossary'       => $glossary,
+			'sourceLanguage' => $sourceLanguage,
+			'originalRef'    => $originalRef,
+		];
+
+		$translation = $this->machineTranslation(request: $request);
+		if ($translation === null) {
+			return $this->unavailableResult(reason: 'provider-error');
+		}
+
+		return $this->translatedResult(request: $request, translation: $translation);
+
+	}//end translate()
+
+	/**
+	 * Ask the provider for the translation. An empty answer and any provider
+	 * failure yield null (REQ-004): the caller degrades to unavailable.
+	 *
+	 * @param array{sourceText: string, targetLanguage: string, glossary: array} $request The text, the target and the glossary.
+	 *
+	 * @return array{text: string, provider: string, llmConfig: array}|null The translated text, provider and LLM config, or null.
+	 */
+	private function machineTranslation(array $request): ?array {
 		try {
 			$llmConfig = $this->providerFactory->getLlmConfig();
-			$provider  = (string)($llmConfig['chatProvider'] ?? '');
+			$provider = (string)($llmConfig['chatProvider'] ?? '');
+			if (trim($provider) === '') {
+				$provider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+			}
 
 			$translatedText = trim($this->providerFactory->generateText(
-				prompt: $this->buildPrompt(sourceText: $sourceText, targetLanguage: $targetLanguage, glossary: $glossary)
+				prompt: $this->buildPrompt(sourceText: $request['sourceText'], targetLanguage: $request['targetLanguage'], glossary: $request['glossary'])
 			));
 
 			if ($translatedText === '') {
-				return $this->unavailableResult(reason: 'provider-error');
+				return null;
 			}
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				'[MessageTranslationEngine] Translation failed: ' . $e->getMessage()
 			);
-			return $this->unavailableResult(reason: 'provider-error');
+			return null;
 		}//end try
 
-		// Provenance (REQ-006/REQ-007): caller first, detected second, und last.
-		$detected = false;
+		return ['text' => $translatedText, 'provider' => $provider, 'llmConfig' => $llmConfig];
+
+	}//end machineTranslation()
+
+	/**
+	 * The success envelope of a translation, with its provenance (REQ-006/REQ-007):
+	 * the caller's source language first, a detected one second, `und` last.
+	 *
+	 * @param array{sourceText: string, targetLanguage: string, sourceLanguage: ?string, originalRef: string} $request     The request.
+	 * @param array{text: string, provider: string, llmConfig: array}                                          $translation The provider's translation.
+	 *
+	 * @return array<string, mixed> The envelope.
+	 */
+	private function translatedResult(array $request, array $translation): array {
+		$sourceLanguage = $request['sourceLanguage'];
+		$detected       = false;
 		if ($sourceLanguage === null || $sourceLanguage === '') {
-			$sourceLanguage = $this->detectLanguage(sourceText: $sourceText);
+			$sourceLanguage = $this->detectLanguage(sourceText: $request['sourceText']);
 			$detected       = true;
 		}
 
-		$disclosure = $this->disclosure->forLanguages(sourceLanguage: $sourceLanguage, targetLanguage: $targetLanguage);
+		$disclosure = $this->disclosure->forLanguages(sourceLanguage: $sourceLanguage, targetLanguage: $request['targetLanguage']);
 
 		return [
 			'available'                => true,
-			'translatedText'           => $translatedText,
-			'targetLanguage'           => $targetLanguage,
+			'translatedText'           => $translation['text'],
+			'targetLanguage'           => $request['targetLanguage'],
 			'machineTranslationNotice' => self::MACHINE_TRANSLATION_NOTICE,
-			'provider'                 => $provider,
+			'provider'                 => $translation['provider'],
 			'translatedByAi'           => true,
 			'sourceLanguage'           => $sourceLanguage,
 			'sourceLanguageDetected'   => $detected,
-			'model'                    => $this->modelLabel(llmConfig: $llmConfig),
-			'originalRef'              => $originalRef,
+			'model'                    => $this->modelLabel(llmConfig: $translation['llmConfig']),
+			'originalRef'              => $request['originalRef'],
 			'disclosure'               => $disclosure['disclosure'],
 			'disclosureLanguage'       => $disclosure['disclosureLanguage'],
 		];
 
-	}//end translate()
+	}//end translatedResult()
 
 	/**
 	 * Ask the provider for the BCP-47 tag of the source text. Any answer that
@@ -196,7 +241,7 @@ class MessageTranslationEngine {
 	 *
 	 * @return string The detected tag, primary subtag lower-cased, or `und`.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-007-the-source-language-is-the-callers-or-detected-and-marked-as-detected
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-007-the-source-language-is-the-callers-or-detected-and-marked-as-detected
 	 */
 	private function detectLanguage(string $sourceText): string {
 		$prompt = 'Reply with only the BCP-47 language tag (for example "nl" or "ar") of the language '
@@ -229,12 +274,13 @@ class MessageTranslationEngine {
 	 *
 	 * @return string The label, or an empty string when no provider is configured.
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-008-the-model-label-never-carries-a-secret
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-008-the-model-label-never-carries-a-secret
 	 */
 	private function modelLabel(array $llmConfig): string {
+		// Use-nextcloud-ai-settings: no saved provider means Nextcloud AI served it.
 		$provider = (string)($llmConfig['chatProvider'] ?? '');
-		if ($provider === '') {
-			return '';
+		if (trim($provider) === '') {
+			$provider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
 		}
 
 		$providerConfig = $llmConfig[$provider . 'Config'] ?? [];
@@ -262,7 +308,7 @@ class MessageTranslationEngine {
 	 *
 	 * @return string The built prompt.
 	 *
-	 * @spec openspec/changes/message-translation-delegate/specs/message-translation/spec.md#requirement-req-003-a-supplied-glossary-is-honoured-verbatim
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-003-a-supplied-glossary-is-honoured-verbatim
 	 */
 	private function buildPrompt(string $sourceText, string $targetLanguage, array $glossary): string {
 		$prompt = 'Translate the following text into the language with BCP-47 tag "' . $targetLanguage . '". '
@@ -299,7 +345,7 @@ class MessageTranslationEngine {
 	 *
 	 * @return array{available: false, reason: string, translatedByAi: false}
 	 *
-	 * @spec openspec/changes/ai-translation-provenance/specs/message-translation/spec.md#requirement-req-006-every-translation-response-carries-its-ai-provenance
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-006-every-translation-response-carries-its-ai-provenance
 	 */
 	private function unavailableResult(string $reason): array {
 		return [

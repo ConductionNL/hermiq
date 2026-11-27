@@ -102,6 +102,48 @@ class LlmSettingsControllerTest extends TestCase {
 	}//end testGetMasksCredentials()
 
 	/**
+	 * get() tells the admin page about Nextcloud AI: the effective provider is
+	 * `nextcloud` when none is saved, which task types have a provider, the admin message
+	 * and the link to Administration settings > Artificial intelligence.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-5-1
+	 */
+	public function testGetReportsNextcloudAiStatus(): void {
+		$handler = $this->createMock(LlmSettingsHandler::class);
+		$handler->method('getLLMSettingsOnly')->willReturn(['chatProvider' => null]);
+
+		$taskManager = $this->createMock(\OCP\TaskProcessing\IManager::class);
+		$taskManager->method('getAvailableTaskTypeIds')->willReturn(['core:text2text']);
+		$provider = $this->createMock(\OCP\TaskProcessing\ISynchronousProvider::class);
+		$provider->method('getName')->willReturn('OpenAI and LocalAI integration');
+		$taskManager->method('getPreferredProvider')->willReturn($provider);
+
+		$urls = $this->createMock(\OCP\IURLGenerator::class);
+		$urls->method('linkToRoute')->with('settings.AdminSettings.index', ['section' => 'ai'])->willReturn('/settings/admin/ai');
+
+		$controller = new LlmSettingsController(
+			$this->createMock(IRequest::class),
+			$handler,
+			new NullLogger(),
+			new ModelCapabilityRegistry(appConfig: $this->createMock(IAppConfig::class)),
+			null,
+			new \OCA\Hermiq\Service\Llm\NextcloudTaskClient($taskManager, new NullLogger()),
+			$urls
+		);
+		$data = $controller->get()->getData();
+
+		$this->assertSame('nextcloud', $data['effectiveChatProvider']);
+		$this->assertSame('/settings/admin/ai', $data['nextcloudAi']['settingsUrl']);
+		$this->assertSame('Configure an AI provider under Administration settings > Artificial intelligence.', $data['nextcloudAi']['adminMessage']);
+		$this->assertTrue($data['nextcloudAi']['taskTypes']['text']['available']);
+		$this->assertSame('OpenAI and LocalAI integration', $data['nextcloudAi']['taskTypes']['text']['provider']);
+		$this->assertFalse($data['nextcloudAi']['taskTypes']['chat']['available']);
+		$this->assertFalse($data['nextcloudAi']['taskTypes']['chatWithTools']['available']);
+	}//end testGetReportsNextcloudAiStatus()
+
+	/**
 	 * A config blob written BEFORE this release still carries a cleartext `apiKey` until
 	 * the repair step runs. It must never be echoed to the browser.
 	 *
@@ -179,6 +221,51 @@ class LlmSettingsControllerTest extends TestCase {
 		$this->assertTrue($data['success']);
 		$this->assertSame('nextcloud', $data['config']['chatProvider']);
 	}//end testUpdateAcceptsNextcloudProvider()
+
+	/**
+	 * update() takes the whole request as the patch when no `llm` key is sent,
+	 * without the route name.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
+	 */
+	public function testUpdateAcceptsAFlatBodyWithoutTheRoute(): void {
+		$request = $this->createMock(IRequest::class);
+		$request->method('getParam')->with('llm')->willReturn(null);
+		$request->method('getParams')->willReturn(['_route' => 'hermiq.llm.update', 'chatProvider' => 'nextcloud', 'enabled' => true]);
+
+		$handler = $this->createMock(LlmSettingsHandler::class);
+		$handler->expects($this->once())
+			->method('updateLLMSettingsOnly')
+			->with(['chatProvider' => 'nextcloud', 'enabled' => true])
+			->willReturn($this->storedConfig());
+
+		$response = $this->controller($request, $handler)->update();
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame(['success', 'config', 'modelCapabilities'], array_keys($response->getData()));
+	}//end testUpdateAcceptsAFlatBodyWithoutTheRoute()
+
+	/**
+	 * A failed save answers 500 with the fixed error body.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-1-3
+	 */
+	public function testUpdateAnswersAFailedSaveWithTheFixedError(): void {
+		$request = $this->createMock(IRequest::class);
+		$request->method('getParam')->with('llm')->willReturn(['chatProvider' => 'openai']);
+
+		$handler = $this->createMock(LlmSettingsHandler::class);
+		$handler->method('updateLLMSettingsOnly')->willThrowException(new \RuntimeException('db down'));
+
+		$response = $this->controller($request, $handler)->update();
+
+		$this->assertSame(Http::STATUS_INTERNAL_SERVER_ERROR, $response->getStatus());
+		$this->assertSame(['error' => 'Failed to save LLM configuration'], $response->getData());
+	}//end testUpdateAnswersAFailedSaveWithTheFixedError()
 
 	/**
 	 * update() drops a blank credential so it never overwrites a stored key.

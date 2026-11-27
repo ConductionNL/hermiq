@@ -19,7 +19,7 @@ import { generateUrl } from '@nextcloud/router'
  * @param {string} scope The record type the chat is open on.
  * @param {function(string, object): Promise<object>} [fetchImpl] The fetch function (the browser's by default).
  * @return {Promise<Array<{id: string, label: string, prompt: string}>>} The prompts to offer.
- * @spec openspec/changes/record-chat-ready-made-prompts/specs/ai-feature-admin-surface/spec.md#requirement-the-record-chat-offers-the-ready-made-prompts-for-its-record-type-req-rcprompt-001
+ * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-the-record-chat-offers-the-ready-made-prompts-for-its-record-type-req-rcprompt-001
  */
 export async function loadReadyMadePrompts(scope, fetchImpl = globalThis.fetch) {
 	if (!scope) {
@@ -56,7 +56,7 @@ export async function loadReadyMadePrompts(scope, fetchImpl = globalThis.fetch) 
  * @param {string} draft The message box content.
  * @param {string} text The prompt's text.
  * @return {string} The new message box content.
- * @spec openspec/changes/record-chat-ready-made-prompts/specs/ai-feature-admin-surface/spec.md#requirement-the-record-chat-offers-the-ready-made-prompts-for-its-record-type-req-rcprompt-001
+ * @spec openspec/specs/ai-feature-admin-surface/spec.md#requirement-the-record-chat-offers-the-ready-made-prompts-for-its-record-type-req-rcprompt-001
  */
 export function withPrompt(draft, text) {
 	const before = (draft || '').replace(/\s+$/, '')

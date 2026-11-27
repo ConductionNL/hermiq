@@ -35,31 +35,12 @@
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { listOrNestedResults as toList } from './listEnvelope.js'
 
 /** Hermiq agents resource base path (tools catalogue only — CRUD is useAgentStore). */
 const AGENTS_BASE = '/apps/hermiq/api/agents'
 /** Hermiq schedule action/read base path. */
 const HERMIQ_SCHEDULES_BASE = '/apps/hermiq/api/schedules'
-
-/**
- * Normalise the various Hermiq/OpenRegister list envelopes to a plain array.
- * Handles `{ results: [] }`, `{ data: { results: [] } }`, and a bare array.
- *
- * @param {object} data The response body.
- * @return {Array<object>} The extracted list (empty array on miss).
- */
-function toList(data) {
-	if (Array.isArray(data)) {
-		return data
-	}
-	if (Array.isArray(data?.results)) {
-		return data.results
-	}
-	if (Array.isArray(data?.data?.results)) {
-		return data.data.results
-	}
-	return []
-}
 
 /**
  * The agent's instructions filled in for its owner (agents-instruction-variables).
@@ -109,7 +90,7 @@ export async function listTools() {
  *
  * @param {string} draft The text of the `hermiq-agent-draft` block.
  * @return {Promise<{draft: object, findings: Array<{field: string, message: string, suggestion: string}>}>}
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
  */
 export async function checkAgentDraft(draft) {
 	const response = await axios.post(generateUrl(`${AGENTS_BASE}/draft-check`), {

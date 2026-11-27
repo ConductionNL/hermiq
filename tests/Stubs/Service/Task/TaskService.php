@@ -31,6 +31,7 @@ declare(strict_types=1);
 
 namespace OCA\OpenRegister\Service\Task;
 
+use DateTime;
 use LogicException;
 use OCA\OpenRegister\Db\Task;
 
@@ -58,11 +59,13 @@ class TaskService {
 	 *
 	 * @param array<string, mixed> $data The task fields, canonical or legacy.
 	 * @param string|null $actor The creating identity.
+	 * @param callable|null $mayReadBlocker Whether the actor may read a declared blocker.
+	 * @param DateTime|null $createdAt The creation time to stamp.
 	 *
 	 * @return Task The created task.
 	 */
-	public function import(array $data, ?string $actor): Task {
-		unset($data, $actor);
+	public function import(array $data, ?string $actor, ?callable $mayReadBlocker = null, ?DateTime $createdAt = null): Task {
+		unset($data, $actor, $mayReadBlocker, $createdAt);
 		self::refuse();
 	}//end import()
 
@@ -79,4 +82,31 @@ class TaskService {
 		unset($uuid, $reason, $source);
 		self::refuse();
 	}//end terminateAsMoot()
+
+	/**
+	 * Claim an offered task for the actor (real signature; stub throws).
+	 *
+	 * @param string $uuid The task uuid.
+	 * @param string|null $actor The claiming identity.
+	 *
+	 * @return Task The claimed task.
+	 */
+	public function claim(string $uuid, ?string $actor): Task {
+		unset($uuid, $actor);
+		self::refuse();
+	}//end claim()
+
+	/**
+	 * Complete a task with an explicit outcome (real signature; stub throws).
+	 *
+	 * @param string $uuid The task uuid.
+	 * @param TaskAnswer $answer The outcome, result text and comment.
+	 * @param string|null $actor The completing identity, which must be the assignee.
+	 *
+	 * @return Task The completed task.
+	 */
+	public function completeWithAnswer(string $uuid, TaskAnswer $answer, ?string $actor): Task {
+		unset($uuid, $answer, $actor);
+		self::refuse();
+	}//end completeWithAnswer()
 }//end class

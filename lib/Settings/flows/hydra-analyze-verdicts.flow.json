@@ -1,0 +1,612 @@
+{
+  "name": "Hydra analyze verdicts",
+  "description": "Aggregate a cycle's review verdicts off the issue's labels, and resolve the CONTRADICTORY state a reviewer-dispatch race can leave behind: both pass and fail present at once. Fail takes precedence, the stale pass label is removed, and the cycle is tagged so the self-learning layer can count how often the race happens. This is the port of orchestrate.sh's `_analyze_verdicts` — see openspec/changes/hydra-flows-first-port ORCHESTRATE-AUDIT.md. Every write is brokered: the credential never reaches this app.",
+  "trigger": "manual",
+  "enabled": false,
+  "$comment": [
+    "WHAT WAS WRONG (REVALIDATION-2026-08-02 D1). Three faults, each fatal on its own:",
+    "",
+    "  1. `code-contradiction` / `security-contradiction` were `openregister.route`",
+    "     steps configured with `routes[].when` / `routes[].to`. RouterNode reads",
+    "     `config.rules[].condition` / `.output` and NOTHING else, so `rulesOf()`",
+    "     returned [] and every item fell to a `default` that named an EDGE id",
+    "     rather than an output place — so every item was dropped.",
+    "  2. `derive`, `skip-code-drop` and `settle` used `config.fields`.",
+    "     SetFieldsNode reads `set` / `compute` / `rename` / `remove` /",
+    "     `keepOnlySet`. The steps reported `completed` and set nothing.",
+    "  3. `drop-security-pass` and `settle` were both `verdict → verdict`",
+    "     self-loops. The place never empties, so the transitions stay enabled",
+    "     forever: the run died on `Flow did not settle within 1000 transitions`",
+    "     with `drop-security-pass` fired 995 times and `settle` never once.",
+    "",
+    "🔑 WHY THIS GRAPH USES EDGE CONDITIONS AND NOT `openregister.route`.",
+    "",
+    "A router is a PER-ITEM split: `FlowEngine::advanceItems()` marks EVERY place",
+    "on the firing transition's `to` list and then hands each place only the items",
+    "tagged for it. So after a route both branch places hold a token and one of",
+    "them holds zero items. That is exactly right when the branches END",
+    "separately — which is what hydra-sequencer, hydra-dispatch and",
+    "hydra-commit-by-api all do.",
+    "",
+    "It is WRONG when the branches must REJOIN, which is this flow's shape: the",
+    "contradiction is resolved and then the verdict is still computed for every",
+    "run. `advanceItems()` ASSIGNS to the output place",
+    "(`$placeItems[$to] = itemsForOutput(...)`) rather than appending, so whichever",
+    "of the two rejoining transitions fires second OVERWRITES the other's items —",
+    "and the empty branch is just as likely to be second. Measured on this",
+    "instance: a router split rejoining on one place left the join place holding",
+    "0 items and `settle` computed nothing.",
+    "",
+    "`FlowEngine::selectTransition()` is the XOR the rejoin needs. Among the",
+    "transitions enabled on one place it fires the first whose EDGE-level",
+    "`condition` holds, and an edge with no condition is the else. Exactly one",
+    "fires, exactly one token moves, and the item survives the rejoin intact.",
+    "",
+    "⚠️ THE EXPRESSION SCOPE WAS ALSO WRONG, and this is invisible in a unit test",
+    "  of the JsonLogic alone. `FlowExpression::dataFor()` nests the item's record",
+    "  under `json`, so `{\"var\": \"labels\"}` resolves to null — the rules were",
+    "  verified against a bare record and stored against a flow document. Every",
+    "  path here is `json.…`, and the label list is `json.labels.body` because",
+    "  `openconnector.source-call` writes `{status, headers, body, …}` under its",
+    "  `output` key.",
+    "",
+    "WHAT IS DELIBERATELY UNCHANGED: the rules themselves. Both label dialects are",
+    "still checked (`code-review:pass` AND `code-review-pass`) because the colon",
+    "form replaced the hyphen form and old issues still carry the old spelling; a",
+    "contradiction still resolves to FAIL with the stale pass label deleted at the",
+    "forge; and `allPassed` still requires BOTH reviews to have spoken, so one",
+    "pass and one silence is not a pass."
+  ],
+  "$bindings": {
+    "read-labels.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "drop-code-pass.source": "Same Source as read-labels.source.",
+    "drop-security-pass.source": "Same Source as read-labels.source."
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "openregister.trigger-manual",
+      "config": {},
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "done",
+      "type": "openregister.end",
+      "config": { "message": "The flow completed." },
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "read-labels",
+      "x": 60,
+      "y": 60,
+      "type": "openconnector.source-call",
+      "config": {
+        "source": "",
+        "method": "GET",
+        "endpoint": "/repos/{{repo}}/issues/{{issue}}/labels",
+        "output": "labels",
+        "$why": "The verdict is read from the FORGE rather than from anything this run remembers. A cycle's two reviewers dispatch independently, so the only place their combined state exists is the issue itself.",
+        "onError": "stop"
+      }
+    },
+    {
+      "id": "derive",
+      "exits": [
+        {
+          "id": "drop-code-pass",
+          "condition": {
+            "and": [
+              {
+                "var": "json.codePass"
+              },
+              {
+                "var": "json.codeFail"
+              }
+            ]
+          }
+        },
+        {
+          "id": "skip-code-drop"
+        }
+      ],
+      "x": 320,
+      "y": 60,
+      "type": "openregister.set-fields",
+      "config": {
+        "$why": "BOTH label dialects are checked — `code-review:pass` and `code-review-pass`. The shell carried both because the colon form replaced the hyphen form and old issues still hold the old spelling; a port that checked only one would read a real verdict as 'none' and stall the cycle rather than fail loudly. These are DERIVED values, so they are `compute` (JsonLogic) and not `set` (templates): a template substitutes and cannot evaluate.",
+        "compute": {
+          "names": {
+            "map": [
+              {
+                "var": "json.labels.body"
+              },
+              {
+                "var": "name"
+              }
+            ]
+          },
+          "codePass": {
+            "or": [
+              {
+                "in": [
+                  "code-review:pass",
+                  {
+                    "map": [
+                      {
+                        "var": "json.labels.body"
+                      },
+                      {
+                        "var": "name"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "in": [
+                  "code-review-pass",
+                  {
+                    "map": [
+                      {
+                        "var": "json.labels.body"
+                      },
+                      {
+                        "var": "name"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "codeFail": {
+            "or": [
+              {
+                "in": [
+                  "code-review:fail",
+                  {
+                    "map": [
+                      {
+                        "var": "json.labels.body"
+                      },
+                      {
+                        "var": "name"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "in": [
+                  "code-review-fail",
+                  {
+                    "map": [
+                      {
+                        "var": "json.labels.body"
+                      },
+                      {
+                        "var": "name"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "securityPass": {
+            "or": [
+              {
+                "in": [
+                  "security-review:pass",
+                  {
+                    "map": [
+                      {
+                        "var": "json.labels.body"
+                      },
+                      {
+                        "var": "name"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "in": [
+                  "security-review-pass",
+                  {
+                    "map": [
+                      {
+                        "var": "json.labels.body"
+                      },
+                      {
+                        "var": "name"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "securityFail": {
+            "or": [
+              {
+                "in": [
+                  "security-review:fail",
+                  {
+                    "map": [
+                      {
+                        "var": "json.labels.body"
+                      },
+                      {
+                        "var": "name"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "in": [
+                  "security-review-fail",
+                  {
+                    "map": [
+                      {
+                        "var": "json.labels.body"
+                      },
+                      {
+                        "var": "name"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "drop-code-pass",
+      "exits": [
+        {
+          "id": "drop-security-pass",
+          "condition": {
+            "and": [
+              {
+                "var": "json.securityPass"
+              },
+              {
+                "var": "json.securityFail"
+              }
+            ]
+          }
+        },
+        {
+          "id": "skip-security-drop"
+        }
+      ],
+      "x": 580,
+      "y": 60,
+      "type": "openconnector.source-call",
+      "config": {
+        "source": "",
+        "method": "DELETE",
+        "endpoint": "/repos/{{repo}}/issues/{{issue}}/labels/code-review:pass",
+        "output": "droppedCodePass",
+        "$why": "A contradiction is a RACE, not a verdict: two reviewer dispatches landed an issue in an impossible state. It is resolved rather than reported, because a cycle that stops on it would need a human for something the rule already decides — fail wins. 404 is accepted: the stale label may already be gone, and resolving a contradiction must be idempotent rather than fatal. Only the colon form is deleted — the hyphen form is legacy and the transition flow no longer writes it.",
+        "acceptStatuses": [
+          200,
+          204,
+          404
+        ],
+        "onError": "continue"
+      }
+    },
+    {
+      "id": "skip-code-drop",
+      "exits": [
+        {
+          "id": "drop-security-pass",
+          "condition": {
+            "and": [
+              {
+                "var": "json.securityPass"
+              },
+              {
+                "var": "json.securityFail"
+              }
+            ]
+          }
+        },
+        {
+          "id": "skip-security-drop"
+        }
+      ],
+      "x": 580,
+      "y": 230,
+      "type": "openregister.set-fields",
+      "config": {
+        "$why": "The else of `drop-code-pass` — it carries no `condition`, so `FlowEngine::selectTransition()` only takes it when the contradiction test did not hold. The no-contradiction branch still has to REACH the security check, so it sets the same output key to null and passes through. Without it the common case would dead-end and the flow would complete having decided nothing.",
+        "set": {
+          "droppedCodePass": null
+        }
+      }
+    },
+    {
+      "id": "drop-security-pass",
+      "x": 840,
+      "y": 60,
+      "type": "openconnector.source-call",
+      "config": {
+        "$why": "Same race, the other reviewer. Kept as its own pair of edges rather than folded into the first, because the two verdicts are independent and a contradiction in one says nothing about the other.",
+        "source": "",
+        "method": "DELETE",
+        "endpoint": "/repos/{{repo}}/issues/{{issue}}/labels/security-review:pass",
+        "output": "droppedSecurityPass",
+        "acceptStatuses": [
+          200,
+          204,
+          404
+        ],
+        "onError": "continue"
+      }
+    },
+    {
+      "id": "skip-security-drop",
+      "x": 840,
+      "y": 230,
+      "type": "openregister.set-fields",
+      "config": {
+        "$why": "The else of `drop-security-pass`, for the same reason `skip-code-drop` exists.",
+        "set": {
+          "droppedSecurityPass": null
+        }
+      }
+    },
+    {
+      "id": "settle",
+      "exit": true,
+      "x": 1209.9999999999998,
+      "y": 147.14285714285717,
+      "type": "openregister.set-fields",
+      "config": {
+        "$why": "verdictCount is how many of the TWO reviews have spoken at all, and allPassed requires both — a cycle with one pass and one silence is not a pass. The shell computed exactly this and the distinction is load-bearing: treating a missing verdict as a pass is the green-but-dead shape this whole change exists to remove. A contradiction has already been resolved to fail above, so it is counted as a verdict here.",
+        "compute": {
+          "codeVerdict": {
+            "if": [
+              {
+                "and": [
+                  {
+                    "var": "json.codePass"
+                  },
+                  {
+                    "var": "json.codeFail"
+                  }
+                ]
+              },
+              "false",
+              {
+                "var": "json.codeFail"
+              },
+              "false",
+              {
+                "var": "json.codePass"
+              },
+              "true",
+              "none"
+            ]
+          },
+          "securityVerdict": {
+            "if": [
+              {
+                "and": [
+                  {
+                    "var": "json.securityPass"
+                  },
+                  {
+                    "var": "json.securityFail"
+                  }
+                ]
+              },
+              "false",
+              {
+                "var": "json.securityFail"
+              },
+              "false",
+              {
+                "var": "json.securityPass"
+              },
+              "true",
+              "none"
+            ]
+          },
+          "contradiction": {
+            "or": [
+              {
+                "and": [
+                  {
+                    "var": "json.codePass"
+                  },
+                  {
+                    "var": "json.codeFail"
+                  }
+                ]
+              },
+              {
+                "and": [
+                  {
+                    "var": "json.securityPass"
+                  },
+                  {
+                    "var": "json.securityFail"
+                  }
+                ]
+              }
+            ]
+          },
+          "patternTag": {
+            "if": [
+              {
+                "or": [
+                  {
+                    "and": [
+                      {
+                        "var": "json.codePass"
+                      },
+                      {
+                        "var": "json.codeFail"
+                      }
+                    ]
+                  },
+                  {
+                    "and": [
+                      {
+                        "var": "json.securityPass"
+                      },
+                      {
+                        "var": "json.securityFail"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "label-state-contradiction",
+              null
+            ]
+          },
+          "verdictCount": {
+            "+": [
+              {
+                "if": [
+                  {
+                    "or": [
+                      {
+                        "var": "json.codePass"
+                      },
+                      {
+                        "var": "json.codeFail"
+                      }
+                    ]
+                  },
+                  1,
+                  0
+                ]
+              },
+              {
+                "if": [
+                  {
+                    "or": [
+                      {
+                        "var": "json.securityPass"
+                      },
+                      {
+                        "var": "json.securityFail"
+                      }
+                    ]
+                  },
+                  1,
+                  0
+                ]
+              }
+            ]
+          },
+          "allPassed": {
+            "and": [
+              {
+                "var": "json.codePass"
+              },
+              {
+                "!": [
+                  {
+                    "var": "json.codeFail"
+                  }
+                ]
+              },
+              {
+                "var": "json.securityPass"
+              },
+              {
+                "!": [
+                  {
+                    "var": "json.securityFail"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-read-labels",
+      "from": "start",
+      "to": "read-labels"
+    },
+    {
+      "id": "settle-done",
+      "from": "settle",
+      "to": "done"
+    },
+    {
+      "id": "read-labels-derive",
+      "from": "read-labels",
+      "to": "derive",
+      "title": "labelled"
+    },
+    {
+      "id": "derive-drop-code-pass",
+      "from": "derive",
+      "to": "drop-code-pass",
+      "fromExit": "drop-code-pass",
+      "title": "derived"
+    },
+    {
+      "id": "derive-skip-code-drop",
+      "from": "derive",
+      "to": "skip-code-drop",
+      "fromExit": "skip-code-drop",
+      "title": "derived"
+    },
+    {
+      "id": "drop-code-pass-drop-security-pass",
+      "from": "drop-code-pass",
+      "to": "drop-security-pass",
+      "fromExit": "drop-security-pass",
+      "title": "code-resolved"
+    },
+    {
+      "id": "drop-code-pass-skip-security-drop",
+      "from": "drop-code-pass",
+      "to": "skip-security-drop",
+      "fromExit": "skip-security-drop",
+      "title": "code-resolved"
+    },
+    {
+      "id": "skip-code-drop-drop-security-pass",
+      "from": "skip-code-drop",
+      "to": "drop-security-pass",
+      "fromExit": "drop-security-pass",
+      "title": "code-resolved"
+    },
+    {
+      "id": "skip-code-drop-skip-security-drop",
+      "from": "skip-code-drop",
+      "to": "skip-security-drop",
+      "fromExit": "skip-security-drop",
+      "title": "code-resolved"
+    },
+    {
+      "id": "drop-security-pass-settle",
+      "from": "drop-security-pass",
+      "to": "settle",
+      "title": "security-resolved"
+    },
+    {
+      "id": "skip-security-drop-settle",
+      "from": "skip-security-drop",
+      "to": "settle",
+      "title": "security-resolved"
+    }
+  ]
+}

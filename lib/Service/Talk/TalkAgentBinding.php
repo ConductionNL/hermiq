@@ -23,14 +23,17 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#7-opt-in-and-admin-visibility
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#7-opt-in-and-admin-visibility
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkAgentBindingInterface;
+use OCA\Hermiq\Kernel\Contracts\TalkBotInstallerInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
@@ -41,9 +44,9 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
  */
-class TalkAgentBinding {
+class TalkAgentBinding implements TalkAgentBindingInterface {
 
 	/**
 	 * OpenRegister register slug.
@@ -83,13 +86,54 @@ class TalkAgentBinding {
 	 * @param ObjectService $objectService OpenRegister object read.
 	 * @param IAppConfig $appConfig Room→agent binding configuration.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param TalkBotInstallerInterface|null $installer Reads which agents' bots are enabled in a room;
+	 *                                                  without it every room is single-agent.
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly IAppConfig $appConfig,
 		private readonly LoggerInterface $logger,
+		private readonly ?TalkBotInstallerInterface $installer = null,
 	) {
 	}//end __construct()
+
+	/**
+	 * The opted-in agents a room holds.
+	 *
+	 * Talk's bot state decides: every Talk-enabled agent whose own bot a Talk
+	 * moderator enabled in the room. A room with no per-agent bot enabled keeps
+	 * the single-agent binding (`talk_room_agents`, then `talk_default_agent`),
+	 * so rooms bound before per-agent bots answer as they did.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 *
+	 * @return array<int, string> The agent uuids; empty when no opted-in agent is in the room.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-a-room-may-host-several-agents-managed-by-talk-moderators
+	 */
+	public function agentsForRoom(string $roomToken): array {
+		if ($roomToken === '') {
+			return [];
+		}
+
+		$agentIds = [];
+		foreach (($this->installer?->enabledAgentIds(roomToken: $roomToken) ?? []) as $agentId) {
+			if ($this->isAgentTalkEnabled(agentId: $agentId) === true) {
+				$agentIds[] = $agentId;
+			}
+		}
+
+		if ($agentIds !== []) {
+			return $agentIds;
+		}
+
+		$bound = $this->agentForRoom(roomToken: $roomToken);
+		if ($bound === null) {
+			return [];
+		}
+
+		return [$bound];
+	}//end agentsForRoom()
 
 	/**
 	 * The uuid of the opted-in agent bound to a room, or null.
@@ -102,7 +146,7 @@ class TalkAgentBinding {
 	 *
 	 * @return string|null The agent uuid, or null when the bridge is not active here.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
 	 */
 	public function agentForRoom(string $roomToken): ?string {
 		$agentId = $this->boundAgentId(roomToken: $roomToken);
@@ -138,7 +182,7 @@ class TalkAgentBinding {
 	 *
 	 * @return string|null The configured agent uuid, or null.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
 	 */
 	public function boundAgentId(string $roomToken): ?string {
 		if ($roomToken === '') {
@@ -164,7 +208,7 @@ class TalkAgentBinding {
 	 *
 	 * @return array<string, string> The configured bindings.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-administrators-can-see-the-bridges-configuration
 	 */
 	public function roomAgentMap(): array {
 		$raw = $this->appConfig->getValueString('hermiq', self::ROOM_AGENT_MAP_KEY, '');
@@ -214,7 +258,7 @@ class TalkAgentBinding {
 	 *
 	 * @return string|null The room token, or null when no room is bound to it.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
 	 */
 	public function roomForAgent(string $agentId): ?string {
 		if ($agentId === '') {
@@ -238,7 +282,7 @@ class TalkAgentBinding {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
 	 */
 	public function bindRoom(string $roomToken, string $agentId): void {
 		if ($roomToken === '') {
@@ -265,7 +309,7 @@ class TalkAgentBinding {
 	 *
 	 * @return bool True when the agent is Talk-enabled.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
 	 */
 	private function isTalkEnabled(ObjectEntity $agent): bool {
 		$data = $agent->getObject();
@@ -285,7 +329,7 @@ class TalkAgentBinding {
 	 *
 	 * @return string The agent's name, or ''.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
 	 */
 
 	/**
@@ -304,7 +348,7 @@ class TalkAgentBinding {
 	 *
 	 * @return bool True when the agent is Talk-enabled.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
 	 */
 	public function isAgentTalkEnabled(string $agentId): bool {
 		$agent = $this->loadAgent(agentId: $agentId);
@@ -344,7 +388,7 @@ class TalkAgentBinding {
 	 *
 	 * @return ObjectEntity|null The agent, or null when it no longer exists.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-integration-is-opt-in-on-both-sides
 	 */
 	private function loadAgent(string $agentId): ?ObjectEntity {
 		try {
@@ -353,8 +397,7 @@ class TalkAgentBinding {
 			// only its owner, invited users and group members. Tenancy still applies.
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false
 			);
 

@@ -35,6 +35,7 @@ use OCA\Hermiq\Service\OutsideAgent\OutsideCallRefusedException;
 use OCA\Hermiq\Service\OutsideAgent\OutsideToolSurface;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\OCS\OCSForbiddenException;
@@ -105,12 +106,12 @@ class AssistantPromptControllerTest extends TestCase {
 		$this->audits = [];
 
 		$mapper = $this->createMock(AuditTrailMapper::class);
-		$mapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
-				$this->audits[] = ['action' => $action, 'context' => $context];
+		$mapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): AuditTrail {
+				$this->audits[] = ['action' => $event->action, 'context' => $event->context];
 
 				$entry = new AuditTrail();
-				$entry->setAction($action);
+				$entry->setAction($event->action);
 				return $entry;
 			}
 		);

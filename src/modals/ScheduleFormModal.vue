@@ -23,10 +23,10 @@
   ADR-004 modal-isolation) — only reachable once the schedule has been saved
   (it needs a persisted schedule id).
 
-  @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
-  @spec openspec/changes/agent-management-ui/specs/agent-management-ui/spec.md
-  @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
-  @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+  @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
+  @spec openspec/changes/archive/2026-09-06-agent-management-ui/specs/agent-management-ui/spec.md
+  @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+  @spec openspec/changes/archive/2026-07-13-delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 -->
 <template>
 	<NcModal :show="show" size="normal" :name="heading" @close="$emit('close')">
@@ -45,21 +45,12 @@
 			<!-- Pre-run cost estimate (cost-guardrails): trailing average, clearly
 			     labelled an estimate — never a fabricated figure without history. -->
 			<p v-if="estimate && estimate.available" class="schedule-form__estimate">
-				{{
-					t(
-						'hermiq',
-						'Estimate: ~{tokens} tokens per run (average of the last {count} runs)',
-						{
-							tokens: estimate.avgTotalTokens,
-							count: estimate.sampleSize,
-						},
-					)
-				}}
+				{{ estimateLine(estimate) }}
 			</p>
 			<p
 				v-else-if="estimate"
 				class="schedule-form__estimate schedule-form__estimate--empty">
-				{{ t('hermiq', 'Not enough run history yet for a cost estimate.') }}
+				{{ estimateLine(estimate) }}
 			</p>
 
 			<NcTextField
@@ -68,34 +59,76 @@
 				:placeholder="t('hermiq', 'Daily briefing')"
 				required />
 
-			<div class="schedule-form__field">
-				<NcSelect
-					v-model="kindOption"
-					:inputLabel="t('hermiq', 'Trigger')"
-					:options="kindOptions"
-					:clearable="false"
-					label="label"
-					trackBy="value" />
+			<!-- Plain words to a rule (scheduling-overview-and-start-choice D3): the
+			     server reads the text, the form shows the readback and the next
+			     three runs, and only the rule is saved, never the words. -->
+			<div class="schedule-form__when" data-testid="schedule-when">
+				<NcTextField
+					v-model="whenText"
+					:label="t('hermiq', 'When should it run?')"
+					:placeholder="t('hermiq', 'every weekday at eight')"
+					@keydown.enter.prevent="readWhen" />
+				<NcButton
+					:disabled="whenReading || whenText.trim() === ''"
+					@click="readWhen">
+					{{ t('hermiq', 'Read') }}
+				</NcButton>
+			</div>
+			<p
+				v-if="whenError"
+				class="schedule-form__when-error"
+				role="alert">
+				{{ whenError }}
+			</p>
+			<div
+				v-if="whenRule"
+				class="schedule-form__readback"
+				data-testid="schedule-when-readback"
+				aria-live="polite">
+				<p class="schedule-form__readback-line">
+					{{ whenRule.readback }}
+				</p>
+				<p class="schedule-form__readback-next">
+					{{ t('hermiq', 'Next runs') }}
+				</p>
+				<ul class="schedule-form__readback-runs">
+					<li v-for="run in whenRule.nextRuns" :key="run">
+						{{ formatRun(run) }}
+					</li>
+				</ul>
 			</div>
 
-			<NcTextField
-				v-if="form.kind === 'cron'"
-				v-model="form.cronExpr"
-				:label="t('hermiq', 'Cron expression')"
-				placeholder="0 8 * * *" />
+			<details class="schedule-form__advanced" :open="advancedOpen">
+				<summary>{{ t('hermiq', 'Advanced') }}</summary>
+				<div class="schedule-form__field">
+					<NcSelect
+						v-model="kindOption"
+						:inputLabel="t('hermiq', 'Trigger')"
+						:options="kindOptions"
+						:clearable="false"
+						label="label"
+						trackBy="value" />
+				</div>
 
-			<NcTextField
-				v-if="form.kind === 'interval'"
-				v-model="form.intervalMinutes"
-				type="number"
-				:label="t('hermiq', 'Interval (minutes)')"
-				placeholder="1440" />
+				<NcTextField
+					v-if="form.kind === 'cron'"
+					v-model="form.cronExpr"
+					:label="t('hermiq', 'Cron expression')"
+					placeholder="0 8 * * *" />
 
-			<NcTextField
-				v-if="form.kind === 'once'"
-				v-model="form.runAt"
-				type="datetime-local"
-				:label="t('hermiq', 'Run at')" />
+				<NcTextField
+					v-if="form.kind === 'interval'"
+					v-model="form.intervalMinutes"
+					type="number"
+					:label="t('hermiq', 'Interval (minutes)')"
+					placeholder="1440" />
+
+				<NcTextField
+					v-if="form.kind === 'once'"
+					v-model="form.runAt"
+					type="datetime-local"
+					:label="t('hermiq', 'Run at')" />
+			</details>
 
 			<NcTextArea
 				v-model="form.prompt"
@@ -238,6 +271,7 @@
 </template>
 
 <script>
+import { getLanguage } from '@nextcloud/l10n'
 import {
 	NcButton,
 	NcCheckboxRadioSwitch,
@@ -250,7 +284,9 @@ import {
 } from '@nextcloud/vue'
 import ScheduleWebhookSecretDialog from './ScheduleWebhookSecretDialog.vue'
 import { getBudgetEstimate } from '../api/budgets.js'
+import { parseScheduleWhen } from '../api/schedules.js'
 import { useScheduleStore } from '../store/store.js'
+import { estimateLine } from '../utils/costEstimate.js'
 
 export default {
 	name: 'ScheduleFormModal',
@@ -298,6 +334,13 @@ export default {
 			estimate: null,
 			// delivery-channels: webhook signing-secret dialog visibility.
 			showWebhookSecretDialog: false,
+			// Plain words to a rule (scheduling-overview-and-start-choice D3).
+			whenText: '',
+			whenRule: null,
+			whenError: '',
+			whenReading: false,
+			// The raw rule fields stay open for an existing schedule, folded for a new one.
+			advancedOpen: Boolean(this.schedule?.id),
 			kindOptions: [
 				{ label: this.t('hermiq', 'Once'), value: 'once' },
 				{ label: this.t('hermiq', 'Interval'), value: 'interval' },
@@ -326,7 +369,7 @@ export default {
 		 * Modal heading — differs for attach vs edit.
 		 *
 		 * @return {string} The localised heading.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		heading() {
 			// A schedule without an id is a proposal to attach (agents-plain-language-builder).
@@ -340,7 +383,7 @@ export default {
 		 */
 		kindOption: {
 			/**
-			 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+			 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 			 */
 			get() {
 				return (
@@ -351,7 +394,7 @@ export default {
 			},
 
 			/**
-			 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+			 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 			 */
 			set(option) {
 				this.form.kind = option ? option.value : 'once'
@@ -395,7 +438,7 @@ export default {
 
 	watch: {
 		/**
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		show(open) {
 			if (open) {
@@ -406,7 +449,7 @@ export default {
 	},
 
 	/**
-	 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 	 */
 	created() {
 		// Register the 'schedule' OpenRegister object type once (idempotent):
@@ -417,12 +460,87 @@ export default {
 	},
 
 	methods: {
+		estimateLine,
+
+		/**
+		 * Read what the person typed under "When should it run?" into a rule and
+		 * put that rule into the form. An unreadable text shows the server's
+		 * example and leaves the rule fields as they were.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+		 */
+		async readWhen() {
+			const text = this.whenText.trim()
+			if (text === '' || this.whenReading) {
+				return
+			}
+			this.whenReading = true
+			this.whenError = ''
+			try {
+				const rule = await parseScheduleWhen(text, getLanguage())
+				this.applyRule(rule)
+				this.whenRule = {
+					readback: rule.readback || '',
+					nextRuns: Array.isArray(rule.nextRuns) ? rule.nextRuns : [],
+				}
+			} catch (e) {
+				this.whenRule = null
+				this.whenError =
+					e?.response?.data?.message
+					|| this.t('hermiq', 'I could not read that. Try for example: every weekday at 8:00.')
+			} finally {
+				this.whenReading = false
+			}
+		},
+
+		/**
+		 * Put a read rule into the form's rule fields.
+		 *
+		 * @param {object} rule `{kind, cronExpr|intervalMinutes|runAt}`.
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+		 */
+		applyRule(rule) {
+			this.form.kind = rule.kind
+			if (rule.kind === 'cron') {
+				this.form.cronExpr = rule.cronExpr
+			} else if (rule.kind === 'interval') {
+				this.form.intervalMinutes = rule.intervalMinutes
+			} else if (rule.kind === 'once') {
+				// The server answers in the person's own timezone; the
+				// datetime-local field takes that wall-clock time.
+				this.form.runAt = String(rule.runAt || '').slice(0, 16)
+			}
+		},
+
+		/**
+		 * One next run as a readable date and time.
+		 *
+		 * @param {string} run An ISO 8601 timestamp.
+		 * @return {string} The run in the person's locale.
+		 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003
+		 */
+		formatRun(run) {
+			const date = new Date(run)
+			if (Number.isNaN(date.getTime())) {
+				return run
+			}
+			return date.toLocaleString(getLanguage(), {
+				weekday: 'long',
+				day: 'numeric',
+				month: 'long',
+				hour: '2-digit',
+				minute: '2-digit',
+			})
+		},
+
 		/**
 		 * Load the agent's pre-run cost estimate (cost-guardrails). Non-fatal:
 		 * the estimate line simply stays hidden when the request fails.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		async loadEstimate() {
 			this.estimate = await getBudgetEstimate(this.agentId).catch(() => null)
@@ -432,7 +550,7 @@ export default {
 		 * An empty schedule form.
 		 *
 		 * @return {object} The blank form model.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		blankForm() {
 			return {
@@ -460,7 +578,7 @@ export default {
 		 * Seed the form from the `schedule` prop (edit) or blank (attach).
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		resetForm() {
 			this.error = ''
@@ -496,7 +614,7 @@ export default {
 		 * Build the OpenRegister schedule payload from the form model.
 		 *
 		 * @return {object} The schedule object body.
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		buildPayload() {
 			const payload = {
@@ -557,7 +675,7 @@ export default {
 		 * Persist the schedule via the createObjectStore and notify the parent.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-5-2
 		 */
 		async save() {
 			this.saving = true
@@ -586,6 +704,43 @@ export default {
 </script>
 
 <style scoped>
+.schedule-form__when {
+	display: flex;
+	align-items: flex-end;
+	gap: 8px;
+}
+
+.schedule-form__when-error {
+	margin: 0;
+	color: var(--color-error-text);
+}
+
+.schedule-form__readback {
+	padding: 8px 12px;
+	border-radius: var(--border-radius-large);
+	background: var(--color-background-hover);
+}
+
+.schedule-form__readback-line {
+	margin: 0;
+	font-weight: bold;
+}
+
+.schedule-form__readback-next {
+	margin: 4px 0 0;
+	color: var(--color-text-maxcontrast);
+}
+
+.schedule-form__readback-runs {
+	margin: 0;
+	padding-inline-start: 20px;
+}
+
+.schedule-form__advanced summary {
+	cursor: pointer;
+	margin-bottom: 8px;
+}
+
 .schedule-form {
 	display: flex;
 	flex-direction: column;

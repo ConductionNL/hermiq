@@ -19,16 +19,6 @@
       "count": 1
     }
   },
-  "src/components/ToolGrantEditor.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 5
-    }
-  },
-  "src/components/ToolInvocationTable.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 2
-    }
-  },
   "src/components/settings/TalkBridgeSettings.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 4
@@ -82,9 +72,6 @@
   "src/modals/AgentTemplatePublishModal.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
     }
   },
   "src/modals/ApprovalDenyModal.vue": {
@@ -115,9 +102,6 @@
   "src/modals/ScheduleWebhookSecretDialog.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 3
-    },
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
     }
   },
   "src/modals/SkillDraftEditModal.vue": {
@@ -140,9 +124,6 @@
   },
   "src/modals/SkillGithubPublishModal.vue": {
     "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
@@ -169,7 +150,7 @@
       "count": 1
     },
     "@typescript-eslint/no-unused-vars": {
-      "count": 3
+      "count": 2
     },
     "vue/no-useless-v-bind": {
       "count": 1
@@ -177,9 +158,6 @@
   },
   "src/modals/WebhookSecretDialog.vue": {
     "@nextcloud/no-deprecated-library-props": {
-      "count": 1
-    },
-    "@typescript-eslint/no-unused-vars": {
       "count": 1
     }
   },
@@ -261,7 +239,7 @@
       "count": 1
     },
     "@typescript-eslint/no-unused-vars": {
-      "count": 2
+      "count": 1
     }
   },
   "src/widgets/AgentTemplateRowActions.vue": {
@@ -272,11 +250,6 @@
   "src/widgets/ComplianceOperations.vue": {
     "@nextcloud/no-deprecated-library-props": {
       "count": 3
-    }
-  },
-  "src/widgets/EvalRunPanelWidget.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 2
     }
   },
   "src/widgets/SkillDraftReview.vue": {

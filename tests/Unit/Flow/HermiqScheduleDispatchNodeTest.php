@@ -27,6 +27,7 @@ use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\Flow;
 use OCA\OpenRegister\Db\FlowMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Flow\FlowNodeCall;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IL10N;
 use OCP\IURLGenerator;
@@ -128,7 +129,7 @@ class HermiqScheduleDispatchNodeTest extends TestCase {
 	 */
 	public function testExecuteRefusesWithoutScheduleId(): void {
 		$this->expectException(UnexpectedValueException::class);
-		$this->node()->execute(items: [['json' => []]], config: [], context: []);
+		$this->node()->execute(new FlowNodeCall(items: [['json' => []]], config: [], context: []));
 
 	}//end testExecuteRefusesWithoutScheduleId()
 
@@ -161,9 +162,11 @@ class HermiqScheduleDispatchNodeTest extends TestCase {
 
 		try {
 			$this->node()->execute(
-				items: [['json' => []]],
-				config: ['scheduleId' => 'sched-1'],
-				context: ['payload' => ['flowId' => 'stale-flow']]
+				new FlowNodeCall(
+					items: [['json' => []]],
+					config: ['scheduleId' => 'sched-1'],
+					context: ['payload' => ['flowId' => 'stale-flow']]
+				)
 			);
 			$this->fail('A stale delegation must refuse.');
 		} catch (UnexpectedValueException $e) {
@@ -190,9 +193,11 @@ class HermiqScheduleDispatchNodeTest extends TestCase {
 
 		$this->expectException(UnexpectedValueException::class);
 		$this->node()->execute(
-			items: [['json' => []]],
-			config: ['scheduleId' => 'sched-1'],
-			context: ['payload' => ['flowId' => 'flow-1']]
+			new FlowNodeCall(
+				items: [['json' => []]],
+				config: ['scheduleId' => 'sched-1'],
+				context: ['payload' => ['flowId' => 'flow-1']]
+			)
 		);
 
 	}//end testDisabledScheduleRefuses()
@@ -212,9 +217,11 @@ class HermiqScheduleDispatchNodeTest extends TestCase {
 		$this->scheduleService->expects($this->once())->method('runNow');
 
 		$out = $this->node()->execute(
-			items: [['json' => ['a' => 1]]],
-			config: ['scheduleId' => 'sched-1'],
-			context: ['payload' => ['flowId' => 'flow-1']]
+			new FlowNodeCall(
+				items: [['json' => ['a' => 1]]],
+				config: ['scheduleId' => 'sched-1'],
+				context: ['payload' => ['flowId' => 'flow-1']]
+			)
 		);
 
 		$this->assertCount(1, $out);
@@ -275,9 +282,11 @@ class HermiqScheduleDispatchNodeTest extends TestCase {
 
 		try {
 			$this->node()->execute(
-				items: [['json' => []]],
-				config: ['scheduleId' => 'gone'],
-				context: ['payload' => ['flowId' => 'orphan-flow']]
+				new FlowNodeCall(
+					items: [['json' => []]],
+					config: ['scheduleId' => 'gone'],
+					context: ['payload' => ['flowId' => 'orphan-flow']]
+				)
 			);
 			$this->fail('A missing schedule must refuse.');
 		} catch (UnexpectedValueException $e) {
@@ -303,9 +312,11 @@ class HermiqScheduleDispatchNodeTest extends TestCase {
 		$this->scheduleService->expects($this->once())->method('runNow');
 
 		$out = $this->node()->execute(
-			items: [['json' => []]],
-			config: ['scheduleId' => 'sched-1'],
-			context: ['payload' => ['flowId' => 'flow-1']]
+			new FlowNodeCall(
+				items: [['json' => []]],
+				config: ['scheduleId' => 'sched-1'],
+				context: ['payload' => ['flowId' => 'flow-1']]
+			)
 		);
 
 		$this->assertSame('unknown', $out[0]['json']['scheduleStatus']);
@@ -328,9 +339,11 @@ class HermiqScheduleDispatchNodeTest extends TestCase {
 		$this->scheduleService->expects($this->once())->method('runNow');
 
 		$out = $this->node()->execute(
-			items: [['json' => []]],
-			config: ['scheduleId' => 'sched-1'],
-			context: ['payload' => ['flowId' => 'flow-1']]
+			new FlowNodeCall(
+				items: [['json' => []]],
+				config: ['scheduleId' => 'sched-1'],
+				context: ['payload' => ['flowId' => 'flow-1']]
+			)
 		);
 
 		$this->assertSame('awaiting_approval', $out[0]['json']['scheduleStatus']);

@@ -169,9 +169,71 @@
 								</span>
 							</template>
 							<span v-else>—</span>
+							<ol
+								v-if="run.providerAttempts && run.providerAttempts.length > 1"
+								class="hermiq-runs__attempts">
+								<li v-for="(attempt, index) in run.providerAttempts" :key="index">
+									{{ attempt.provider }} {{ attempt.model }}:
+									{{ attemptLabel(attempt) }}
+								</li>
+							</ol>
+							<span
+								v-if="run.receivedBy && run.receivedBy.length > 1"
+								class="hermiq-runs__data-use">
+								{{ t('hermiq', 'Received the prompt: {providers}', { providers: receivedByLabel(run.receivedBy) }) }}
+							</span>
 						</td>
 						<td class="hermiq-runs__summary">
 							{{ run.summary || '—' }}
+							<div
+								v-if="cacheLine(run.usage)"
+								class="hermiq-runs__cache">
+								{{ cacheLine(run.usage) }}
+							</div>
+							<ul
+								v-if="run.computerActions && run.computerActions.length"
+								class="hermiq-runs__computer"
+								data-testid="run-computer-actions">
+								<li v-for="(action, index) in run.computerActions" :key="index">
+									{{ computerLine(action) }}
+									<span v-if="action.approvalId" class="hermiq-runs__computer-meta">
+										{{ t('hermiq', 'Approval {id}', { id: action.approvalId }) }}
+									</span>
+									<span v-if="action.screenshot" class="hermiq-runs__computer-meta">
+										{{ t('hermiq', 'Screen {hash}, {bytes} bytes, not kept', { hash: String(action.screenshot.sha256 || '').slice(0, 12), bytes: String(action.screenshot.bytes ?? 0) }) }}
+									</span>
+								</li>
+							</ul>
+							<ul
+								v-if="run.codeRuns && run.codeRuns.length"
+								class="hermiq-runs__code"
+								data-testid="run-code-runs">
+								<li v-for="(codeRun, index) in run.codeRuns" :key="`code-${index}`">
+									{{ codeRunLine(codeRun) }}
+									<pre
+										class="hermiq-runs__code-block"
+										:aria-label="t('hermiq', 'Code that ran')"
+										data-testid="run-code-source">{{ codeRun.code }}</pre>
+									<span
+										v-if="codeRun.outputWithheld"
+										class="hermiq-runs__computer-meta">
+										{{ t('hermiq', 'Output not kept: no redaction was available') }}
+									</span>
+									<template v-for="output in codeRunOutputs(codeRun)" :key="output.stream">
+										<span class="hermiq-runs__computer-meta">
+											{{ output.stream === 'stdout' ? t('hermiq', 'Output') : t('hermiq', 'Error output') }}
+										</span>
+										<pre
+											class="hermiq-runs__code-block"
+											:data-testid="`run-code-${output.stream}`">{{ output.text }}</pre>
+										<span
+											v-if="output.truncated"
+											class="hermiq-runs__computer-meta">
+											{{ t('hermiq', 'Cut to the first 4 KB') }}
+										</span>
+									</template>
+								</li>
+							</ul>
 						</td>
 					</tr>
 				</tbody>
@@ -201,7 +263,11 @@ import {
 import HistoryIcon from 'vue-material-design-icons/History.vue'
 import { listRuns } from '../api/analytics.js'
 import { useAgentStore } from '../store/store.js'
+import { codeRunOutcome, codeRunOutputs } from '../utils/codeRuns.js'
+import { attemptOutcome, receivedByList } from '../utils/providerAttempts.js'
 import { toggleSelection } from '../utils/runCompare.js'
+import { cacheShare } from '../utils/runUsage.js'
+import { agentPickerOptions } from '../widgets/evalRunLabels.js'
 
 /** Page size. The server clamps anything above 200. */
 const PAGE_SIZE = 50
@@ -249,10 +315,7 @@ export default {
 		 * @spec openspec/specs/run-analytics/spec.md#requirement-a-cross-agent-run-list-on-the-same-tenant-boundary-as-the-metrics
 		 */
 		agentOptions() {
-			return this.agents.map((agent) => ({
-				label: agent.name || agent.uuid || agent.id,
-				value: agent.uuid || agent.id,
-			}))
+			return agentPickerOptions(this.agents)
 		},
 
 		/**
@@ -368,6 +431,64 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * One recorded computer action in words: the action, the machine and its point,
+		 * text or keys (REQ-COMPUTER-004).
+		 *
+		 * @param {{target?: string, action?: string, x?: number, y?: number, text?: string, keys?: string}} action The recorded action.
+		 * @return {string} The line.
+		 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+		 */
+		computerLine(action) {
+			const entry = action || {}
+			const target = String(entry.target || '')
+			const lines = {
+				__proto__: null,
+				screenshot: () => this.t('hermiq', 'Screenshot of {target}', { target }),
+				type: () => this.t('hermiq', 'Typed "{text}" on {target}', { text: String(entry.text || ''), target }),
+				key: () => this.t('hermiq', 'Pressed {keys} on {target}', { keys: String(entry.keys || ''), target }),
+			}
+			const line = lines[entry.action]
+			if (line !== undefined) {
+				return line()
+			}
+			return this.t('hermiq', 'Clicked at {x}, {y} on {target}', { x: String(entry.x ?? ''), y: String(entry.y ?? ''), target })
+		},
+
+		/**
+		 * One recorded code run in words: the language and how it ended (REQ-SANDBOX-005).
+		 *
+		 * @param {object} codeRun One entry of the run row's `codeRuns`.
+		 * @return {string} The line.
+		 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005
+		 */
+		codeRunLine(codeRun) {
+			const language = String((codeRun && codeRun.language) || 'code')
+			const outcome = codeRunOutcome(codeRun)
+			const lines = {
+				__proto__: null,
+				timedOut: () => this.t('hermiq', 'Ran {language}: timed out', { language }),
+				exit: () => this.t('hermiq', 'Ran {language}: exit code {code}', { language, code: String(outcome.exitCode) }),
+				error: () => this.t('hermiq', 'Ran {language}: failed ({error})', { language, error: outcome.error }),
+			}
+			const line = lines[outcome.kind]
+			if (line !== undefined) {
+				return line()
+			}
+			return this.t('hermiq', 'Ran {language}', { language })
+		},
+
+		/**
+		 * The recorded output streams of a code run worth showing.
+		 *
+		 * @param {object} codeRun One entry of the run row's `codeRuns`.
+		 * @return {Array<{stream: string, text: string, truncated: boolean}>} The streams.
+		 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005
+		 */
+		codeRunOutputs(codeRun) {
+			return codeRunOutputs(codeRun)
+		},
+
 		/**
 		 * Tick or untick a run for the comparison; a third tick is refused.
 		 *
@@ -549,6 +670,67 @@ export default {
 		},
 
 		/**
+		 * One attempt's outcome in words: "rate limited", "answered", "skipped: residency".
+		 *
+		 * @param {object} attempt The recorded attempt.
+		 * @return {string} The label.
+		 *
+		 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+		 */
+		attemptLabel(attempt) {
+			switch (attemptOutcome(attempt)) {
+				case 'answered':
+					return t('hermiq', 'answered')
+				case 'rate_limit':
+					return t('hermiq', 'rate limited')
+				case 'server':
+					return t('hermiq', 'server error')
+				case 'timeout':
+					return t('hermiq', 'timed out')
+				case 'connection':
+					return t('hermiq', 'could not be reached')
+				case 'cooling':
+					return t('hermiq', 'cooling down, skipped')
+				case 'skipped':
+					return t('hermiq', 'skipped: {step}', { step: attempt.reason || '' })
+				default:
+					return t('hermiq', 'failed')
+			}
+		},
+
+		/**
+		 * The providers and models that were sent the prompt, in words.
+		 *
+		 * @param {Array<object>} receivedBy The recorded list.
+		 * @return {string} "anthropic claude-opus-4-8, ollama qwen2.5"
+		 *
+		 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+		 */
+		receivedByLabel(receivedBy) {
+			return receivedByList(receivedBy)
+		},
+
+		/**
+		 * The line saying how many input tokens came from the provider's prompt cache, or ''.
+		 *
+		 * @param {object|Array|undefined} usage The run row's recorded token counts.
+		 * @return {string} The line, or '' when the run read nothing from the cache.
+		 *
+		 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-3
+		 */
+		cacheLine(usage) {
+			const share = cacheShare(usage)
+			if (share === null) {
+				return ''
+			}
+
+			return t('hermiq', '{cached} of {total} input tokens from the provider’s cache', {
+				cached: share.cached.toLocaleString(),
+				total: share.total.toLocaleString(),
+			})
+		},
+
+		/**
 		 * The plain label for the data-use term a run recorded, as it stood then.
 		 *
 		 * @param {string} dataUse The recorded term.
@@ -654,9 +836,21 @@ export default {
 	color: var(--color-text-maxcontrast);
 }
 
+.hermiq-runs__attempts {
+	margin: 4px 0 0;
+	padding-inline-start: 16px;
+	color: var(--color-text-maxcontrast);
+}
+
 .hermiq-runs__summary {
 	white-space: normal;
 	max-width: 40ch;
+}
+
+.hermiq-runs__cache {
+	margin-top: 4px;
+	color: var(--color-text-maxcontrast);
+	font-size: var(--font-size-small, 13px);
 }
 
 .hermiq-runs__status--ok {
@@ -681,5 +875,36 @@ export default {
 
 .hermiq-runs__range {
 	color: var(--color-text-maxcontrast);
+}
+
+.hermiq-runs__computer {
+	margin: 4px 0 0;
+	padding-inline-start: 16px;
+	list-style: disc;
+}
+
+.hermiq-runs__code {
+	margin: 4px 0 0;
+	padding-inline-start: 16px;
+	list-style: disc;
+}
+
+.hermiq-runs__code-block {
+	max-height: 12em;
+	margin: 2px 0;
+	padding: 4px 8px;
+	overflow: auto;
+	border-radius: var(--border-radius);
+	background-color: var(--color-background-dark);
+	font-family: var(--font-face-monospace, monospace);
+	font-size: 0.9em;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.hermiq-runs__computer-meta {
+	display: block;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
 }
 </style>

@@ -14,9 +14,7 @@ Give users a Nextcloud-native interface to manage agents and their schedules: br
 agent catalog, create/configure an agent, attach schedules, trigger a run manually, and
 review run history. This is the "+" in Option C+ — Hermiq owns the management surface while
 the agents themselves live in OpenRegister.
-
 ## Requirements
-
 ### Requirement: Agent catalog [MVP]
 The system MUST list the agents the user may see, showing name, model, whether a schedule is attached, and last-run status.
 
@@ -398,6 +396,69 @@ The system MUST let an agent owner declare up to ten start fields of type short 
 - WHEN the schedule runs
 - THEN the instructions receive "Permits" for that field
 - @e2e exclude background job, covered by PHPUnit on ScheduleService
+
+### Requirement: The agent page shows what an agent may use (REQ-SPCOV-001)
+
+The agent page SHALL show, on one page, the skills installed on the agent, the tools it is
+granted and the model and provider it runs on. A person SHALL see all three without leaving
+the page or opening a dialog.
+
+Rows: `ag-capability-profile`. Board: `hermiq/HmAgent`.
+
+#### Scenario: An owner checks what an agent can reach
+- **GIVEN** an agent "Permit helper" with the skill "Summarise a permit", a read grant on the
+  permits schema and the model `qwen2.5` on `ollama`
+- **WHEN** its owner opens the agent page
+- **THEN** the page lists the skill "Summarise a permit", the read grant on permits and
+  "ollama, qwen2.5"
+- **AND** no dialog has to be opened to see them
+
+### Requirement: An agent answers with the temperature its owner sets (REQ-SPCOV-002)
+
+The agent form SHALL offer a temperature from 0 to 2. The system SHALL send the saved value
+to the model provider on every turn of that agent, and SHALL refuse a value outside 0 to 2.
+
+Rows: `dm-temperature`. Board: `hermiq/HmAgentBewerken`.
+
+#### Scenario: A low temperature reaches the provider
+- **GIVEN** an agent whose owner set the temperature to 0.2 and saved
+- **WHEN** a person sends that agent a message
+- **THEN** the provider request carries the temperature 0.2
+@e2e exclude The provider request is built on the server and is not visible in the browser; covered by ProviderFactoryDriverOptionsTest (the agent's temperature on the driver options).
+
+#### Scenario: A value out of range is refused
+- **WHEN** the owner enters 3 as the temperature and saves
+- **THEN** the form says the temperature must be between 0 and 2
+- **AND** the stored agent keeps its old temperature
+
+### Requirement: A described agent becomes a draft in chat (REQ-AGBUILD-001)
+
+The system MUST provide a seeded "Agent builder" agent that answers a description of an agent with a draft in a `hermiq-agent-draft` block, holding name, description, instructions, provider, model, tools, sharing and an optional schedule. The builder MUST NOT create, change or delete any agent itself.
+
+#### Scenario: A team lead describes an agent
+- GIVEN a team lead chatting with "Agent builder"
+- WHEN they write "An agent that summarises new objections every Monday at eight and posts them in the legal team's Talk room"
+- THEN the answer explains the proposed agent and carries a draft, and the agent catalog still has no new agent
+
+### Requirement: A draft opens in the full agent form after a check (REQ-AGBUILD-002)
+
+The system MUST offer "Open as agent" on an assistant message that carries a draft. It MUST check the draft against the tool catalogue, the organisation's model policy, the groups the user can see and the schedule syntax, and MUST open the full agent form pre-filled with the draft and each finding shown next to its field. The agent MUST only exist after the person saves the form.
+
+#### Scenario: The team lead opens the draft and fixes the model
+- GIVEN the draft from the previous scenario names a model the organisation's policy does not allow
+- WHEN the team lead chooses "Open as agent"
+- THEN the agent form opens with every field filled in, the model field says "Not allowed by your organisation" and suggests an allowed model, and after choosing it and saving the agent appears in the catalog
+
+#### Scenario: The proposed schedule is offered after saving
+- GIVEN a saved agent from a draft with a weekly schedule
+- WHEN the agent form closes
+- THEN the schedule form opens pre-filled with "every Monday at 08:00", and the team lead saves or skips it
+
+#### Scenario: The draft check refuses a malformed draft
+- GIVEN a draft block that is not valid JSON
+- WHEN `POST /api/agents/draft-check` receives it
+- THEN the answer is HTTP 422 with "This draft could not be read" and no form opens
+- @e2e exclude API contract, covered by PHPUnit and Newman
 
 ## User Stories
 

@@ -21,13 +21,15 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Chat;
 
+use OCA\Hermiq\Kernel\Contracts\AttachmentStoreInterface;
+use OCA\Hermiq\Service\Files\FolderPath;
 use OCP\Files\Folder;
 use OCP\Files\IMimeTypeDetector;
 use OCP\Files\IRootFolder;
@@ -38,9 +40,9 @@ use RuntimeException;
 /**
  * Stores chat attachments in the person's Files.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
  */
-class AttachmentStore {
+class AttachmentStore implements AttachmentStoreInterface {
 
 	/**
 	 * App config key of the size cap, in MB.
@@ -105,20 +107,11 @@ class AttachmentStore {
 	 * @throws AttachmentRefusedException For a refused type or a file over the cap; nothing is written.
 	 * @throws RuntimeException           When the file could not be read or written.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
 	 */
 	public function store(string $uid, array $upload): array {
 		$name = $this->cleanName(name: (string)($upload['name'] ?? ''));
-		$size = (int)($upload['size'] ?? 0);
-		$capMb = max(1, $this->appConfig->getValueInt('hermiq', self::CAP_KEY, self::DEFAULT_CAP_MB));
-		if ($size > ($capMb * 1024 * 1024)) {
-			throw new AttachmentRefusedException($this->l10n->t('This file is larger than %s MB.', [$capMb]));
-		}
-
-		$mimeType = $this->mimeTypeDetector->detectPath($name);
-		if (self::isAllowedType(mimeType: $mimeType) === false) {
-			throw new AttachmentRefusedException($this->l10n->t('Hermiq cannot read files of this type.'));
-		}
+		$mimeType = $this->acceptedType(name: $name, size: (int)($upload['size'] ?? 0));
 
 		$bytes = file_get_contents((string)($upload['tmp_name'] ?? ''));
 		if ($bytes === false) {
@@ -139,13 +132,39 @@ class AttachmentStore {
 	}//end store()
 
 	/**
+	 * The upload's type when its size is within the admin's cap and the type is one Hermiq reads.
+	 *
+	 * @param string $name The cleaned file name.
+	 * @param int    $size The declared size in bytes.
+	 *
+	 * @return string The detected MIME type.
+	 *
+	 * @throws AttachmentRefusedException When the file is too large (checked first) or of a refused type.
+	 *
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+	 */
+	private function acceptedType(string $name, int $size): string {
+		$capMb = max(1, $this->appConfig->getValueInt('hermiq', self::CAP_KEY, self::DEFAULT_CAP_MB));
+		if ($size > ($capMb * 1024 * 1024)) {
+			throw new AttachmentRefusedException($this->l10n->t('This file is larger than %s MB.', [$capMb]));
+		}
+
+		$mimeType = $this->mimeTypeDetector->detectPath($name);
+		if (self::isAllowedType(mimeType: $mimeType) === false) {
+			throw new AttachmentRefusedException($this->l10n->t('Hermiq cannot read files of this type.'));
+		}
+
+		return $mimeType;
+	}//end acceptedType()
+
+	/**
 	 * Whether Hermiq keeps a file of this type: text, the four image types a model can read, PDF, office documents.
 	 *
 	 * @param string $mimeType The type.
 	 *
 	 * @return bool
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-the-companions-attach-control-has-a-route-to-call-req-catt-001
 	 */
 	public static function isAllowedType(string $mimeType): bool {
 		$mimeType = strtolower(trim($mimeType));
@@ -164,22 +183,11 @@ class AttachmentStore {
 	 * @throws RuntimeException When a segment exists as a file.
 	 */
 	private function folderIn(Folder $parent, array $path): Folder {
-		$folder = $parent;
-		foreach ($path as $segment) {
-			if ($folder->nodeExists($segment) === false) {
-				$folder = $folder->newFolder($segment);
-				continue;
-			}
-
-			$node = $folder->get($segment);
-			if ($node instanceof Folder === false) {
-				throw new RuntimeException('A file is in the way of the attachments folder.');
-			}
-
-			$folder = $node;
-		}
-
-		return $folder;
+		return FolderPath::ensure(
+			parent: $parent,
+			path: $path,
+			inTheWay: static fn (): \Throwable => new RuntimeException('A file is in the way of the attachments folder.')
+		);
 	}//end folderIn()
 
 	/**

@@ -1,0 +1,130 @@
+{
+  "name": "hydra-file-findings",
+  "description": "Turn a reviewer's findings into forge issues — the flow port of orchestrate.sh's create_finding_issues (hydra-flows-first-port 6.1).",
+  "trigger": "manual",
+  "enabled": true,
+  "$comment": [
+    "WHAT THIS REPLACES. `create_finding_issues()` in orchestrate.sh: read the reviewer's",
+    "JSON, take the open WARNING and SUGGESTION findings, and file one issue each. It was the",
+    "ONE function in that 3,258-line file the audit could not call superseded, and therefore",
+    "the reason the file could not be deleted.",
+    "",
+    "WHY IT NEEDED FOUR CHANGES ELSEWHERE BEFORE IT COULD BE WRITTEN, each found only by",
+    "attempting the next step:",
+    "  openregister#2246  the broker refused POST /repos/*/issues, so nothing could file one",
+    "  hermiq#104         findings live in the clone, which is deleted — the stage now returns files",
+    "  hermiq#105         they came back as TEXT; a flow cannot address into a string",
+    "  openregister#2247  nothing turned a list ON an item INTO items; `explode` is that primitive",
+    "  hermiq#106         `files['reviews/latest.json']` is unreachable by any dotted path — hence the alias",
+    "",
+    "WHY THE FILTER IS A SEPARATE EDGE rather than a condition on the explode. The severity",
+    "and status rules are hydra's POLICY — only open WARNING and SUGGESTION findings become",
+    "issues, because an ERROR already failed the gate and a resolved finding is history. Policy",
+    "belongs where someone reading the canvas can see and change it, not buried in a node's",
+    "config. That is the whole argument for the port.",
+    "",
+    "WHY ONE ISSUE PER FINDING and not one summary issue: the shell did it this way, and a",
+    "summary issue cannot be closed per-finding as each is fixed. Preserving the granularity is",
+    "what makes this a PORT rather than a redesign."
+  ],
+  "$bindings": {
+    "file-issue.source": "hydra-forge"
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "openregister.trigger-manual",
+      "config": {},
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "done",
+      "type": "openregister.end",
+      "config": { "message": "The flow completed." },
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "explode-findings",
+      "type": "openregister.explode",
+      "config": {
+        "as": "finding",
+        "path": "stage.files.findings.code_review.findings",
+        "$comment": "`stage.files.findings` is the reviewer JSON, collected under an ALIAS by the stage — the raw path `reviews/latest.json` cannot be walked, because the key holds dots and slashes. The item's own record is carried, so each finding still knows its repo and run."
+      }
+    },
+    {
+      "id": "actionable-only",
+      "type": "openregister.filter",
+      "config": {
+        "$comment": "hydra's POLICY, kept visible on the canvas: an ERROR already failed the gate, and a finding that is not open is history. Only open WARNING and SUGGESTION findings become issues.",
+        "condition": {
+          "and": [
+            {
+              "===": [
+                {
+                  "var": "json.finding.status"
+                },
+                "open"
+              ]
+            },
+            {
+              "in": [
+                {
+                  "var": "json.finding.severity"
+                },
+                [
+                  "WARNING",
+                  "SUGGESTION"
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "file-issue",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "body": "Found by hydra's reviewer on `{{stage.ref}}`.\n\n**Severity:** {{finding.severity}}\n\n{{finding.description}}\n\n---\nFiled automatically by `hydra-file-findings`. Owner: {{stage.owner}}",
+          "title": "[hydra] {{finding.title}}",
+          "labels": [
+            "hydra:finding"
+          ]
+        },
+        "method": "POST",
+        "output": "issue",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "$comment": "One issue per finding. The body names the run and the ref so a reader can get back to what produced it — a finding with no provenance is a bug report nobody can act on. `onError: continue` deliberately: one finding that fails to file must not discard the rest, and the run's own trace records which.",
+        "endpoint": "/repos/{{repo}}/issues"
+      },
+      "exit": true
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-explode-findings",
+      "from": "start",
+      "to": "explode-findings"
+    },
+    {
+      "id": "file-issue-done",
+      "from": "file-issue",
+      "to": "done"
+    },
+    {
+      "id": "explode-findings-actionable-only",
+      "from": "explode-findings",
+      "to": "actionable-only",
+      "title": "One item per finding"
+    },
+    {
+      "id": "actionable-only-file-issue",
+      "from": "actionable-only",
+      "to": "file-issue",
+      "title": "Open WARNING / SUGGESTION only"
+    }
+  ]
+}

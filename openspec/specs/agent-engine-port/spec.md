@@ -1,8 +1,10 @@
 # agent-engine-port Specification
 
 ## Purpose
-TBD - created by archiving change llm-keys-via-broker. Update Purpose after archive.
+How hermiq's agent engine runs a chat turn: it holds no model API key of its own (keys come from the credential broker), generates a conversation title without holding up the reply and without bypassing the model policy, and hands the model the person's turn once. Created by the change `llm-keys-via-broker`; the turn-once requirement came from `user-turn-sent-once` (archived 2026-10-30).
+
 ## Requirements
+
 ### Requirement: Hermiq holds no LLM API key
 
 Hermiq SHALL NOT accept, store, or transmit an OpenAI or Fireworks API key. Every call to
@@ -192,3 +194,102 @@ policy, which is the part deferral could have broken.
 - **THEN** the policy MUST be enforced exactly as it is on the synchronous path it replaced
 - **AND** the system MUST NOT bypass the policy by passing a null organisation
 
+### Requirement: The model receives the user's turn once
+
+A chat turn SHALL send the user's latest message to the model exactly once, as the
+last turn of the request, on every provider. The conversation history handed to
+the response handler SHALL hold the turns before the current one only; the
+response handler SHALL be the single place that appends the current turn.
+
+#### Scenario: The latest question is sent once
+- **GIVEN** a conversation on the openai, ollama, fireworks or anthropic provider
+- **WHEN** a person asks a question
+- **THEN** the provider request carries that question once
+- **AND** it is the last message of the request
+
+#### Scenario: A multi-turn conversation keeps its earlier turns
+- **GIVEN** a conversation where the person asked a question and the agent answered
+- **WHEN** the person asks a second question
+- **THEN** the provider request carries the first question, then the answer, then the second question
+- **AND** each of them appears once
+
+#### Scenario: Storing the turn does not change what is sent
+- **GIVEN** the engine stores the person's turn before it builds the history
+- **WHEN** the history is built for the model
+- **THEN** the stored copy of the current turn is left out of the history
+- **AND** the stored turn itself is unchanged
+
+#### Scenario: A shared session still names who is asking
+- **GIVEN** a session where two people have taken turns
+- **WHEN** one of them asks a question
+- **THEN** the provider request carries that question once, prefixed with the asker's name
+- **AND** the earlier turns keep their speakers' names as before
+
+### Requirement: The chat page streams the answer as the agent writes it (REQ-CHSTRM-001)
+
+The chat page SHALL send a turn to `POST /api/chat/stream` and SHALL show the answer in the
+open message bubble as `token` events arrive, before the turn ends. The endpoint SHALL answer
+with `text/event-stream` and the events `token`, `tool_call`, `tool_result`, `heartbeat`,
+`final` and `error`, and SHALL require the Nextcloud session and the CSRF token like any other
+write. When the stream fails in transport, the page SHALL send the same turn once to the
+non-streaming send endpoint; a terminal `error` event SHALL NOT be retried, so the person's
+message is never stored twice.
+
+Rows: `ch-stream`. Board: `hermiq/HmChat`.
+
+#### Scenario: The answer grows while it is written
+- **GIVEN** a person on the chat page with an agent whose model streams
+- **WHEN** they send a message
+- **THEN** the answer bubble shows the first words before the `final` event arrives
+- **AND** after `final` the bubble holds the whole answer as stored
+
+#### Scenario: A broken stream falls back once
+- **GIVEN** a proxy that closes the event stream before any event
+- **WHEN** a person sends a message
+- **THEN** the page sends the turn once to the non-streaming endpoint and shows its answer
+- **AND** the conversation holds the person's message once
+
+### Requirement: A person rates an answer up or down, with an optional comment (REQ-CHFB-001)
+
+Under every saved answer on the chat page a person who may take part in the conversation SHALL
+see a thumbs up and a thumbs down. Choosing one SHALL store a `Feedback` object with the
+message, conversation, agent, person, type (`positive` or `negative`) and an optional comment,
+through `POST /api/conversations/{uuid}/messages/{id}/feedback`. A person SHALL have at most one
+rating per answer: rating again SHALL update that rating. The endpoint SHALL refuse a type other
+than `positive` or `negative` (400), a person who may not take part in the conversation (403)
+and a message that does not belong to the conversation (404). The ratings SHALL feed what
+`run-analytics` shows the agent owner (REQ-FBSTAT-001/002).
+
+Rows: `ch-feedback`. Board: `hermiq/HmChat`.
+
+#### Scenario: A thumbs down with a comment is kept
+- **GIVEN** an answer in a person's conversation
+- **WHEN** they choose thumbs down, type "Mist de bron" and send the feedback
+- **THEN** one `Feedback` object holds type `negative` and that comment
+- **AND** after a reload the thumbs down is still marked on that answer
+
+#### Scenario: Rating again changes the one rating
+- **GIVEN** a person rated an answer thumbs down
+- **WHEN** they choose thumbs up on the same answer
+- **THEN** the same `Feedback` object now holds type `positive` and no second object exists
+
+#### Scenario: Someone outside the conversation cannot rate
+- **GIVEN** a conversation a user does not take part in
+- **WHEN** that user posts feedback for one of its answers
+- **THEN** the request is refused with 403 and no `Feedback` object is stored
+
+### Requirement: A long conversation is summarised so it can continue (REQ-SPCOV-009)
+
+When a conversation's history passes the token threshold, the system SHALL replace its
+older turns with a stored running summary before the next turn, and SHALL keep the most
+recent turns in full. The person SHALL be able to keep chatting without starting a new
+session.
+
+Rows: `me-compression`. Board: `hermiq/HmChat`.
+
+#### Scenario: A conversation passes the threshold
+- **GIVEN** a session whose history has passed the token threshold
+- **WHEN** the person sends the next message
+- **THEN** the model receives a summary of the older turns and the most recent turns in full
+- **AND** the answer arrives in the same session
+@e2e exclude Needs a real model to write the summary and a long conversation; the summary trigger is covered by ConversationSummaryDueGoldenTest.

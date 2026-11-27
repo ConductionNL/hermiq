@@ -26,7 +26,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#requirement-a-group-must-carry-the-reasons-its-members-were-grouped
+ * @spec openspec/specs/report-similarity/spec.md#requirement-a-group-must-carry-the-reasons-its-members-were-grouped
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ namespace OCA\Hermiq\Service\ReportSimilarity;
 /**
  * Scores two report texts and names the terms they share.
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
+ * @spec openspec/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
  */
 class TermOverlapScorer {
 
@@ -78,7 +78,7 @@ class TermOverlapScorer {
 	 *
 	 * @return array{score: float, terms: array<int, string>, scorer: string} The judgement.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-why-these-are-one-thing-is-answerable
 	 */
 	public function score(string $left, string $right): array {
 		$a = $this->terms(text: $left);
@@ -125,25 +125,34 @@ class TermOverlapScorer {
 
 		$terms = [];
 		foreach ($tokens as $token) {
-			if (mb_strlen($token) < self::MINIMUM_TERM_LENGTH) {
-				continue;
+			if ($this->isSignificant(token: $token) === true) {
+				$terms[$token] = true;
 			}
-
-			if (in_array($token, self::STOPWORDS, true) === true) {
-				continue;
-			}
-
-			// A run of digits is an identifier, not a word: a telephone number, a
-			// burgerservicenummer, a case number. It is no use as evidence that two
-			// reports describe one event, and a group is read by handlers and kept
-			// as a reason, so it has no business being in one.
-			if (preg_match('/^\d+$/', $token) === 1) {
-				continue;
-			}
-
-			$terms[$token] = true;
 		}
 
 		return array_keys($terms);
 	}//end terms()
+
+	/**
+	 * Whether a token counts as a term: long enough, not a stop word, not a digit run.
+	 *
+	 * @param string $token The lower-cased token.
+	 *
+	 * @return boolean True when it is a significant term.
+	 */
+	private function isSignificant(string $token): bool {
+		if (mb_strlen($token) < self::MINIMUM_TERM_LENGTH) {
+			return false;
+		}
+
+		if (in_array($token, self::STOPWORDS, true) === true) {
+			return false;
+		}
+
+		// A run of digits is an identifier, not a word: a telephone number, a
+		// burgerservicenummer, a case number. It is no use as evidence that two
+		// reports describe one event, and a group is read by handlers and kept
+		// as a reason, so it has no business being in one.
+		return preg_match('/^\d+$/', $token) !== 1;
+	}//end isSignificant()
 }//end class

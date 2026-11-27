@@ -29,12 +29,14 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Workspace;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ForgeEgressPolicyInterface;
 use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCP\IAppConfig;
 use Throwable;
 
@@ -43,7 +45,7 @@ use Throwable;
  *
  * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
  */
-class ForgeEgressPolicy {
+class ForgeEgressPolicy implements ForgeEgressPolicyInterface {
 
 	/**
 	 * The workspace tools that reach the forge.
@@ -78,7 +80,7 @@ class ForgeEgressPolicy {
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
 	 */
 	public function isForgeHost(string $host): bool {
-		$base = $this->appConfig->getValueString(Application::APP_ID, 'workspace_forge_base_url', ForgeLocator::DEFAULT_BASE_URL);
+		$base = $this->appConfig->getValueString(AppIdentity::APP_ID, 'workspace_forge_base_url', ForgeLocator::DEFAULT_BASE_URL);
 		$forgeHost = strtolower((string)parse_url($base, PHP_URL_HOST));
 		return $forgeHost !== '' && strtolower(rtrim($host, '.')) === $forgeHost;
 	}//end isForgeHost()
@@ -100,7 +102,12 @@ class ForgeEgressPolicy {
 		}
 
 		try {
-			$agent = $this->objects->find(id: $agentId, register: 'hermiq', schema: 'agent', _rbac: false, _multitenancy: false);
+			$agent = $this->objects->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: 'hermiq', schema: 'agent'),
+				_rbac: false,
+				_multitenancy: false
+			);
 		} catch (Throwable) {
 			return false;
 		}

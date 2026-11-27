@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+ * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
@@ -40,6 +40,10 @@ use Psr\Log\LoggerInterface;
 use ReflectionMethod;
 use RuntimeException;
 
+// The integriq event contract is not installed here; its stub is not on the unit
+// autoloader, so load it explicitly or every report reads integriq as absent.
+require_once __DIR__ . '/../../../Stubs/Integriq/Event/ConnectionStatusReportedEvent.php';
+
 /**
  * Unit tests for ConnectionReporter.
  *
@@ -47,6 +51,7 @@ use RuntimeException;
  * design D6 of the hydra change connection-registry.
  *
  * @covers \OCA\Hermiq\Service\Connection\ConnectionReporter
+ * @covers \OCA\Hermiq\Service\Connection\ConnectionStatus
  */
 class ConnectionReporterTest extends TestCase {
 

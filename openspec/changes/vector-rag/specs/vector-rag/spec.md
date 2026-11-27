@@ -28,6 +28,12 @@ acting user is authorized to read.
 - **THEN** it MUST contain no reference to OpenRegister's internal vectorization
   classes, only to the public facade
 
+#### Scenario: A passage from a file the person may not read stays out of the answer
+- **GIVEN** an agent grounded in the folder "Woo-werkinstructies", which holds `personeelsdossier-jansen.pdf` that only the HR team may read
+- **WHEN** a case handler outside the HR team asks a question that matches a passage in that file
+- **THEN** the facade MUST return no chunk of `personeelsdossier-jansen.pdf`
+- **AND** the answer's sources MUST name only files the case handler may read
+
 ### Requirement: Semantic and hybrid retrieval run through the facade
 The system MUST route `ragSearchMode: semantic` to `searchSemantic()` and
 `ragSearchMode: hybrid` to `searchHybrid()` when the facade is present and
@@ -57,9 +63,9 @@ logged. The `retrieveContext()` never-throws contract MUST be preserved.
 - **AND** the facade MUST NOT be called
 
 ### Requirement: Retrieval degrades honestly when no vector backend is configured
-When the facade is absent, reports `isAvailable() === false`, or a facade call
-throws, the system MUST fall back to the existing keyword retrieval path for
-`semantic` and `hybrid` modes, MUST log which condition caused the fallback
+The system MUST fall back to the existing keyword retrieval path for `semantic`
+and `hybrid` modes when the facade is absent, reports `isAvailable() === false`,
+or a facade call throws. It MUST log which condition caused the fallback
 (distinguishing "facade not present" from "no backend configured" from "backend
 error"), and MUST NOT fail the turn. The system MUST expose the current tier
 (vector-live or keyword-degraded) on the admin settings surface so a degraded

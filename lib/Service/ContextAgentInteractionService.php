@@ -22,7 +22,7 @@
  * provider per task type). Hermiq's differentiator is governance — approval gate,
  * kill-switch, per-agent capability profile, redacted audit.
  *
- * DEFERRED (single-turn scope; see openspec/changes/contextagent-provider/design.md):
+ * DEFERRED (single-turn scope; see openspec/changes/archive/2026-11-20-contextagent-provider/design.md):
  * the stateful multi-turn "propose actions → pause → confirm → resume the exact tool
  * execution" loop. This pass runs one governed turn per interaction (Hermiq's engine
  * executes its own allowlist-gated tool loop inline), surfaces the allowlist in
@@ -41,19 +41,28 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-1
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
+use OCA\Hermiq\Service\ContextAgent\ConfirmationActor;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IAppConfig;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -68,9 +77,9 @@ use Throwable;
  * ties together conversation storage, the engine, the approval gate, the kill-switch
  * and the audit write — that governance composition IS the feature.
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-1
  */
-class ContextAgentInteractionService {
+class ContextAgentInteractionService implements ContextAgentInteractionServiceInterface {
 	/**
 	 * OpenRegister register slug holding Hermiq agent-engine objects.
 	 *
@@ -111,8 +120,8 @@ class ContextAgentInteractionService {
 	 *
 	 * @param ObjectService $objectService OR object read/write.
 	 * @param Engine $engine Hermiq agent engine (runs the turn).
-	 * @param ApprovalService $approvalService Approval-gate decisions (confirmation mapping).
-	 * @param ScheduleService $scheduleService Kill-switch source (isOrganisationEngaged).
+	 * @param ApprovalServiceInterface $approvalService Approval-gate decisions (confirmation mapping).
+	 * @param TenantKillSwitch $tenantKillSwitch Kill-switch source (isOrganisationEngaged).
 	 * @param AuditTrailMapper $auditTrailMapper Redacted per-interaction audit write-path.
 	 * @param RedactionService $redactionService Masks secrets/PII before the audit write.
 	 * @param IAppConfig $appConfig Reads the configured ContextAgent agent id.
@@ -121,6 +130,7 @@ class ContextAgentInteractionService {
 	 *                                                 identifier, pinned onto the interaction audit
 	 *                                                 context (agent-versioning).
 	 * @param AgentAccessService $agentAccess Decides whether the task user may use a fallback agent.
+	 * @param ApprovalInbox $approvalInbox The approvals routed to the task user.
 	 * @param ProviderFactory|null $providerFactory Runs the engine turn acting for the task's user.
 	 * @param IUserSession|null $userSession Tells a cron run (no session) from a request.
 	 * @param IUserManager|null $userManager Resolves the task's user for a cron run.
@@ -133,14 +143,15 @@ class ContextAgentInteractionService {
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly Engine $engine,
-		private readonly ApprovalService $approvalService,
-		private readonly ScheduleService $scheduleService,
+		private readonly ApprovalServiceInterface $approvalService,
+		private readonly TenantKillSwitch $tenantKillSwitch,
 		private readonly AuditTrailMapper $auditTrailMapper,
 		private readonly RedactionService $redactionService,
 		private readonly IAppConfig $appConfig,
 		private readonly LoggerInterface $logger,
 		private readonly AgentVersionService $agentVersionService,
 		private readonly AgentAccessService $agentAccess,
+		private readonly ApprovalInbox $approvalInbox,
 		// Nullable and trailing so the existing construction sites keep working; the
 		// container autowires it. Absent, the turn runs without an acting user, as before.
 		private readonly ?ProviderFactory $providerFactory = null,
@@ -167,7 +178,7 @@ class ContextAgentInteractionService {
 	 * @throws ProcessingException When there is no user context, no available agent, the
 	 *                             org kill-switch is engaged, or the turn fails.
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
 	 */
 	public function interact(?string $userId, string $input, ?int $confirmation, string $conversationToken): array {
@@ -226,7 +237,7 @@ class ContextAgentInteractionService {
 
 		// GATE — org kill-switch (EU-AI-Act Art. 14 / governance differentiator).
 		$organisation = (string)($agent->getOrganisation() ?? '');
-		if ($this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
+		if ($this->tenantKillSwitch->isOrganisationEngaged(organisation: $organisation) === true) {
 			$this->audit(object: $agent, status: 'skipped_killswitch', summary: '', agentId: $agentId);
 			throw new ProcessingException('Hermiq kill-switch is engaged for this organisation; the agent will not run.');
 		}
@@ -243,8 +254,10 @@ class ContextAgentInteractionService {
 		// exists (the common single-turn case).
 		$confirmationOutcome = $this->applyConfirmation(
 			confirmation: $confirmation,
-			userId: $userId,
-			agentId: $agentId
+			actor: new ConfirmationActor(
+				userId: $userId,
+				agentId: $agentId
+			)
 		);
 
 		// Run one governed turn through Hermiq's engine (its own allowlist-gated tool
@@ -328,7 +341,7 @@ class ContextAgentInteractionService {
 	 * @return ObjectEntity|null The agent, or null when none is available.
 	 */
 	private function resolveAgent(string $userId): ?ObjectEntity {
-		$configured = $this->appConfig->getValueString(Application::APP_ID, self::AGENT_CONFIG_KEY, '');
+		$configured = $this->appConfig->getValueString(AppIdentity::APP_ID, self::AGENT_CONFIG_KEY, '');
 		if ($configured !== '') {
 			// _rbac false: this agent was named in app configuration for every user,
 			// and new agents are private by default, so the Agent read rule
@@ -336,8 +349,7 @@ class ContextAgentInteractionService {
 			// below stays under the caller's own read rule.
 			$agent = $this->objectService->find(
 				id: $configured,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
 				_rbac: false
 			);
 			if ($agent instanceof ObjectEntity) {
@@ -377,12 +389,20 @@ class ContextAgentInteractionService {
 	 * @return ObjectEntity The resolved (existing or newly-created) Conversation.
 	 */
 	private function resolveConversation(string $conversationToken, string $userId, string $agentId): ObjectEntity {
-		if ($conversationToken !== '') {
-			$existing = $this->objectService->find(
-				id: $conversationToken,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
-			);
+		// Nextcloud Assistant sends `{}` as the token of a first turn (the context_agent
+		// convention), and OpenRegister's find() throws for an id it does not know
+		// instead of answering null. Both mean "no conversation yet": start one.
+		$existing = null;
+		if ($conversationToken !== '' && $conversationToken !== '{}') {
+			try {
+				$existing = $this->objectService->find(
+					id: $conversationToken,
+					options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+				);
+			} catch (DoesNotExistException) {
+				$existing = null;
+			}
+
 			if ($existing instanceof ObjectEntity
 				&& (string)($existing->getObject()['userId'] ?? '') === $userId
 			) {
@@ -405,8 +425,7 @@ class ContextAgentInteractionService {
 				'title' => 'Assistant agent chat',
 				'metadata' => ['source' => 'contextagent'],
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::CONVERSATION_SCHEMA,
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)),
 			_rbac: false
 		);
 
@@ -418,18 +437,19 @@ class ContextAgentInteractionService {
 	 * summary of what happened (for the audit line).
 	 *
 	 * @param int|null $confirmation The confirmation value (1 confirm, 0 deny, null absent).
-	 * @param string $userId The confirming user (must be the approval's reviewer).
-	 * @param string $agentId The agent the approval must belong to.
+	 * @param ConfirmationActor $actor The person and agent a confirmation is applied for.
 	 *
 	 * @return string A summary: 'no-confirmation', 'confirmation:no-pending',
 	 *                'confirmation:approved' or 'confirmation:denied'.
 	 */
-	private function applyConfirmation(?int $confirmation, string $userId, string $agentId): string {
+	private function applyConfirmation(?int $confirmation, ConfirmationActor $actor): string {
+		$userId = $actor->userId;
+		$agentId = $actor->agentId;
 		if ($confirmation === null) {
 			return 'no-confirmation';
 		}
 
-		$pending = $this->approvalService->listPendingForReviewer(uid: $userId);
+		$pending = $this->approvalInbox->listPendingForReviewer(uid: $userId);
 		$match = null;
 		foreach ($pending as $record) {
 			if (($record['agentId'] ?? '') === $agentId) {
@@ -502,18 +522,20 @@ class ContextAgentInteractionService {
 	 */
 	private function audit(ObjectEntity $object, string $status, string $summary, string $agentId): void {
 		try {
-			$this->auditTrailMapper->createAuditTrailEntry(
-				object: $object,
-				action: 'contextagent-interaction',
-				context: [
-					'status' => $status,
-					'agentId' => $agentId,
-					'summary' => $this->redactionService->redact($summary),
-					// Agent-versioning: the version of the serving agent's config at
-					// the time of this interaction (null when unresolvable — never
-					// fatal to the interaction).
-					'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
-				]
+			$this->auditTrailMapper->recordObjectEvent(
+				event: new ObjectAuditEvent(
+					object: $object,
+					action: 'contextagent-interaction',
+					context: [
+						'status' => $status,
+						'agentId' => $agentId,
+						'summary' => $this->redactionService->redact($summary),
+						// Agent-versioning: the version of the serving agent's config at
+						// the time of this interaction (null when unresolvable — never
+						// fatal to the interaction).
+						'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
+					]
+				)
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(

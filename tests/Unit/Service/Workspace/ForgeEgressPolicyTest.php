@@ -25,7 +25,7 @@ use OCA\Hermiq\Mcp\WorkspaceToolDescriptors;
 use OCA\Hermiq\Service\Workspace\ForgeEgressPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
@@ -70,24 +70,41 @@ final class ForgeEgressPolicyTest extends TestCase {
 	}//end testTheForgeHostIsTheConfiguredOne()
 
 	/**
+	 * A store that answers without an agent, or an agent whose tools are not a
+	 * list, never opens the forge.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
+	 */
+	public function testNoAgentOrMalformedToolsNeverOpenTheForge(): void {
+		self::assertFalse($this->policy(tools: [WorkspaceToolDescriptors::OPEN], agentMissing: true)->permits(agentId: 'agent-1'));
+		self::assertFalse($this->policy(tools: [WorkspaceToolDescriptors::OPEN], toolsValue: 'all')->permits(agentId: 'agent-1'));
+	}//end testNoAgentOrMalformedToolsNeverOpenTheForge()
+
+	/**
 	 * The policy for an agent with these tools (null: the agent cannot be read).
 	 *
-	 * @param array<int, string>|null $tools The Agent.tools entries.
+	 * @param array<int, string>|null $tools        The Agent.tools entries.
+	 * @param bool                    $agentMissing Whether the store answers null.
+	 * @param mixed                   $toolsValue   A raw Agent.tools value overriding $tools.
 	 *
 	 * @return ForgeEgressPolicy
 	 */
-	private function policy(?array $tools): ForgeEgressPolicy {
+	private function policy(?array $tools, bool $agentMissing = false, mixed $toolsValue = null): ForgeEgressPolicy {
 		$appConfig = $this->createMock(IAppConfig::class);
 		$appConfig->method('getValueString')->willReturnCallback(
 			static fn (string $app, string $key, string $default = ''): string => ($key === 'workspace_forge_base_url' ? 'https://git.example.org' : $default)
 		);
 		$objects = $this->createMock(ObjectService::class);
-		if ($tools === null) {
+		if ($agentMissing === true) {
+			$objects->method('find')->willReturn(null);
+		} else if ($tools === null) {
 			$objects->method('find')->willThrowException(new \RuntimeException('not found'));
 		} else {
 			$agent = new ObjectEntity();
 			$agent->setUuid('agent-1');
-			$agent->setObject(['tools' => $tools]);
+			$agent->setObject(['tools' => ($toolsValue ?? $tools)]);
 			$objects->method('find')->willReturn($agent);
 		}
 

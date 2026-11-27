@@ -23,18 +23,17 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+ * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Controller\Chat\ImageTurn;
+use OCA\Hermiq\Kernel\Contracts\ImageGenerationServiceInterface;
 use OCA\Hermiq\Service\Chat\ImageGenerationException;
-use OCA\Hermiq\Service\Chat\ImageGenerationService;
-use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
-use OCA\Hermiq\Service\Talk\ConversationParticipation;
-use OCA\OpenRegister\Service\ObjectService;
+use OCA\Hermiq\Service\Chat\SessionTurns;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
@@ -48,7 +47,7 @@ use Throwable;
 /**
  * Creates an image from the chat and stores it as the answer.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+ * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
  */
 class ChatImageController extends Controller {
 
@@ -69,10 +68,8 @@ class ChatImageController extends Controller {
 	 * @param string                    $appName       The app id.
 	 * @param IRequest                  $request       The request.
 	 * @param IUserSession              $userSession   The signed-in person.
-	 * @param ImageGenerationService    $images        Creates and marks the image.
-	 * @param ObjectService             $objectService Reads the session.
-	 * @param MessageHistoryHandler     $history       Stores the two turns.
-	 * @param ConversationParticipation $participation Owner-or-listed-participant guard.
+	 * @param ImageGenerationServiceInterface    $images        Creates and marks the image.
+	 * @param SessionTurns              $turns         Guards the session and stores the two turns.
 	 * @param IL10N                     $l10n          Messages in the person's language.
 	 * @param LoggerInterface           $logger        Logger.
 	 */
@@ -80,10 +77,8 @@ class ChatImageController extends Controller {
 		string $appName,
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly ImageGenerationService $images,
-		private readonly ObjectService $objectService,
-		private readonly MessageHistoryHandler $history,
-		private readonly ConversationParticipation $participation,
+		private readonly ImageGenerationServiceInterface $images,
+		private readonly SessionTurns $turns,
 		private readonly IL10N $l10n,
 		private readonly LoggerInterface $logger,
 	) {
@@ -95,7 +90,7 @@ class ChatImageController extends Controller {
 	 *
 	 * @return JSONResponse `{ available: bool }`.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+	 * @spec openspec/specs/image-generation/spec.md#scenario-no-provider-no-button
 	 */
 	#[NoAdminRequired]
 	public function availability(): JSONResponse {
@@ -115,7 +110,7 @@ class ChatImageController extends Controller {
 	 *
 	 * @return JSONResponse `{ userTurn, assistantTurn }`, or `{ error, code }` on a refusal.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-a-communications-advisor-asks-for-an-illustration
+	 * @spec openspec/specs/image-generation/spec.md#scenario-a-communications-advisor-asks-for-an-illustration
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 10, period: 60)]
@@ -131,13 +126,9 @@ class ChatImageController extends Controller {
 		}
 
 		$uid = $user->getUID();
-		$session = $this->objectService->find(id: $sessionId, register: 'hermiq', schema: 'agentsession');
-		if ($session === null) {
-			return $this->refusal(message: $this->l10n->t('This session does not exist.'), code: 'not_found', status: 404);
-		}
-
-		if ($this->participation->mayTakeTurn(conversationData: $session->getObject(), userId: $uid) === false) {
-			return $this->refusal(message: $this->l10n->t('You cannot add to this session.'), code: 'forbidden', status: 403);
+		$refused = $this->turns->refusalFor(sessionId: $sessionId, uid: $uid);
+		if ($refused !== null) {
+			return $refused;
 		}
 
 		try {
@@ -146,37 +137,38 @@ class ChatImageController extends Controller {
 			return $this->refusal(message: $e->getMessage(), code: $e->errorCode, status: (self::STATUS_FOR[$e->errorCode] ?? 502));
 		}
 
-		return $this->storeTurns(sessionId: $sessionId, uid: $uid, displayName: $user->getDisplayName(), prompt: $prompt, created: $created);
+		return $this->storeTurns(
+			sessionId: $sessionId,
+			turn: new ImageTurn(
+				uid: $uid,
+				displayName: $user->getDisplayName(),
+				prompt: $prompt,
+				created: $created
+			)
+		);
 	}//end create()
 
 	/**
 	 * Store the description and the image as two turns and answer with both.
 	 *
 	 * @param string               $sessionId   The session.
-	 * @param string               $uid         The person.
-	 * @param string               $displayName Their display name at send time.
-	 * @param string               $prompt      The description.
-	 * @param array<string, mixed> $created     What the service created.
+	 * @param ImageTurn $turn The person's image request and the image created for it.
 	 *
 	 * @return JSONResponse The two turns, or a 500 when they could not be stored.
 	 */
-	private function storeTurns(string $sessionId, string $uid, string $displayName, string $prompt, array $created): JSONResponse {
+	private function storeTurns(string $sessionId, ImageTurn $turn): JSONResponse {
+		$uid = $turn->uid;
+		$displayName = $turn->displayName;
+		$prompt = $turn->prompt;
+		$created = $turn->created;
 		$attachment = $this->images->asAttachment(created: $created);
 		$answer = $this->l10n->t('Here is the image you asked for.');
 
 		try {
-			$userTurn = $this->history->storeMessage(
-				conversationId: $sessionId,
-				role: 'user',
-				content: $prompt,
-				authorId: $uid,
-				authorDisplayName: $displayName
-			);
-			$assistantTurn = $this->history->storeMessage(
-				conversationId: $sessionId,
-				role: 'assistant',
-				content: $answer,
-				attachments: [$attachment]
+			$turns = $this->turns->store(
+				sessionId: $sessionId,
+				user: ['content' => $prompt, 'authorId' => $uid, 'authorDisplayName' => $displayName],
+				assistant: ['content' => $answer, 'attachments' => [$attachment]]
 			);
 		} catch (Throwable $e) {
 			$this->logger->warning(
@@ -187,17 +179,7 @@ class ChatImageController extends Controller {
 			return $this->refusal(message: $message, code: 'not_stored', status: 500);
 		}
 
-		return new JSONResponse(
-			data: [
-				'userTurn' => ['id' => (string)$userTurn->getUuid(), 'role' => 'user', 'content' => $prompt, 'attachments' => []],
-				'assistantTurn' => [
-					'id' => (string)$assistantTurn->getUuid(),
-					'role' => 'assistant',
-					'content' => $answer,
-					'attachments' => [$attachment],
-				],
-			]
-		);
+		return new JSONResponse(data: $turns);
 	}//end storeTurns()
 
 	/**

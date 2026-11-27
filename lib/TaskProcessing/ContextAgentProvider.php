@@ -13,7 +13,7 @@
  * `ContextAgentInteractionService`, which owns the confirmation→approval-gate mapping,
  * conversation_token↔Conversation binding, actions↔tool-allowlist disclosure, and the
  * kill-switch gate. The multi-turn action-confirmation loop is deferred to a single-turn
- * path (see the service docblock + openspec/changes/contextagent-provider/design.md).
+ * path (see the service docblock + openspec/changes/archive/2026-11-20-contextagent-provider/design.md).
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
@@ -27,21 +27,23 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-1
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\TaskProcessing;
 
-use OCA\Hermiq\Service\ContextAgentInteractionService;
+use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
+use OCP\IUserManager;
+use OCP\IUserSession;
 use OCP\TaskProcessing\ISynchronousProvider;
 use OCP\TaskProcessing\TaskTypes\ContextAgentInteraction;
 
 /**
  * Hermiq's provider for the `core:contextagent:interaction` task type.
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-1
  */
 class ContextAgentProvider implements ISynchronousProvider {
 	use EmptyOptionalShapesTrait;
@@ -49,12 +51,16 @@ class ContextAgentProvider implements ISynchronousProvider {
 	/**
 	 * Constructor.
 	 *
-	 * @param ContextAgentInteractionService $interactionService Runs the governed turn.
+	 * @param ContextAgentInteractionServiceInterface $interactionService Runs the governed turn.
+	 * @param IUserSession|null $userSession The session the turn runs under.
+	 * @param IUserManager|null $userManager Resolves the task's user.
 	 *
 	 * @return void
 	 */
 	public function __construct(
-		private readonly ContextAgentInteractionService $interactionService,
+		private readonly ContextAgentInteractionServiceInterface $interactionService,
+		private readonly ?IUserSession $userSession = null,
+		private readonly ?IUserManager $userManager = null,
 	) {
 	}//end __construct()
 
@@ -85,7 +91,7 @@ class ContextAgentProvider implements ISynchronousProvider {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-1
 	 */
 	public function getTaskTypeId(): string {
 		return ContextAgentInteraction::ID;
@@ -122,7 +128,8 @@ class ContextAgentProvider implements ISynchronousProvider {
 	 * @psalm-param  callable(float):bool $reportProgress
 	 * @psalm-return array{output: string, conversation_token: string, actions: string}
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-6-2
 	 */
 	public function process(?string $userId, array $input, callable $reportProgress): array {
 		$message = (string)($input['input'] ?? '');
@@ -135,12 +142,31 @@ class ContextAgentProvider implements ISynchronousProvider {
 			$confirmation = (int)$input['confirmation'];
 		}
 
-		$result = $this->interactionService->interact(
-			userId: $userId,
-			input: $message,
-			confirmation: $confirmation,
-			conversationToken: $conversationToken
-		);
+		// A synchronous provider runs in Nextcloud's TaskProcessing worker, which has no
+		// session: every OpenRegister read of the turn then runs as "Anonymous" and is
+		// refused. Run the turn as the task's user, and put the prior session back.
+		$priorUser = $this->userSession?->getUser();
+		$taskUser = null;
+		if ($userId !== null && $priorUser?->getUID() !== $userId) {
+			$taskUser = $this->userManager?->get($userId);
+		}
+
+		if ($taskUser !== null) {
+			$this->userSession?->setUser($taskUser);
+		}
+
+		try {
+			$result = $this->interactionService->interact(
+				userId: $userId,
+				input: $message,
+				confirmation: $confirmation,
+				conversationToken: $conversationToken
+			);
+		} finally {
+			if ($taskUser !== null) {
+				$this->userSession?->setUser($priorUser);
+			}
+		}
 
 		// Report completion so cancelled tasks stop cleanly (single blocking call).
 		$reportProgress(1.0);

@@ -18,7 +18,7 @@
  * @param {{available: boolean}|null} capabilities The speech service answer.
  * @param {boolean} canRecord Whether the browser offers MediaRecorder.
  * @return {{dictate: boolean, readAloud: boolean}} The controls to show.
- * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
+ * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
  */
 export function speechControls(agent, capabilities, canRecord) {
 	if (!agent || capabilities?.available !== true) {
@@ -36,7 +36,7 @@ export function speechControls(agent, capabilities, canRecord) {
  * @param {string} current The message box content.
  * @param {string} transcript The dictated words.
  * @return {string} The new message box content.
- * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
+ * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
  */
 export function appendTranscript(current, transcript) {
 	const words = (transcript || '').trim()
@@ -52,7 +52,7 @@ export function appendTranscript(current, transcript) {
  *
  * @param {string} markdown The answer as stored.
  * @return {string} Plain text.
- * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
+ * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
  */
 export function plainTextForSpeech(markdown) {
 	return (markdown || '')
@@ -82,7 +82,7 @@ export function plainTextForSpeech(markdown) {
  * @param {function(string): void} deps.onState Receives each state.
  * @param {function(string): void} deps.onError Receives the error kind: `refused` or `unavailable`.
  * @return {{toggle: function(): Promise<void>, state: function(): string}} The machine.
- * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
+ * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
  */
 export function createDictation(deps) {
 	let state = 'idle'
@@ -137,7 +137,7 @@ export function createDictation(deps) {
  * @param {function(Blob): object} deps.createAudio Receives a Blob, returns an element with play(), pause() and onended; wraps the audio for playing.
  * @param {function(?string): void} deps.onChange Receives the key now playing, or null.
  * @return {{toggle: function(string, string): Promise<void>, stop: function(): void, playing: function(): ?string}} The player.
- * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
+ * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-reads-answers-aloud-req-chvoice-002
  */
 export function createSpeaker(deps) {
 	let current = null

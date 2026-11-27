@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
+ * @spec openspec/specs/app-connections/spec.md#requirement-hermiq-reports-what-only-it-can-observe-req-hermiq-conn-003
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
@@ -54,6 +54,12 @@ use Psr\Log\LoggerInterface;
  *
  * @uses \OCA\Hermiq\Service\DeliveryResult
  * @uses \OCA\Hermiq\Service\RedactionService
+ * @uses   \OCA\Hermiq\Service\Redaction\AssignmentRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\CredentialRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\FormBodyRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\PhoneRedactor
+ * @uses   \OCA\Hermiq\Service\Redaction\VendorKeyRedactor
+ * @uses   \OCA\Hermiq\Service\ScheduleDelivery
  */
 class DeliveryServiceConnectionReportTest extends TestCase {
 

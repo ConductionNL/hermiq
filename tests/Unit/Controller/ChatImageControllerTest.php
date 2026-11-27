@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+ * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
  */
 
 declare(strict_types=1);
@@ -30,6 +30,7 @@ use OCA\Hermiq\Controller\ChatImageController;
 use OCA\Hermiq\Service\Chat\ImageGenerationException;
 use OCA\Hermiq\Service\Chat\ImageGenerationService;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
+use OCA\Hermiq\Service\Chat\SessionTurns;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -136,9 +137,7 @@ class ChatImageControllerTest extends TestCase {
 			request: $this->createMock(IRequest::class),
 			userSession: $session,
 			images: $images,
-			objectService: $objects,
-			history: $history,
-			participation: new ConversationParticipation(),
+			turns: new SessionTurns(objectService: $objects, history: $history, participation: new ConversationParticipation(), l10n: $l10n),
 			l10n: $l10n,
 			logger: new NullLogger()
 		);
@@ -149,7 +148,7 @@ class ChatImageControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-a-communications-advisor-asks-for-an-illustration
+	 * @spec openspec/specs/image-generation/spec.md#scenario-a-communications-advisor-asks-for-an-illustration
 	 */
 	public function testTheImageIsTheAnswerOnTheSession(): void {
 		$response = $this->controller('anne')->create(
@@ -238,7 +237,7 @@ class ChatImageControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+	 * @spec openspec/specs/image-generation/spec.md#scenario-no-provider-no-button
 	 */
 	public function testThePageIsToldWhetherToShowTheAction(): void {
 		$this->assertSame(['available' => true], $this->controller('anne')->availability()->getData());

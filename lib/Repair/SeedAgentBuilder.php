@@ -25,15 +25,17 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
-use OCA\Hermiq\Service\SeedFreshnessService;
+use OCA\Hermiq\Kernel\Contracts\SeedFreshnessServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -44,7 +46,7 @@ use Throwable;
 /**
  * Seed the agent-builder skill and the Agent builder agent.
  *
- * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+ * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
  */
 class SeedAgentBuilder implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -79,12 +81,12 @@ class SeedAgentBuilder implements IRepairStep {
 	 *
 	 * @param ContainerInterface   $container OpenRegister's services, resolved lazily.
 	 * @param LoggerInterface      $logger    PSR-3 logger.
-	 * @param SeedFreshnessService $freshness Stamps the seeded skill fresh.
+	 * @param SeedFreshnessServiceInterface $freshness Stamps the seeded skill fresh.
 	 */
 	public function __construct(
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
-		private readonly SeedFreshnessService $freshness,
+		private readonly SeedFreshnessServiceInterface $freshness,
 	) {
 	}//end __construct()
 
@@ -93,7 +95,7 @@ class SeedAgentBuilder implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
 	 */
 	public function getName(): string {
 		return 'Seed the Agent builder agent and its skill (agents-plain-language-builder)';
@@ -106,7 +108,7 @@ class SeedAgentBuilder implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -134,7 +136,7 @@ class SeedAgentBuilder implements IRepairStep {
 	 *
 	 * @return array<string, mixed>
 	 *
-	 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
+	 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-described-agent-becomes-a-draft-in-chat-req-agbuild-001
 	 */
 	public function agentObject(string $skillUuid): array {
 		return [
@@ -172,8 +174,7 @@ class SeedAgentBuilder implements IRepairStep {
 			if ($skill === null) {
 				$skill = $objectService->saveObject(
 					object: $this->freshness->stampFresh(seed: $this->skillObject()),
-					register: self::REGISTER_SLUG,
-					schema: self::SKILL_SCHEMA,
+					options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)),
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -188,8 +189,7 @@ class SeedAgentBuilder implements IRepairStep {
 			$skillUuid = (string)$skill->getUuid();
 			$agent = $objectService->saveObject(
 				object: $this->agentObject(skillUuid: $skillUuid),
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)),
 				_rbac: false,
 				_multitenancy: false
 			);
@@ -198,9 +198,10 @@ class SeedAgentBuilder implements IRepairStep {
 			$skillData['installedOn'] = array_values(array_unique(array_merge((array)($skillData['installedOn'] ?? []), [(string)$agent->getUuid()])));
 			$objectService->saveObject(
 				object: $skillData,
-				register: self::REGISTER_SLUG,
-				schema: self::SKILL_SCHEMA,
-				uuid: $skillUuid,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+					uuid: $skillUuid
+				),
 				_rbac: false,
 				_multitenancy: false
 			);

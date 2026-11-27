@@ -1,0 +1,50 @@
+# Tasks: scheduling-overview-and-start-choice
+
+Kind: code. Size M. Rows `hermiq:sc-list`, `sc-manual-event-choice`, `sc-nl`.
+
+## Implementation tasks
+
+### Task 1: The schedule list endpoint and page
+- **spec_ref**: `openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-every-schedule-a-person-may-see-is-on-one-page-req-sched-001`
+- **files**: `lib/Controller/ScheduleListController.php`, `appinfo/routes.php`, `src/manifest.json` (page Schedules, navigation), `l10n/en.json`, `l10n/nl.json`
+- **acceptance_criteria**:
+  - GIVEN a user and an admin WHEN they list THEN each sees exactly the schedules the rule allows, with filters working
+- [x] Implement
+- [x] Test (PHPUnit on access; Newman; Playwright for the page and the failed filter)
+  - 2026-11-22: `tests/e2e/spec-coverage/scheduling-overview.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
+  - 2026-11-24: `ScheduleListControllerTest` in; Newman folder "Schedules overview and manual run" (the owner sees the schedule, a second user does not, the failed filter keeps and drops it) and Playwright `scheduling-overview.spec.ts` written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
+
+### Task 2: Run by hand without a schedule
+- **spec_ref**: `openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002`
+- **files**: `lib/Controller/AgentRunController.php`, `lib/Service/ScheduleService.php`, `appinfo/routes.php`
+- **acceptance_criteria**:
+  - GIVEN a usable agent WHEN run by hand THEN the gates apply and history records trigger manual
+- [x] Implement
+- [x] Test (PHPUnit for gates and access; Newman)
+  - 2026-11-24: PHPUnit in; the same Newman folder: no prompt 400, a second user on a private agent 404, the owner's run 200 with trigger manual or a named gate status, written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
+
+### Task 3: How this agent starts, on the agent page
+- **spec_ref**: `openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002`
+- **files**: `src/widgets/AgentRunOperationsWidget.vue`, `src/api/flows.js`, `src/manifest.json`
+- **acceptance_criteria**:
+  - GIVEN an agent with a schedule, a flow step and a webhook WHEN the page loads THEN all three rows show as active; "Add event" creates an inactive draft flow
+- [x] Implement
+- [x] Test (Playwright; check the flow draft shape against openregister's flow schema)
+  - 2026-11-22: `tests/e2e/spec-coverage/scheduling-overview.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
+
+### Task 4: Plain words to a rule
+- **spec_ref**: `openspec/changes/scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-a-schedule-can-be-set-in-plain-words-req-sched-003`
+- **files**: `lib/Service/ScheduleWhenParser.php`, `lib/Controller/ScheduleWhenController.php`, `appinfo/routes.php`, `src/modals/ScheduleFormModal.vue`
+- **acceptance_criteria**:
+  - GIVEN the phrase table in English and Dutch WHEN parsed THEN each gives the expected rule; an unreadable text gives 422 with an example
+- [x] Implement
+- [x] Test (PHPUnit table test of at least 30 phrases; the model fallback with a stubbed provider; Playwright for the readback)
+  - 2026-11-22: `tests/e2e/spec-coverage/scheduling-overview.spec.ts` written from the scenarios (seeded objects and `page.route` stubs where a model, a flow or a sent mail would be needed); not run here, it needs a running Nextcloud.
+  - 2026-11-24: `ScheduleWhenParserTest` and `ScheduleWhenControllerTest` in; Playwright `scheduling-overview.spec.ts` written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
+
+## Verification
+- [x] `openspec validate scheduling-overview-and-start-choice --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
+- [x] PHPUnit, Newman and Playwright run, exit codes read
+  - 2026-11-24: run on development 671a9f6e: the change's PHPUnit tests 70 pass (PHPUnit exits 1 only for the missing coverage driver; the full suite fails only on the 3 inherited `ToolAccessRequestPropertyRulesTest` errors). Newman and Playwright written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.

@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
  */
 
 declare(strict_types=1);
@@ -34,7 +34,7 @@ use RuntimeException;
 /**
  * Recoverable "no usable LLM provider right now" signal.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-2
  */
 class ProviderUnavailableException extends RuntimeException {
 }//end class

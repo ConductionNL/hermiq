@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
  */
 
 declare(strict_types=1);
@@ -26,6 +26,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\ContextAgent;
 
 use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AgentVersionService;
+use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\ContextAgentInteractionService;
 use LLPhant\Chat\Message as LLPhantMessage;
@@ -34,9 +35,10 @@ use OCA\Hermiq\Service\Llm\BrokerHttpClient;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\RedactionService;
-use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Service\TenantKillSwitch;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Credential\CredentialBrokerService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -50,11 +52,12 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\NullLogger;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Tests for ContextAgentInteractionService.
  *
- * @spec openspec/changes/contextagent-provider/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-1
  */
 class ContextAgentInteractionServiceTest extends TestCase {
 	/**
@@ -73,9 +76,16 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	private ApprovalService&MockObject $approvalService;
 
 	/**
-	 * @var ScheduleService&MockObject
+	 * @var ApprovalInbox&MockObject
 	 */
-	private ScheduleService&MockObject $scheduleService;
+	private ApprovalInbox&MockObject $approvalInbox;
+
+	/**
+	 * The ObjectService mock the kill-switch reads TenantControl objects from.
+	 *
+	 * @var ObjectService&MockObject
+	 */
+	private ObjectService&MockObject $killSwitchControls;
 
 	/**
 	 * @var IAppConfig&MockObject
@@ -96,7 +106,10 @@ class ContextAgentInteractionServiceTest extends TestCase {
 		$this->objectService = $this->createMock(ObjectService::class);
 		$this->engine = $this->createMock(Engine::class);
 		$this->approvalService = $this->createMock(ApprovalService::class);
-		$this->scheduleService = $this->createMock(ScheduleService::class);
+		$this->approvalInbox = $this->createMock(ApprovalInbox::class);
+		$this->killSwitchControls = $this->createMock(ObjectService::class);
+		$this->killSwitchControls->method('setRegister')->willReturnSelf();
+		$this->killSwitchControls->method('setSchema')->willReturnSelf();
 		$this->appConfig = $this->createMock(IAppConfig::class);
 		$this->agentAccess = $this->createMock(AgentAccessService::class);
 
@@ -123,13 +136,14 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->objectService,
 			$this->engine,
 			$this->approvalService,
-			$this->scheduleService,
+			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
 			$audit,
 			$redaction,
 			$this->appConfig,
 			new NullLogger(),
 			$agentVersionService,
-			$this->agentAccess
+			$this->agentAccess,
+			$this->approvalInbox
 		);
 	}//end service()
 
@@ -189,7 +203,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testNullUserThrows(): void {
 		$this->expectException(ProcessingException::class);
@@ -201,11 +215,14 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testKillSwitchHaltsBeforeEngine(): void {
 		$this->withConfiguredAgent($this->agent('agent-1', 'org-engaged'));
-		$this->scheduleService->method('isOrganisationEngaged')->with('org-engaged')->willReturn(true);
+		$control = new ObjectEntity();
+		$control->setOrganisation('org-engaged');
+		$control->setObject(['engaged' => true]);
+		$this->killSwitchControls->method('findAll')->willReturn([$control]);
 		$this->engine->expects($this->never())->method('processMessage');
 
 		$this->expectException(ProcessingException::class);
@@ -218,11 +235,11 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testFirstTurnCreatesConversationAndReturnsShape(): void {
 		$this->withConfiguredAgent($this->agent('agent-1', 'org-1', ['openregister.searchObjects']));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 
 		$created = $this->conversation('conv-new', 'alice');
 		$this->objectService->expects($this->once())->method('saveObject')->willReturn($created);
@@ -247,7 +264,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 */
 	public function testAgentVersionIsPinnedOnInteractionAudit(): void {
 		$this->withConfiguredAgent($this->agent('agent-1', 'org-1'));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 
 		$created = $this->conversation('conv-new', 'alice');
 		$this->objectService->method('saveObject')->willReturn($created);
@@ -255,12 +272,12 @@ class ContextAgentInteractionServiceTest extends TestCase {
 
 		$auditCalls = [];
 		$audit = $this->createMock(AuditTrailMapper::class);
-		$audit->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []) use (&$auditCalls): AuditTrail {
-				$auditCalls[] = $context;
+		$audit->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event) use (&$auditCalls): AuditTrail {
+				$auditCalls[] = $event->context;
 				$entry = new AuditTrail();
-				$entry->setAction($action);
-				$entry->setChanged($context);
+				$entry->setAction($event->action);
+				$entry->setChanged($event->context);
 				return $entry;
 			}
 		);
@@ -275,13 +292,14 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->objectService,
 			$this->engine,
 			$this->approvalService,
-			$this->scheduleService,
+			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
 			$audit,
 			$redaction,
 			$this->appConfig,
 			new NullLogger(),
 			$agentVersionService,
-			$this->agentAccess
+			$this->agentAccess,
+			$this->approvalInbox
 		);
 
 		$service->interact('alice', 'hi', null, '');
@@ -295,7 +313,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testExistingTokenIsReused(): void {
 		$agent = $this->agent('agent-1');
@@ -313,7 +331,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 				return null;
 			}
 		);
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 		$this->objectService->expects($this->never())->method('saveObject');
 		$this->engine->method('processMessage')->willReturn(['message' => 'reply']);
 
@@ -323,21 +341,49 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	}//end testExistingTokenIsReused()
 
 	/**
+	 * Nextcloud Assistant's first turn sends `{}` as the token, and a stale token makes
+	 * OpenRegister's find() throw. Both start a fresh conversation instead of failing the
+	 * task with "Object not found in magic table" (seen live on :8099, task 17).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-6-2
+	 */
+	public function testAnEmptyObjectOrUnknownTokenStartsAConversation(): void {
+		$agent = $this->agent('agent-1');
+		$this->appConfig->method('getValueString')->willReturn('agent-1');
+		$this->objectService->method('find')->willReturnCallback(
+			function (int|string $id) use ($agent): ObjectEntity {
+				if ($id === 'agent-1') {
+					return $agent;
+				}
+				throw new \OCP\AppFramework\Db\DoesNotExistException('Object not found in magic table');
+			}
+		);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
+		$this->objectService->expects($this->exactly(2))->method('saveObject')->willReturn($this->conversation('conv-new', 'alice'));
+		$this->engine->method('processMessage')->willReturn(['message' => 'hello']);
+
+		$this->assertSame('conv-new', $this->service()->interact('alice', 'hi', null, '{}')['conversation_token']);
+		$this->assertSame('conv-new', $this->service()->interact('alice', 'hi', null, 'gone-uuid')['conversation_token']);
+	}//end testAnEmptyObjectOrUnknownTokenStartsAConversation()
+
+	/**
 	 * confirmation=1 approves the user's matching pending Approval.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testConfirmationApprovesPendingApproval(): void {
 		$this->withConfiguredAgent($this->agent('agent-1'));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturn($this->conversation('conv-x', 'alice'));
 		$this->engine->method('processMessage')->willReturn(['message' => 'ok']);
 
 		$approval = new ObjectEntity();
 		$approval->setUuid('appr-1');
-		$this->approvalService->method('listPendingForReviewer')->with('alice')->willReturn(
+		$this->approvalInbox->method('listPendingForReviewer')->with('alice')->willReturn(
 			[['id' => 'appr-1', 'agentId' => 'agent-1']]
 		);
 		$this->approvalService->method('loadApproval')->with('appr-1')->willReturn($approval);
@@ -352,17 +398,17 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testConfirmationDeniesPendingApproval(): void {
 		$this->withConfiguredAgent($this->agent('agent-1'));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturn($this->conversation('conv-x', 'alice'));
 		$this->engine->method('processMessage')->willReturn(['message' => 'ok']);
 
 		$approval = new ObjectEntity();
 		$approval->setUuid('appr-1');
-		$this->approvalService->method('listPendingForReviewer')->willReturn(
+		$this->approvalInbox->method('listPendingForReviewer')->willReturn(
 			[['id' => 'appr-1', 'agentId' => 'agent-1']]
 		);
 		$this->approvalService->method('loadApproval')->willReturn($approval);
@@ -377,14 +423,14 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testConfirmationNoPendingIsNoop(): void {
 		$this->withConfiguredAgent($this->agent('agent-1'));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturn($this->conversation('conv-x', 'alice'));
 		$this->engine->method('processMessage')->willReturn(['message' => 'ok']);
-		$this->approvalService->method('listPendingForReviewer')->willReturn([]);
+		$this->approvalInbox->method('listPendingForReviewer')->willReturn([]);
 		$this->approvalService->expects($this->never())->method('approve');
 		$this->approvalService->expects($this->never())->method('deny');
 
@@ -397,7 +443,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
 	 */
 	public function testNoAgentThrows(): void {
 		$this->appConfig->method('getValueString')->willReturn('');
@@ -420,15 +466,16 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/contextagent-provider/specs/contextagent-provider/spec.md#requirement-an-interaction-runs-one-governed-turn-and-returns-the-contextagent-shape
+	 * @spec openspec/specs/contextagent-provider/spec.md#requirement-an-interaction-runs-one-governed-turn-and-returns-the-contextagent-shape
 	 */
 	public function testANonAdminsFirstTurnSessionIsSavedForThemPastTheObjectApiCreateCheck(): void {
 		$this->withConfiguredAgent($this->agent('agent-1'));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$args = $passed;
 				return $this->conversation('conv-new', 'bob');
 			}
@@ -481,11 +528,12 @@ class ContextAgentInteractionServiceTest extends TestCase {
 		$this->agentAccess->method('canUserAccessAgent')->willReturnCallback(
 			static fn (ObjectEntity $agent, string $userId): bool => $agent->getUuid() === 'shared-1' && $userId === 'bob'
 		);
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$args = $passed;
 				return $this->conversation('conv-new', 'bob');
 			}
@@ -510,7 +558,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 */
 	public function testTheEngineTurnActsForTheTaskUser(): void {
 		$this->withConfiguredAgent($this->agent('agent-1', 'org-1'));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturn($this->conversation('conv-new', 'bob'));
 
 		$acting = [];
@@ -576,13 +624,14 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->objectService,
 			$this->engine,
 			$this->approvalService,
-			$this->scheduleService,
+			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
 			$audit,
 			$redaction,
 			$this->appConfig,
 			new NullLogger(),
 			$versions,
 			$this->agentAccess,
+			$this->approvalInbox,
 			$factory,
 			$session,
 			$this->userManagerWith(uid: 'bob', enabled: true)
@@ -614,7 +663,7 @@ class ContextAgentInteractionServiceTest extends TestCase {
 	 */
 	public function testACronRunForADisabledUserIsRefused(): void {
 		$this->withConfiguredAgent($this->agent('agent-1', 'org-1'));
-		$this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+		$this->killSwitchControls->method('findAll')->willReturn([]);
 		$this->objectService->expects($this->never())->method('saveObject');
 		$this->engine->expects($this->never())->method('processMessage');
 		$this->objectService->expects($this->never())->method('runAs');
@@ -626,13 +675,14 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->objectService,
 			$this->engine,
 			$this->approvalService,
-			$this->scheduleService,
+			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
 			$this->createMock(AuditTrailMapper::class),
 			$this->createMock(RedactionService::class),
 			$this->appConfig,
 			new NullLogger(),
 			$this->createMock(AgentVersionService::class),
 			$this->agentAccess,
+			$this->approvalInbox,
 			null,
 			$session,
 			$this->userManagerWith(uid: 'bob', enabled: false)

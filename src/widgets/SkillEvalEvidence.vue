@@ -135,6 +135,16 @@ import {
 	useEvalRunStore,
 	useSkillStore,
 } from '../store/store.js'
+import {
+	agentBaselineMode,
+	agentPickerOptions,
+	asList,
+	baselineCostNote,
+	deltaLabel,
+	formatDate,
+	loadErrorMessage,
+	passRateLabel,
+} from './evalRunLabels.js'
 
 export default {
 	name: 'SkillEvalEvidence',
@@ -254,10 +264,7 @@ export default {
 		 * @return {Array<object>} The { label, value } options.
 		 */
 		agentOptions() {
-			return this.agents.map((agent) => ({
-				label: agent.name || agent.uuid || agent.id,
-				value: agent.uuid || agent.id,
-			}))
+			return agentPickerOptions(this.agents)
 		},
 
 		/**
@@ -267,10 +274,7 @@ export default {
 		 * @return {string} joint|per-skill.
 		 */
 		selectedAgentMode() {
-			const agent = this.agents.find(
-				(entry) => (entry.uuid || entry.id) === this.selectedAgent?.value,
-			)
-			return agent?.evalBaselineMode === 'per-skill' ? 'per-skill' : 'joint'
+			return agentBaselineMode(this.agents, this.selectedAgent?.value)
 		},
 
 		/**
@@ -295,17 +299,7 @@ export default {
 		 * @return {string} The translated cost note.
 		 */
 		costNote() {
-			if (this.selectedAgentMode === 'per-skill') {
-				return this.t(
-					'hermiq',
-					'Per-skill baseline: every case runs {times} times (one without-half per linked skill) — about {times}x the token cost of a normal run, counted against the same budgets.',
-					{ times: this.selectedDatasetSkillCount + 1 },
-				)
-			}
-			return this.t(
-				'hermiq',
-				'Joint baseline: every case runs twice (all linked skills detached together) — about 2x the token cost of a normal run, counted against the same budgets. Link one skill per dataset for the cleanest attribution.',
-			)
+			return baselineCostNote(this.selectedAgentMode, this.selectedDatasetSkillCount + 1)
 		},
 
 		/**
@@ -364,6 +358,10 @@ export default {
 	},
 
 	methods: {
+		deltaLabel,
+		formatDate,
+		passRateLabel,
+
 		/**
 		 * Load the skill (for its l5 evidence), the datasets (for skillRefs
 		 * matches), the agents (picker + mode), and the paired-run history.
@@ -382,14 +380,11 @@ export default {
 					this.runStore.fetchCollection('evalrun').catch(() => []),
 				])
 				this.skill = skill || null
-				this.datasets = Array.isArray(datasets) ? datasets : []
-				this.agents = Array.isArray(agents) ? agents : []
-				this.runs = Array.isArray(runs) ? runs : []
+				this.datasets = asList(datasets)
+				this.agents = asList(agents)
+				this.runs = asList(runs)
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Could not load the skill.')
+				this.error = loadErrorMessage(e, this.t('hermiq', 'Could not load the skill.'))
 			} finally {
 				this.loading = false
 			}
@@ -429,55 +424,6 @@ export default {
 			}
 		},
 
-		/**
-		 * Human pass-rate percentage (the stored value is a 0..1 fraction).
-		 *
-		 * @spec exclude presentational percentage formatting for the eval-evidence card; behaviour owned by the widget's spec-tagged load/run methods
-		 * @param {number} passRate The 0..1 pass rate.
-		 * @return {string} A percentage label.
-		 */
-		passRateLabel(passRate) {
-			if (typeof passRate !== 'number') {
-				return '—'
-			}
-			return `${Math.round(passRate * 100)}%`
-		},
-
-		/**
-		 * A signed delta label (sign + value, never color-only).
-		 *
-		 * @spec openspec/specs/skill-maturity/spec.md#requirement-skilldetail-surfaces-eval-evidence-and-a-run-paired-eval-action
-		 * @param {number} delta The baseline delta (-1..1).
-		 * @return {string} The label, e.g. "+30 pp".
-		 */
-		deltaLabel(delta) {
-			if (typeof delta !== 'number') {
-				return '—'
-			}
-			const points = Math.round(delta * 100)
-			if (points > 0) {
-				return `+${points} pp`
-			}
-			if (points < 0) {
-				return `−${Math.abs(points)} pp`
-			}
-			return '±0 pp'
-		},
-
-		/**
-		 * Format an ISO timestamp for display.
-		 *
-		 * @spec exclude presentational date formatting for the eval-evidence card; behaviour owned by the widget's spec-tagged load/run methods
-		 * @param {string} value The ISO timestamp.
-		 * @return {string} The formatted date, or an em dash.
-		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
-		},
 	},
 }
 </script>

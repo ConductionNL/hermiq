@@ -38,6 +38,7 @@ use Psr\Log\LoggerInterface;
 
 /**
  * @covers \OCA\Hermiq\Controller\GuardrailPolicyController
+ * @uses \OCA\Hermiq\Controller\OrganisationPolicyGate
  */
 class GuardrailPolicyControllerEffectiveScopeTest extends TestCase {
 	/**

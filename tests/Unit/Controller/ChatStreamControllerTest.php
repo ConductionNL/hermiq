@@ -51,6 +51,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
 /**
  * Sentinel exception thrown by TestableChatStreamController in place of
@@ -398,7 +399,7 @@ class ChatStreamControllerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function testTheAttachmentNoticesRideOnTheFinalFrame(): void {
 		$this->authenticate('alice');
@@ -451,11 +452,45 @@ class ChatStreamControllerTest extends TestCase {
 	}//end testAFinalFrameWithoutNoticesCarriesAnEmptyList()
 
 	/**
+	 * "Ask the model again" reaches the engine as the answer-cache bypass; only a JSON true counts.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+	 */
+	public function testAskingTheModelAgainBypassesTheAnswerCache(): void {
+		$this->authenticate('alice');
+		$this->objectService->method('find')->willReturnCallback(
+			function (): ObjectEntity {
+				$conversation = new ObjectEntity();
+				$conversation->setUuid('conv-1');
+				$conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+				return $conversation;
+			}
+		);
+		$seen = [];
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (...$args) use (&$seen): array {
+				// Positional, in the order of Engine::processMessage(): answerCacheBypass is the 15th.
+				$seen[] = ($args[15] ?? null);
+				return ['message' => 'Op maandag.', 'messageId' => 'msg-46', 'sources' => []];
+			}
+		);
+
+		foreach (['{"message":"Wanneer?","conversationUuid":"conv-1","answerCacheBypass":true}', '{"message":"Wanneer?","conversationUuid":"conv-1","answerCacheBypass":"true"}', '{"message":"Wanneer?","conversationUuid":"conv-1"}'] as $body) {
+			$this->runStream($this->makeController($body));
+		}
+
+		$this->assertSame([true, false, false], $seen);
+
+	}//end testAskingTheModelAgainBypassesTheAnswerCache()
+
+	/**
 	 * The final frame carries the answer's attachments, such as an image the agent created; none is an empty list.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+	 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 	 */
 	public function testTheFinalFrameCarriesTheAnswersAttachments(): void {
 		$this->authenticate('alice');
@@ -513,6 +548,7 @@ class ChatStreamControllerTest extends TestCase {
 		$args = null;
 		$this->objectService->expects($this->once())->method('saveObject')->willReturnCallback(
 			function (mixed ...$passed) use (&$args): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
 				$args = $passed;
 				$session = new ObjectEntity();
 				$session->setUuid('conv-new');
@@ -668,4 +704,127 @@ class ChatStreamControllerTest extends TestCase {
 		$this->assertGreaterThan($resultPos, $finalPos, 'final must follow the tool_result.');
 
 	}//end testToolCallThenToolResultPrecedeFinal()
+
+	/**
+	 * Answer find() with the agent, the readable record `case-1`, or nothing,
+	 * and capture what saveObject() is asked to store.
+	 *
+	 * @param array<int, array<int, mixed>> $finds The find() arguments, appended to.
+	 * @param array<string, mixed>|null     $saved The stored payload.
+	 *
+	 * @return void
+	 */
+	private function recordWorld(array &$finds, ?array &$saved): void {
+		$this->objectService->method('find')->willReturnCallback(
+			function (mixed ...$args) use (&$finds): ?ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
+				$finds[] = $args;
+				$entity = new ObjectEntity();
+				$entity->setUuid((string)$args[0]);
+				if ($args[0] === 'agent-1') {
+					$entity->setObject(['name' => 'Zaakassistent', 'isPrivate' => false]);
+					return $entity;
+				}
+
+				if ($args[0] === 'case-1') {
+					$entity->setRegister('5');
+					$entity->setSchema('9');
+					return $entity;
+				}
+
+				return null;
+			}
+		);
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (mixed ...$passed) use (&$saved): ObjectEntity {
+				$passed = LegacyObjectArgs::positional(method: 'saveObject', args: $passed);
+				$saved = $passed[0];
+				$session = new ObjectEntity();
+				$session->setUuid('conv-new');
+				$session->setObject($passed[0]);
+				return $session;
+			}
+		);
+		$this->engine->method('processMessage')->willReturn(['message' => 'ok', 'messageId' => 'msg-1']);
+
+	}//end recordWorld()
+
+	/**
+	 * The first turn from a case page records the case as the session's
+	 * subject, read under the caller's own rights.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#scenario-a-chat-started-on-a-case-page
+	 */
+	public function testAFirstTurnOnACasePageRecordsTheSubject(): void {
+		$this->authenticate('alice');
+		$finds = [];
+		$saved = null;
+		$this->recordWorld($finds, $saved);
+
+		$controller = $this->makeController('{"message":"hi","agentUuid":"agent-1","context":{"appId":"dossiq","objectUuid":"case-1","registerSlug":"zaken","schemaSlug":"zaak"}}');
+		$this->runStream($controller);
+
+		$this->assertCount(1, $this->frames($controller, 'final'), json_encode($controller->capturedEvents));
+		$this->assertSame(
+			['subject' => ['objectUuid' => 'case-1', 'register' => '5', 'schema' => '9', 'appId' => 'dossiq']],
+			$saved['metadata']
+		);
+		$this->assertSame('alice', $saved['userId']);
+		$this->assertTrue(($finds[1][5] ?? true), 'The subject must be read under the caller\'s RBAC.');
+
+	}//end testAFirstTurnOnACasePageRecordsTheSubject()
+
+	/**
+	 * A forged or unreadable record uuid in the context is not recorded.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 */
+	public function testAForgedSubjectIsNotRecorded(): void {
+		$this->authenticate('alice');
+		$finds = [];
+		$saved = null;
+		$this->recordWorld($finds, $saved);
+
+		$controller = $this->makeController('{"message":"hi","agentUuid":"agent-1","context":{"objectUuid":"case-of-bob"}}');
+		$this->runStream($controller);
+
+		$this->assertCount(1, $this->frames($controller, 'final'));
+		$this->assertArrayNotHasKey('metadata', $saved);
+
+	}//end testAForgedSubjectIsNotRecorded()
+
+	/**
+	 * A later turn in an existing session stores nothing and reads no subject.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-about-a-subject/specs/session-surface/spec.md#requirement-a-session-may-name-the-record-it-is-about
+	 */
+	public function testALaterTurnDoesNotMoveTheSubject(): void {
+		$this->authenticate('alice');
+		$finds = [];
+		$this->objectService->method('find')->willReturnCallback(
+			function (mixed ...$args) use (&$finds): ObjectEntity {
+				$args = LegacyObjectArgs::positional(method: 'find', args: $args);
+				$finds[] = $args;
+				$conversation = new ObjectEntity();
+				$conversation->setUuid('conv-1');
+				$conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1', 'metadata' => ['subject' => ['objectUuid' => 'case-1']]]);
+				return $conversation;
+			}
+		);
+		$this->objectService->expects($this->never())->method('saveObject');
+		$this->engine->method('processMessage')->willReturn(['message' => 'ok', 'messageId' => 'msg-2']);
+
+		$controller = $this->makeController('{"message":"hi","conversationUuid":"conv-1","context":{"objectUuid":"case-2"}}');
+		$this->runStream($controller);
+
+		$this->assertCount(1, $this->frames($controller, 'final'));
+		$this->assertSame(['conv-1'], array_column($finds, 0));
+
+	}//end testALaterTurnDoesNotMoveTheSubject()
 }//end class

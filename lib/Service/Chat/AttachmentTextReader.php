@@ -21,7 +21,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use Throwable;
 /**
  * Reads the attachments a model cannot take natively as text, with a notice per file.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
  */
 class AttachmentTextReader {
 
@@ -94,7 +94,7 @@ class AttachmentTextReader {
 	 *
 	 * @return array{text: string, notices: list<string>} The text block and the notices.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
 	 */
 	public function read(array $attachments, string $speaker): array {
 		$text = '';
@@ -102,7 +102,7 @@ class AttachmentTextReader {
 
 		foreach ($attachments as $attachment) {
 			$name = (string)($attachment['name'] ?? '');
-			$result = $this->readOne(attachment: $attachment, name: $name, speaker: $speaker);
+			$result = $this->readOne(attachment: $attachment, speaker: $speaker);
 			array_push($notices, ...$result['notices']);
 			if ($result['text'] !== null) {
 				$text .= "\n\n--- " . $this->l10n->t('Attached file %s', [$name]) . " ---\n" . $result['text']
@@ -117,36 +117,53 @@ class AttachmentTextReader {
 	 * The text and notices for one attachment.
 	 *
 	 * @param array<string, mixed> $attachment The attachment.
-	 * @param string               $name       Its file name.
 	 * @param string               $speaker    The uid.
 	 *
 	 * @return array{text: string|null, notices: list<string>} Its text, or null when left out.
 	 */
-	private function readOne(array $attachment, string $name, string $speaker): array {
+	private function readOne(array $attachment, string $speaker): array {
 		$mimeType = strtolower((string)($attachment['mimeType'] ?? ''));
-		$fileId = (int)($attachment['fileId'] ?? 0);
+		$ref = new AttachmentRef(
+			fileId: (int)($attachment['fileId'] ?? 0),
+			name: (string)($attachment['name'] ?? ''),
+			speaker: $speaker
+		);
 
 		if (str_starts_with($mimeType, 'image/') === true) {
-			return ['text' => null, 'notices' => [$this->l10n->t('This model cannot see images. %s was not sent.', [$name])]];
+			return ['text' => null, 'notices' => [$this->l10n->t('This model cannot see images. %s was not sent.', [$ref->name])]];
 		}
 
+		return $this->readAs(mimeType: $mimeType, ref: $ref);
+	}//end readOne()
+
+	/**
+	 * The text of a text file, a PDF or an office document, with what the person is told; any other type is left out.
+	 *
+	 * @param string        $mimeType The attachment's lower-cased type.
+	 * @param AttachmentRef $ref      The attachment.
+	 *
+	 * @return array{text: string|null, notices: list<string>}
+	 *
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 */
+	private function readAs(string $mimeType, AttachmentRef $ref): array {
 		if (str_starts_with($mimeType, 'text/') === true || in_array($mimeType, self::TEXT_TYPES, true) === true) {
-			$used = $this->l10n->t('hermiq used the text of %s.', [$name]);
-			return $this->capped(text: $this->readFromFiles(fileId: $fileId, speaker: $speaker), name: $name, used: $used);
+			$used = $this->l10n->t('hermiq used the text of %s.', [$ref->name]);
+			return $this->capped(text: $this->readFromFiles(fileId: $ref->fileId, speaker: $ref->speaker), name: $ref->name, used: $used);
 		}
 
 		if ($mimeType === 'application/pdf') {
-			$used = $this->l10n->t('This model does not read PDFs directly. hermiq used the text of %s instead.', [$name]);
-			return $this->capped(text: $this->extract(fileId: $fileId, speaker: $speaker), name: $name, used: $used);
+			$used = $this->l10n->t('This model does not read PDFs directly. hermiq used the text of %s instead.', [$ref->name]);
+			return $this->capped(text: $this->extract(fileId: $ref->fileId, speaker: $ref->speaker), name: $ref->name, used: $used);
 		}
 
 		if ($this->isOffice(mimeType: $mimeType) === true) {
-			$used = $this->l10n->t('hermiq used the text of %s.', [$name]);
-			return $this->capped(text: $this->extract(fileId: $fileId, speaker: $speaker), name: $name, used: $used);
+			$used = $this->l10n->t('hermiq used the text of %s.', [$ref->name]);
+			return $this->capped(text: $this->extract(fileId: $ref->fileId, speaker: $ref->speaker), name: $ref->name, used: $used);
 		}
 
-		return ['text' => null, 'notices' => [$this->l10n->t('hermiq cannot read %s. It was not sent.', [$name])]];
-	}//end readOne()
+		return ['text' => null, 'notices' => [$this->l10n->t('hermiq cannot read %s. It was not sent.', [$ref->name])]];
+	}//end readAs()
 
 	/**
 	 * Cap the text and word the notices; no text means the file was left out.
@@ -230,12 +247,7 @@ class AttachmentTextReader {
 		}
 
 		try {
-			$node = ($this->rootFolder->getUserFolder($speaker)->getById($fileId)[0] ?? null);
-			if ($node instanceof File === false || $node->isReadable() === false) {
-				return null;
-			}
-
-			return $node->getContent();
+			return $this->readableFile(fileId: $fileId, speaker: $speaker)?->getContent();
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[AttachmentTextReader] A text attachment could not be read; it is left out',
@@ -244,4 +256,23 @@ class AttachmentTextReader {
 			return null;
 		}
 	}//end readFromFiles()
+
+	/**
+	 * The file with this id in the speaker's own Files, when it is a file they may read.
+	 *
+	 * @param int    $fileId  The file id.
+	 * @param string $speaker The uid whose Files are read.
+	 *
+	 * @return File|null
+	 *
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-without-the-capability-gets-the-text-and-the-person-is-told-req-catt-005
+	 */
+	private function readableFile(int $fileId, string $speaker): ?File {
+		$node = ($this->rootFolder->getUserFolder($speaker)->getById($fileId)[0] ?? null);
+		if ($node instanceof File === false || $node->isReadable() === false) {
+			return null;
+		}
+
+		return $node;
+	}//end readableFile()
 }//end class

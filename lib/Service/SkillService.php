@@ -22,14 +22,18 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+ * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\SkillServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -37,9 +41,9 @@ use Throwable;
 /**
  * Reads and writes agent skills (Skill objects) via OpenRegister.
  *
- * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+ * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
  */
-class SkillService {
+class SkillService implements SkillServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -90,8 +94,8 @@ class SkillService {
 	 *
 	 * @return ObjectEntity The persisted Skill object.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
-	 * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
+	 * @spec openspec/changes/archive/2026-09-06-skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
 	 */
 	public function importSkill(string $package, string $createdBy, array $auxFiles = []): ObjectEntity {
 		$parsed = $this->skillSerializer->fromPackageFiles(
@@ -114,8 +118,7 @@ class SkillService {
 				'createdBy' => $createdBy,
 				'installedOn' => [],
 			],
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA))
 		);
 
 	}//end importSkill()
@@ -127,7 +130,7 @@ class SkillService {
 	 *
 	 * @return string|null The package string, or null when the skill is not found.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
 	 */
 	public function exportSkill(string $skillId): ?string {
 		$skill = $this->getSkill(skillId: $skillId);
@@ -250,9 +253,10 @@ class SkillService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			)
 		);
 
 	}//end stampGithubPublish()
@@ -290,9 +294,10 @@ class SkillService {
 
 		return $this->objectService->saveObject(
 			object: $guarded,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			)
 		);
 
 	}//end updateSkill()
@@ -302,7 +307,7 @@ class SkillService {
 	 *
 	 * @return array<int, ObjectEntity> The Skill objects.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
 	 */
 	public function listSkills(): array {
 		$objects = $this->objectService
@@ -327,14 +332,13 @@ class SkillService {
 	 *
 	 * @return ObjectEntity|null The Skill object, or null.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
 	 */
 	public function getSkill(string $skillId): ?ObjectEntity {
 		// Fetch by UUID via find() (a uuid is metadata, not an object-property filter).
 		return $this->objectService->find(
 			id: $skillId,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA)
 		);
 
 	}//end getSkill()
@@ -350,8 +354,8 @@ class SkillService {
 	 *
 	 * @return ObjectEntity|null The updated Skill object, or null when not found.
 	 *
-	 * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
-	 * @spec openspec/changes/agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
+	 * @spec openspec/changes/archive/2026-09-06-skills-catalog/tasks.md#3-skillservice
+	 * @spec openspec/changes/archive/2026-09-06-agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
 	 */
 	public function installOnAgent(string $skillId, string $agentId): ?ObjectEntity {
 		$skill = $this->getSkill(skillId: $skillId);
@@ -373,9 +377,10 @@ class SkillService {
 
 		$updated = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			)
 		);
 
 		$this->syncAgentSkillInstalls(agentId: $agentId, skillId: $skillId);
@@ -394,14 +399,13 @@ class SkillService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
+	 * @spec openspec/changes/archive/2026-09-06-agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
 	 */
 	private function syncAgentSkillInstalls(string $agentId, string $skillId): void {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return;
@@ -423,9 +427,10 @@ class SkillService {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
-				uuid: (string)$agent->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+					uuid: (string)$agent->getUuid()
+				)
 			);
 		} catch (Throwable $e) {
 			// Best-effort: Skill.installedOn (already saved above) remains the
@@ -454,7 +459,7 @@ class SkillService {
 	 *
 	 * @return ObjectEntity|null The updated Skill object, or null when not found.
 	 *
-	 * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+	 * @spec openspec/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
 	 */
 	public function uninstallFromAgent(string $skillId, string $agentId): ?ObjectEntity {
 		$skill = $this->getSkill(skillId: $skillId);
@@ -474,9 +479,10 @@ class SkillService {
 
 		$updated = $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::SKILL_SCHEMA,
-			uuid: (string)$skill->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::SKILL_SCHEMA),
+				uuid: (string)$skill->getUuid()
+			)
 		);
 
 		$this->desyncAgentSkillInstalls(agentId: $agentId, skillId: $skillId);
@@ -495,14 +501,13 @@ class SkillService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+	 * @spec openspec/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
 	 */
 	private function desyncAgentSkillInstalls(string $agentId, string $skillId): void {
 		try {
 			$agent = $this->objectService->find(
 				id: $agentId,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
 			);
 			if ($agent === null) {
 				return;
@@ -525,9 +530,10 @@ class SkillService {
 
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
-				uuid: (string)$agent->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA),
+					uuid: (string)$agent->getUuid()
+				)
 			);
 		} catch (Throwable $e) {
 			// Best-effort: Skill.installedOn (already saved above) remains the

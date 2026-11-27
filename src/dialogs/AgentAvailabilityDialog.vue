@@ -130,6 +130,7 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import { getAvailability, setAvailability } from '../api/agentAvailability.js'
+import { agentModalTarget, loadWhenShown } from './agentModalTarget.js'
 
 export default {
 	name: 'AgentAvailabilityDialog',
@@ -142,19 +143,7 @@ export default {
 		NcTextField,
 	},
 
-	props: {
-		/** Whether the dialog is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
-
-		/** The agent; when absent, the route's `:id` (open-modal props are static). */
-		agentId: {
-			type: String,
-			default: '',
-		},
-	},
+	mixins: [agentModalTarget, loadWhenShown],
 
 	emits: ['close'],
 
@@ -167,35 +156,6 @@ export default {
 			notAvailable: false,
 			error: '',
 		}
-	},
-
-	computed: {
-		/**
-		 * The agent uuid: the prop, else the route's `:id`.
-		 *
-		 * @return {string} The agent uuid.
-		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
-		 */
-		resolvedAgentId() {
-			return this.agentId || this.$route?.params?.id || ''
-		},
-	},
-
-	watch: {
-		show: {
-			immediate: true,
-			/**
-			 * Load the state each time the dialog opens.
-			 *
-			 * @param {boolean} open Whether it is open.
-			 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-be-switched-off-and-on-without-deleting-it-req-agoff-001
-			 */
-			handler(open) {
-				if (open) {
-					this.load()
-				}
-			},
-		},
 	},
 
 	methods: {

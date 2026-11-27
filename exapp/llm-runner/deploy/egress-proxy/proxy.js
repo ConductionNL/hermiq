@@ -109,21 +109,7 @@ function askPdp(host, port, token) {
 		const transport = target.protocol === 'https:' ? require('https') : http
 
 		const req = transport.request(
-			{
-				protocol: target.protocol,
-				hostname: target.hostname,
-				port: target.port || (target.protocol === 'https:' ? 443 : 80),
-				path: target.pathname + target.search,
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Content-Length': Buffer.byteLength(body),
-					// The run token authenticates the run to Hermiq. Never logged.
-					Authorization: `Bearer ${token}`,
-					'OCS-APIRequest': 'true',
-				},
-				timeout: PDP_TIMEOUT_MS,
-			},
+			pdpRequestOptions(target, pdpHeaders(token, body)),
 			(res) => {
 				let raw = ''
 				res.setEncoding('utf8')
@@ -133,29 +119,7 @@ function askPdp(host, port, token) {
 						raw += c
 					}
 				})
-				res.on('end', () => {
-					if (res.statusCode !== 200) {
-						deny('pdp_rejected', `the PDP answered ${res.statusCode}`)
-						return
-					}
-					let parsed
-					try {
-						parsed = JSON.parse(raw)
-					} catch (e) {
-						deny('pdp_unparseable', 'the PDP answer was not JSON')
-						return
-					}
-					// STRICT: only a literal `true` permits. A truthy string, a
-					// missing key or a differently-shaped answer is a denial.
-					if (parsed.allowed === true) {
-						resolve({ allowed: true, code: 'allowed', message: '' })
-						return
-					}
-					deny(
-						String(parsed.code || 'denied'),
-						String(parsed.message || 'denied by policy'),
-					)
-				})
+				res.on('end', () => resolve(verdictFromPdpAnswer(res.statusCode, raw)))
 			},
 		)
 
@@ -169,6 +133,73 @@ function askPdp(host, port, token) {
 		req.write(body)
 		req.end()
 	})
+}
+
+/**
+ * The headers of the PDP question.
+ *
+ * @param {string} token The run token from Proxy-Authorization.
+ * @param {string} body The JSON question.
+ * @return {object} The request headers.
+ */
+function pdpHeaders(token, body) {
+	return {
+		'Content-Type': 'application/json',
+		'Content-Length': Buffer.byteLength(body),
+		// The run token authenticates the run to Hermiq. Never logged.
+		Authorization: `Bearer ${token}`,
+		'OCS-APIRequest': 'true',
+	}
+}
+
+/**
+ * The request options of the PDP question.
+ *
+ * @param {URL} target The PDP URL.
+ * @param {object} headers The request headers.
+ * @return {object} The request options.
+ */
+function pdpRequestOptions(target, headers) {
+	return {
+		protocol: target.protocol,
+		hostname: target.hostname,
+		port: target.port || (target.protocol === 'https:' ? 443 : 80),
+		path: target.pathname + target.search,
+		method: 'POST',
+		headers,
+		timeout: PDP_TIMEOUT_MS,
+	}
+}
+
+/**
+ * The verdict a PDP answer carries.
+ *
+ * STRICT: only a 200 whose JSON says a literal `allowed: true` permits. A truthy
+ * string, a missing key, a differently-shaped answer, any other status or an
+ * unparseable body is a denial.
+ *
+ * @param {number} statusCode The PDP's HTTP status.
+ * @param {string} raw The PDP's (bounded) answer.
+ * @return {{allowed: boolean, code: string, message: string}} Verdict.
+ */
+function verdictFromPdpAnswer(statusCode, raw) {
+	if (statusCode !== 200) {
+		return { allowed: false, code: 'pdp_rejected', message: `the PDP answered ${statusCode}` }
+	}
+	let parsed
+	try {
+		parsed = JSON.parse(raw)
+	} catch (e) {
+		return { allowed: false, code: 'pdp_unparseable', message: 'the PDP answer was not JSON' }
+	}
+	if (parsed.allowed === true) {
+		return { allowed: true, code: 'allowed', message: '' }
+	}
+	return {
+		allowed: false,
+		code: String(parsed.code || 'denied'),
+		message: String(parsed.message || 'denied by policy'),
+	}
 }
 
 /**
@@ -283,8 +314,16 @@ function forwardableHeaders(headers) {
 	return out
 }
 
-const server = http.createServer(async (req, res) => {
-	const refuse = (status, code, reason, extraHeaders) => {
+/**
+ * The refusal of one plain-HTTP forward request: logged, answered with the deny
+ * code, and the unread body drained.
+ *
+ * @param {http.IncomingMessage} req The client request.
+ * @param {http.ServerResponse} res The client response.
+ * @return {(status: number, code: string, reason: string, extraHeaders?: object) => void} The refusal.
+ */
+function httpRefusal(req, res) {
+	return (status, code, reason, extraHeaders) => {
 		// eslint-disable-next-line no-console
 		console.log(`[hermiq-egress-proxy] DENY ${req.method} (${code})`)
 		res.writeHead(status, {
@@ -297,38 +336,17 @@ const server = http.createServer(async (req, res) => {
 		// without the client seeing a reset instead of its 403.
 		req.resume()
 	}
+}
 
-	// Origin-form (`GET /health`) is not a proxy request: this process is a proxy,
-	// not a web server, and it exposes no endpoints of its own.
-	const target = parseAbsoluteTarget(req.url)
-	if (target === null) {
-		refuse(
-			405,
-			'not_a_proxy_request',
-			'this proxy serves CONNECT and http:// forward requests only',
-		)
-		return
-	}
-
-	const token = tokenFromProxyAuth(req.headers)
-	if (token === '') {
-		// Identical to the CONNECT path: challenge rather than refuse, so a client
-		// holding a credential it has not offered yet learns to offer it. No tunnel,
-		// no forward, and the PDP is not consulted — there is no run to ask about.
-		// eslint-disable-next-line no-console
-		console.log(`[hermiq-egress-proxy] CHALLENGE ${req.method} (no_run_token)`)
-		refuse(407, 'no_run_token', 'no run token presented to the proxy', {
-			'Proxy-Authenticate': 'Basic realm="hermiq-egress"',
-		})
-		return
-	}
-
-	const verdict = await askPdp(target.host, target.port, token)
-	if (verdict.allowed !== true) {
-		refuse(403, verdict.code, verdict.message)
-		return
-	}
-
+/**
+ * Forward one allowed plain-HTTP request to its origin and stream the answer back.
+ *
+ * @param {{req: http.IncomingMessage, res: http.ServerResponse}} exchange The client request and response.
+ * @param {{host: string, port: number, path: string}} target The allowed absolute target.
+ * @return {void}
+ */
+function forwardHttp(exchange, target) {
+	const { req, res } = exchange
 	const upstream = http.request(
 		{
 			host: target.host,
@@ -363,6 +381,43 @@ const server = http.createServer(async (req, res) => {
 	// eslint-disable-next-line no-console
 	console.log(`[hermiq-egress-proxy] ALLOW ${target.host}:${target.port} (http)`)
 	req.pipe(upstream)
+}
+
+const server = http.createServer(async (req, res) => {
+	const refuse = httpRefusal(req, res)
+
+	// Origin-form (`GET /health`) is not a proxy request: this process is a proxy,
+	// not a web server, and it exposes no endpoints of its own.
+	const target = parseAbsoluteTarget(req.url)
+	if (target === null) {
+		refuse(
+			405,
+			'not_a_proxy_request',
+			'this proxy serves CONNECT and http:// forward requests only',
+		)
+		return
+	}
+
+	const token = tokenFromProxyAuth(req.headers)
+	if (token === '') {
+		// Identical to the CONNECT path: challenge rather than refuse, so a client
+		// holding a credential it has not offered yet learns to offer it. No tunnel,
+		// no forward, and the PDP is not consulted — there is no run to ask about.
+		// eslint-disable-next-line no-console
+		console.log(`[hermiq-egress-proxy] CHALLENGE ${req.method} (no_run_token)`)
+		refuse(407, 'no_run_token', 'no run token presented to the proxy', {
+			'Proxy-Authenticate': 'Basic realm="hermiq-egress"',
+		})
+		return
+	}
+
+	const verdict = await askPdp(target.host, target.port, token)
+	if (verdict.allowed !== true) {
+		refuse(403, verdict.code, verdict.message)
+		return
+	}
+
+	forwardHttp({ req, res }, target)
 })
 
 server.on('connect', async (req, clientSocket, head) => {

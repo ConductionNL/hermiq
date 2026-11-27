@@ -30,6 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Graph;
 
+use OCA\Hermiq\Kernel\Contracts\GraphToolsInterface;
 use OCA\Hermiq\Mcp\GraphToolDescriptors;
 use Throwable;
 
@@ -38,7 +39,7 @@ use Throwable;
  *
  * @spec openspec/specs/knowledge-graph/spec.md#requirement-graph-traversal-is-exposed-as-governed-agent-tools
  */
-class GraphTools {
+class GraphTools implements GraphToolsInterface {
 
 	/**
 	 * Constructor.

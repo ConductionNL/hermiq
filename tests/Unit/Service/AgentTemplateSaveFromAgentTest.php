@@ -30,12 +30,16 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Service\AgentTemplateSerializer;
 use OCA\Hermiq\Service\AgentTemplateService;
 use OCA\Hermiq\Service\SkillService;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\TestCase;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectFindOptions as PublishedObjectFindOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * The owner saves a well-tuned agent as an active template that remembers where it came from.
@@ -123,34 +127,37 @@ final class AgentTemplateSaveFromAgentTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?array $_extend = [],
-				bool $files = false,
-				mixed $register = null,
-				mixed $schema = null,
+				ObjectFindOptions|PublishedObjectFindOptions|null $options = null,
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $_render = true,
-				bool $_audit = true,
+				bool $_multitenancy = true
 			): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
+				$_render = $options?->render ?? true;
+				$_audit = $options?->audit ?? true;
 				return ((string)$id === (string)$this->agent->getUuid()) ? $this->agent : null;
 			}
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				bool $_dedupOverride = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->test->saved[] = ['schema' => (string)$schema, 'object' => $payload];
 				$entity = new ObjectEntity();
@@ -164,7 +171,7 @@ final class AgentTemplateSaveFromAgentTest extends TestCase {
 			objectService: $objects,
 			serializer: new AgentTemplateSerializer(),
 			contentScanService: $this->createMock(ContentScanService::class),
-			modelPolicyService: $this->createMock(TenantModelPolicyService::class),
+			modelPolicyService: $this->createMock(EffectiveModelPolicy::class),
 			skillService: $this->createMock(SkillService::class),
 		);
 	}//end service()

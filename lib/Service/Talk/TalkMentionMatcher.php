@@ -39,12 +39,14 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkMentionMatcherInterface;
+
 /**
  * Matches `@name` mentions in Talk message text.
  *
  * @psalm-api
  */
-class TalkMentionMatcher {
+class TalkMentionMatcher implements TalkMentionMatcherInterface {
 	/**
 	 * Whether the text addresses any of the given names.
 	 *

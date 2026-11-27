@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-a-feature-may-require-that-a-document-was-redacted-before-it-is-read
+ * @spec openspec/specs/woo-llm-anonymisation/spec.md#requirement-a-feature-may-require-that-a-document-was-redacted-before-it-is-read
  */
 
 declare(strict_types=1);
@@ -32,7 +32,7 @@ use RuntimeException;
 /**
  * A run refused because the document it was handed has not been redacted.
  *
- * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-the-redaction-check-must-sit-in-the-ordered-pre-call-path
+ * @spec openspec/specs/woo-llm-anonymisation/spec.md#requirement-the-redaction-check-must-sit-in-the-ordered-pre-call-path
  */
 class RedactionRequiredException extends RuntimeException {
 
@@ -75,7 +75,7 @@ class RedactionRequiredException extends RuntimeException {
 	 *
 	 * @return string The step name.
 	 *
-	 * @spec openspec/changes/what-the-model-reads-and-what-is-kept/specs/woo-llm-anonymisation/spec.md#requirement-the-redaction-check-must-sit-in-the-ordered-pre-call-path
+	 * @spec openspec/specs/woo-llm-anonymisation/spec.md#requirement-the-redaction-check-must-sit-in-the-ordered-pre-call-path
 	 */
 	public function step(): string {
 		return self::STEP;

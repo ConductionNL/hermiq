@@ -19,7 +19,7 @@
 // that predates a status renders that status as its raw word. A page without
 // `requiresApp` renders an empty table where it should say integriq is missing.
 //
-// @spec openspec/changes/adopt-connection-registry/specs/app-connections/spec.md#requirement-the-integrations-page-lists-hermiqs-rows-from-integriq-req-hermiq-conn-002
+// @spec openspec/specs/app-connections/spec.md#requirement-the-integrations-page-lists-hermiqs-rows-from-integriq-req-hermiq-conn-002
 
 'use strict'
 

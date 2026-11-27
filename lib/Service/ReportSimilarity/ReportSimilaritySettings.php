@@ -24,7 +24,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#requirement-a-report-must-fall-into-one-of-three-bands-not-two
+ * @spec openspec/specs/report-similarity/spec.md#requirement-a-report-must-fall-into-one-of-three-bands-not-two
  */
 
 declare(strict_types=1);
@@ -32,15 +32,16 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\ReportSimilarity;
 
 use InvalidArgumentException;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ReportSimilaritySettingsInterface;
 use OCP\IAppConfig;
 
 /**
  * Reads and writes the grouping thresholds and windows.
  *
- * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+ * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
  */
-class ReportSimilaritySettings {
+class ReportSimilaritySettings implements ReportSimilaritySettingsInterface {
 
 	/**
 	 * At or above this score a report joins a group and is counted into it.
@@ -85,7 +86,7 @@ class ReportSimilaritySettings {
 	 *
 	 * @return float The threshold.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 	 */
 	public function upper(): float {
 		return $this->score(key: 'upper', default: self::DEFAULT_UPPER);
@@ -96,7 +97,7 @@ class ReportSimilaritySettings {
 	 *
 	 * @return float The threshold.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 	 */
 	public function lower(): float {
 		return $this->score(key: 'lower', default: self::DEFAULT_LOWER);
@@ -109,7 +110,7 @@ class ReportSimilaritySettings {
 	 *
 	 * @return int The window in minutes.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#requirement-the-comparison-window-must-be-bounded-and-administered
+	 * @spec openspec/specs/report-similarity/spec.md#requirement-the-comparison-window-must-be-bounded-and-administered
 	 */
 	public function windowMinutes(string $reportType): int {
 		$windows = ($this->stored()['windows'] ?? []);
@@ -130,7 +131,7 @@ class ReportSimilaritySettings {
 	 *
 	 * @return array{upper: float, lower: float, windows: array<string, int>} The settings.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 	 */
 	public function all(): array {
 		$windows = [];
@@ -160,15 +161,40 @@ class ReportSimilaritySettings {
 	 *
 	 * @throws InvalidArgumentException When a threshold is outside 0..1, or the lower is not below the upper.
 	 *
-	 * @spec openspec/changes/identical-reports-collapse-into-one/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
+	 * @spec openspec/specs/report-similarity/spec.md#scenario-the-thresholds-are-the-administrators
 	 */
 	public function store(?float $upper, ?float $lower, ?array $windows): array {
 		$stored = $this->stored();
 
 		$newUpper = ($upper ?? $this->upper());
 		$newLower = ($lower ?? $this->lower());
+		$this->assertThresholds(upper: $newUpper, lower: $newLower);
 
-		foreach (['upper' => $newUpper, 'lower' => $newLower] as $name => $value) {
+		$stored['upper'] = $newUpper;
+		$stored['lower'] = $newLower;
+
+		if ($windows !== null) {
+			$stored['windows'] = $this->cleanWindows(windows: $windows);
+		}
+
+		$this->appConfig->setValueString(AppIdentity::APP_ID, self::CONFIG_KEY, (string)json_encode($stored));
+
+		return $this->all();
+	}//end store()
+
+	/**
+	 * Refuse a threshold outside 0..1, upper first, and a lower threshold that is
+	 * not below the upper one.
+	 *
+	 * @param float $upper The upper threshold to store.
+	 * @param float $lower The lower threshold to store.
+	 *
+	 * @return void
+	 *
+	 * @throws InvalidArgumentException When a threshold is outside 0..1, or the lower is not below the upper.
+	 */
+	private function assertThresholds(float $upper, float $lower): void {
+		foreach (['upper' => $upper, 'lower' => $lower] as $name => $value) {
 			if ($value < 0.0 || $value > 1.0) {
 				throw new InvalidArgumentException(
 					sprintf('The %s threshold is a score between 0 and 1, and %s is outside that.', $name, (string)$value)
@@ -176,35 +202,37 @@ class ReportSimilaritySettings {
 			}
 		}
 
-		if ($newLower >= $newUpper) {
+		if ($lower >= $upper) {
 			throw new InvalidArgumentException(
 				'The lower threshold has to sit below the upper one, or there is no middle band for a '
 				. 'near-duplicate to fall into, which is the band a human is meant to look at.'
 			);
 		}
+	}//end assertThresholds()
 
-		$stored['upper'] = $newUpper;
-		$stored['lower'] = $newLower;
-
-		if ($windows !== null) {
-			$clean = [];
-			foreach ($windows as $type => $minutes) {
-				if ((int)$minutes < 1) {
-					throw new InvalidArgumentException(
-						sprintf("The window for '%s' is a number of minutes, and it has to be at least one.", (string)$type)
-					);
-				}
-
-				$clean[(string)$type] = (int)$minutes;
+	/**
+	 * The per-type windows as whole minutes, refusing one below a minute.
+	 *
+	 * @param array<string, int> $windows The per-type windows.
+	 *
+	 * @return array<string, int>
+	 *
+	 * @throws InvalidArgumentException When a window is below one minute.
+	 */
+	private function cleanWindows(array $windows): array {
+		$clean = [];
+		foreach ($windows as $type => $minutes) {
+			if ((int)$minutes < 1) {
+				throw new InvalidArgumentException(
+					sprintf("The window for '%s' is a number of minutes, and it has to be at least one.", (string)$type)
+				);
 			}
 
-			$stored['windows'] = $clean;
+			$clean[(string)$type] = (int)$minutes;
 		}
 
-		$this->appConfig->setValueString(Application::APP_ID, self::CONFIG_KEY, (string)json_encode($stored));
-
-		return $this->all();
-	}//end store()
+		return $clean;
+	}//end cleanWindows()
 
 	/**
 	 * One stored score, or its default.
@@ -234,7 +262,7 @@ class ReportSimilaritySettings {
 	 * @return array<string, mixed> The settings.
 	 */
 	private function stored(): array {
-		$raw = $this->appConfig->getValueString(Application::APP_ID, self::CONFIG_KEY, '');
+		$raw = $this->appConfig->getValueString(AppIdentity::APP_ID, self::CONFIG_KEY, '');
 		if ($raw === '') {
 			return [];
 		}

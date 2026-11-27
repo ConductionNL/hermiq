@@ -40,7 +40,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
  */
 
 declare(strict_types=1);
@@ -53,7 +53,7 @@ use Exception;
 /**
  * Shared save-payload normalisation for Engine classes writing OR objects.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
  */
 trait SanitizesForSaveTrait {
 	/**
@@ -63,7 +63,7 @@ trait SanitizesForSaveTrait {
 	 *
 	 * @return array<string, mixed> The normalised payload.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
 	 */
 	private function sanitizeForSave(array $data): array {
 		foreach ($data as $key => $value) {

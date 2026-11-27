@@ -35,7 +35,7 @@ use OCA\Hermiq\Service\AgentTemplateSerializer;
 use OCA\Hermiq\Service\AgentTemplateService;
 use OCA\Hermiq\Service\AppTemplateOffers;
 use OCA\Hermiq\Service\SkillService;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -48,6 +48,10 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RuntimeException;
 use Symfony\Component\EventDispatcher\EventDispatcher as SymfonyDispatcher;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectFindOptions as PublishedObjectFindOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * An installed app offers an agent template for itself; hermiq imports it quarantined.
@@ -290,7 +294,7 @@ final class AppTemplateOffersTest extends TestCase {
 		$scanner->method('scan')->willReturn(
 			['safe' => true, 'severity' => ContentScanService::SEVERITY_CLEAN, 'findings' => [], 'scannedBytes' => 10, 'truncated' => false]
 		);
-		$policy = $this->createMock(TenantModelPolicyService::class);
+		$policy = $this->createMock(EffectiveModelPolicy::class);
 		$policy->method('effectivePolicyFor')->willReturn(['source' => 'none', 'allowed' => [], 'defaultModel' => null]);
 		$policy->method('isAllowed')->willReturn(true);
 
@@ -403,15 +407,16 @@ final class AppTemplateOffersTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?array $_extend = [],
-				bool $files = false,
-				mixed $register = null,
-				mixed $schema = null,
+				ObjectFindOptions|PublishedObjectFindOptions|null $options = null,
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $_render = true,
-				bool $_audit = true,
+				bool $_multitenancy = true
 			): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
+				$_render = $options?->render ?? true;
+				$_audit = $options?->audit ?? true;
 				$object = ($this->store[(string)$id] ?? null);
 				if ($object === null) {
 					return null;
@@ -422,20 +427,22 @@ final class AppTemplateOffersTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				bool $_dedupOverride = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$payload = is_array($object) ? $object : $object->getObject();
 				$uuid = ($uuid ?? ('uuid-' . (count($this->store) + 1)));
 				$this->savedBySchema[(string)$schema][] = $payload;

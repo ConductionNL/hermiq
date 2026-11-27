@@ -30,6 +30,8 @@ use OCP\Migration\IOutput;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * Tests for the compliance-control-packs SeedComplianceControls repair step.
@@ -56,6 +58,13 @@ class SeedComplianceControlsTest extends TestCase {
 			public array $saved = [];
 
 			/**
+			 * Schema whose saves fail, or null.
+			 *
+			 * @var string|null
+			 */
+			public ?string $failSchema = null;
+
+			/**
 			 * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
 			 */
 			public function __construct(
@@ -78,25 +87,26 @@ class SeedComplianceControlsTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				// openregister#2211 (insert-only saves) added this. A double that
-				// drifts from the real signature is a FATAL, not a failed
-				// assertion: PHP refuses to declare the class and the whole
-				// suite dies before it runs.
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				// Added by openregister (duplicate detection), seen 2026-09-16.
-				bool $_dedupOverride = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
+				if ((string)$schema === $this->failSchema) {
+					throw new \RuntimeException('register is read-only');
+				}
+
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = ['schema' => (string)$schema, 'object' => $payload];
 
@@ -164,7 +174,7 @@ class SeedComplianceControlsTest extends TestCase {
 		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
 
 		$this->assertCount(3, $frameworks, 'EU AI Act, ISO/IEC 42001, and NIST AI RMF must all be seeded.');
-		$this->assertCount(11, $controls, 'All 11 seeded controls must be created.');
+		$this->assertCount(expectedCount: 13, haystack: $controls, message: 'All 13 seeded controls must be created.');
 
 		$slugs = array_map(static fn (array $s) => $s['object']['slug'], $frameworks);
 		$this->assertSame(['eu-ai-act', 'iso-42001', 'nist-ai-rmf'], array_values($slugs));
@@ -201,9 +211,9 @@ class SeedComplianceControlsTest extends TestCase {
 		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
 
 		// The eu-ai-act framework and its art.12 control are skipped (already exist);
-		// the remaining 2 frameworks and 10 controls are still created.
+		// the remaining 2 frameworks and 12 controls are still created.
 		$this->assertCount(2, $frameworks);
-		$this->assertCount(10, $controls);
+		$this->assertCount(expectedCount: 12, haystack: $controls);
 
 		$newFrameworkSlugs = array_map(static fn (array $s) => $s['object']['slug'], $frameworks);
 		$this->assertNotContains('eu-ai-act', $newFrameworkSlugs);
@@ -212,4 +222,53 @@ class SeedComplianceControlsTest extends TestCase {
 		$this->assertNotContains('art.12', $newControlIds);
 
 	}//end testReRunIsIdempotent()
+
+	/**
+	 * A failing save is reported per row and does not stop the rest; rows that
+	 * are not objects never count as an existing seed.
+	 *
+	 * @return void
+	 */
+	public function testFailedSavesAreWarnedAndNonObjectRowsIgnored(): void {
+		$objectService = $this->objectService(
+			[
+				'agentcontrolframework' => [['slug' => 'eu-ai-act']],
+				'agentcompliancecontrol' => [['frameworkSlug' => 'eu-ai-act', 'controlId' => 'art.12']],
+			]
+		);
+		$objectService->failSchema = 'agentcontrolframework';
+
+		$warnings = [];
+		$output = $this->createMock(IOutput::class);
+		$output->method('warning')->willReturnCallback(
+			static function (string $message) use (&$warnings): void {
+				$warnings[] = $message;
+			}
+		);
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->exactly(3))->method('error');
+
+		$step = new SeedComplianceControls(container: $this->container(objectService: $objectService), logger: $logger);
+		$step->run(output: $output);
+
+		$this->assertSame(
+			[
+				'Could not seed control framework "eu-ai-act": register is read-only',
+				'Could not seed control framework "iso-42001": register is read-only',
+				'Could not seed control framework "nist-ai-rmf": register is read-only',
+			],
+			$warnings
+		);
+		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
+		$this->assertCount(expectedCount: 13, haystack: $controls, message: 'An array row is not a stored control, so art.12 is still seeded.');
+
+		$objectService->failSchema = 'agentcompliancecontrol';
+		$objectService->saved = [];
+		$warnings = [];
+		$quiet = new SeedComplianceControls(container: $this->container(objectService: $objectService), logger: $this->createMock(LoggerInterface::class));
+		$quiet->run(output: $output);
+
+		$this->assertCount(expectedCount: 13, haystack: $warnings);
+		$this->assertContains('Could not seed control "eu-ai-act/art.12": register is read-only', $warnings);
+	}//end testFailedSavesAreWarnedAndNonObjectRowsIgnored()
 }//end class

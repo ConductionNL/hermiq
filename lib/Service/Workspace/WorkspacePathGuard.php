@@ -140,6 +140,26 @@ class WorkspacePathGuard {
 	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-patch-touching-a-refused-path-is-rejected-whole
 	 */
 	public function patchTargets(string $root, string $patch): array {
+		$this->assertPlainPatch(patch: $patch);
+
+		$targets = $this->patchPaths(patch: $patch);
+		foreach ($targets as $target) {
+			$this->forWrite(root: $root, relativePath: $target);
+		}
+
+		return $targets;
+	}//end patchTargets()
+
+	/**
+	 * Refuse a patch that renames, copies, links or is binary.
+	 *
+	 * @param string $patch The unified diff.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException patch_rejected.
+	 */
+	private function assertPlainPatch(string $patch): void {
 		if (preg_match('/^(rename|copy) (from|to) /m', $patch) === 1
 			|| preg_match('/^(new file mode|new mode|old mode|deleted file mode) 120000/m', $patch) === 1
 			|| preg_match('/^GIT binary patch/m', $patch) === 1
@@ -149,8 +169,19 @@ class WorkspacePathGuard {
 				message: 'The patch renames, copies or links a file, or is binary. Send plain content changes only.'
 			);
 		}
+	}//end assertPlainPatch()
 
-		$targets = [];
+	/**
+	 * The files a patch names on its `---` and `+++` lines, without the a/ b/ prefix
+	 * and without /dev/null, each once.
+	 *
+	 * @param string $patch The unified diff.
+	 *
+	 * @return array<int, string> The workspace-relative targets.
+	 *
+	 * @throws WorkspaceException patch_rejected when the patch names no file.
+	 */
+	private function patchPaths(string $patch): array {
 		$matched = preg_match_all('/^(?:---|\+\+\+) (\S+)/m', $patch, $matches);
 		if ($matched === false || $matched === 0) {
 			throw new WorkspaceException(
@@ -159,22 +190,15 @@ class WorkspacePathGuard {
 			);
 		}
 
+		$targets = [];
 		foreach ($matches[1] as $raw) {
-			if ($raw === '/dev/null') {
-				continue;
+			if ($raw !== '/dev/null') {
+				$targets[(string)preg_replace('#^[ab]/#', '', $raw)] = true;
 			}
-
-			$target = preg_replace('#^[ab]/#', '', $raw);
-			$targets[(string)$target] = true;
 		}
 
-		$targets = array_keys($targets);
-		foreach ($targets as $target) {
-			$this->forWrite(root: $root, relativePath: $target);
-		}
-
-		return $targets;
-	}//end patchTargets()
+		return array_keys($targets);
+	}//end patchPaths()
 
 	/**
 	 * Lexical refusal, then symlink-resolved containment.
@@ -188,6 +212,33 @@ class WorkspacePathGuard {
 	 */
 	private function contain(string $root, string $relativePath): string {
 		$segments = $this->segments(relativePath: $relativePath);
+		$realRoot = $this->realRoot(root: $root);
+
+		// Walk down to the deepest part that exists, resolve THAT through its
+		// links, and append what does not exist yet (a file about to be written).
+		$walk = $this->walk(realRoot: $realRoot, segments: $segments);
+		$existing = $walk['existing'];
+		if ($existing !== $realRoot && str_starts_with($existing, $realRoot . '/') === false) {
+			throw $this->outside();
+		}
+
+		if ($walk['rest'] === []) {
+			return $existing;
+		}
+
+		return $existing . '/' . implode('/', $walk['rest']);
+	}//end contain()
+
+	/**
+	 * The workspace root resolved, or the refusal when there is none.
+	 *
+	 * @param string $root The workspace root.
+	 *
+	 * @return string The resolved root.
+	 *
+	 * @throws WorkspaceException workspace_absent.
+	 */
+	private function realRoot(string $root): string {
 		$realRoot = realpath($root);
 		if ($realRoot === false) {
 			throw new WorkspaceException(
@@ -196,15 +247,26 @@ class WorkspacePathGuard {
 			);
 		}
 
-		// Walk down to the deepest part that exists, resolve THAT through its
-		// links, and append what does not exist yet (a file about to be written).
+		return $realRoot;
+	}//end realRoot()
+
+	/**
+	 * Resolve the deepest existing part of the path through its links; the segments
+	 * after it do not exist yet.
+	 *
+	 * @param string             $realRoot The resolved workspace root.
+	 * @param array<int, string> $segments The path's segments.
+	 *
+	 * @return array{existing: string, rest: array<int, string>} The resolved part and what follows it.
+	 *
+	 * @throws WorkspaceException path_outside_workspace for a dangling link.
+	 */
+	private function walk(string $realRoot, array $segments): array {
 		$existing = $realRoot;
-		$rest = [];
 		foreach ($segments as $index => $segment) {
 			$candidate = $existing . '/' . $segment;
 			if (file_exists($candidate) === false && is_link($candidate) === false) {
-				$rest = array_slice($segments, $index);
-				break;
+				return ['existing' => $existing, 'rest' => array_slice($segments, $index)];
 			}
 
 			$resolved = realpath($candidate);
@@ -216,16 +278,8 @@ class WorkspacePathGuard {
 			$existing = $resolved;
 		}
 
-		if ($existing !== $realRoot && str_starts_with($existing, $realRoot . '/') === false) {
-			throw $this->outside();
-		}
-
-		if ($rest === []) {
-			return $existing;
-		}
-
-		return $existing . '/' . implode('/', $rest);
-	}//end contain()
+		return ['existing' => $existing, 'rest' => []];
+	}//end walk()
 
 	/**
 	 * The lexical refusal: the path's segments, or a refusal for an absolute,

@@ -22,7 +22,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use Throwable;
 /**
  * Resolves a turn's attachments as its speaker.
  *
- * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+ * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
  */
 class TurnAttachmentResolver {
 
@@ -64,7 +64,7 @@ class TurnAttachmentResolver {
 	 * @param IRootFolder $rootFolder Every person's Files.
 	 * @param IL10N       $l10n       Refusals in the person's language.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function __construct(
 		private readonly IRootFolder $rootFolder,
@@ -87,7 +87,7 @@ class TurnAttachmentResolver {
 	 *
 	 * @throws AttachmentRefusedException When an entry names nothing the speaker can read, or there are too many.
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
 	 */
 	public function resolve(array $requested, string $speaker): array {
 		if ($requested === []) {
@@ -122,7 +122,7 @@ class TurnAttachmentResolver {
 	 *
 	 * @return AttachmentRefusedException|null
 	 *
-	 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#scenario-a-feature-that-requires-redaction-refuses-an-unredacted-attachment
+	 * @spec openspec/specs/chat-attachments/spec.md#scenario-a-feature-that-requires-redaction-refuses-an-unredacted-attachment
 	 */
 	public function redactionRefusal(RedactionRequiredException $refusal, array $attachments): ?AttachmentRefusedException {
 		foreach ($attachments as $attachment) {
@@ -175,19 +175,10 @@ class TurnAttachmentResolver {
 			throw $this->notAvailable();
 		}
 
-		$byPath = isset($entry['fileId']) === false && is_string($entry['path'] ?? null) === true;
 		$node = $this->findNode(userFolder: $userFolder, entry: $entry);
 
 		if ($node instanceof File === false || $node->isReadable() === false) {
 			throw $this->notAvailable();
-		}
-
-		$origin = (string)($entry['origin'] ?? '');
-		if (in_array($origin, self::ORIGINS, true) === false) {
-			$origin = 'files';
-			if ($byPath === true) {
-				$origin = 'upload';
-			}
 		}
 
 		return [
@@ -195,9 +186,32 @@ class TurnAttachmentResolver {
 			'name' => $node->getName(),
 			'mimeType' => $node->getMimetype(),
 			'size' => (int)$node->getSize(),
-			'origin' => $origin,
+			'origin' => $this->originOf(entry: $entry),
 		];
 	}//end resolveOne()
+
+	/**
+	 * The request's own origin when it is a known one; otherwise `upload` for a file
+	 * named by path alone and `files` for anything else.
+	 *
+	 * @param array<string, mixed> $entry One entry from the request.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/specs/chat-attachments/spec.md#requirement-an-attachment-is-read-as-the-person-who-sent-it-req-catt-003
+	 */
+	private function originOf(array $entry): string {
+		$origin = (string)($entry['origin'] ?? '');
+		if (in_array($origin, self::ORIGINS, true) === true) {
+			return $origin;
+		}
+
+		if (isset($entry['fileId']) === false && is_string($entry['path'] ?? null) === true) {
+			return 'upload';
+		}
+
+		return 'files';
+	}//end originOf()
 
 	/**
 	 * Look the entry up by file id, else by path; null when neither finds a node.

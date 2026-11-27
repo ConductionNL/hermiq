@@ -1,0 +1,71 @@
+# Tasks: operations-backup-and-restore
+
+Kind: code. Size L. Row `hermiq:dm-backup-restore`.
+
+## Implementation tasks
+
+### Task 1: Backup settings, admin only
+- **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-backup-and-restore-are-for-administrators-only-req-bkup-004`
+- **files**: `lib/Controller/Settings/BackupSettingsController.php`, `appinfo/routes.php`, `src/views/AdminRoot.vue`, `src/modals/BackupSettingsModal.vue`, `l10n/en.json`, `l10n/nl.json`
+- **acceptance_criteria**:
+  - GIVEN an administrator WHEN they save a folder, hour, keep and sessions choice THEN `backup` holds them
+  - GIVEN a non-admin WHEN they call any backup route THEN the answer is 403
+- [x] Implement
+- [x] Test (PHPUnit on auth; Newman as admin and non-admin)
+  - [x] PHPUnit: `BackupSettingsControllerTest` (every action carries `AuthorizedAdminSetting` and nothing opens it), `BackupSettingsTest`; vitest on the admin section.
+  - [x] Newman as admin and non-admin: written 17 Nov as the "Backup and restore" folder of `tests/integration/hermiq.postman_collection.json` (admin saves and reads, out of range is 422, a regular user gets 403 on every backup and restore route and nothing changes); not run, needs a running instance.
+    - 2026-11-24: the "Backup and restore" Newman folder is written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
+  - 2026-11-24: both sub-items done: PHPUnit in, Newman written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
+
+### Task 2: The backup writer and the nightly job
+- **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-an-administrator-can-back-up-an-organisations-hermiq-data-to-files-on-a-schedule-req-bkup-001`
+- **files**: `lib/Service/Backup/BackupWriter.php`, `lib/BackgroundJob/BackupTask.php`, `lib/BackgroundJob/BackupNowJob.php`, `appinfo/info.xml`
+- **acceptance_criteria**:
+  - GIVEN two organisations WHEN the job runs THEN each gets its own file with only its objects, and the manifest counts match
+  - GIVEN sessions excluded WHEN the file is written THEN it holds no `agentsession` or `agentsessionturn` object
+  - GIVEN 15 files and keep 14 WHEN the job runs THEN the oldest is deleted
+  - GIVEN the four schemas missing from the register list WHEN the schema set is built THEN they are included
+- [x] Implement
+- [x] Test (PHPUnit with two tenants and a fake Files folder)
+
+### Task 3: The restore preview
+- **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002`
+- **files**: `lib/Service/Backup/RestorePlanner.php`, `lib/Controller/BackupController.php`, `appinfo/routes.php`
+- **acceptance_criteria**:
+  - GIVEN a backup and a changed agent WHEN the preview runs THEN it counts one changed agent and writes nothing
+  - GIVEN a moment in time WHEN the preview runs THEN objects without history at that time are listed as such
+- [x] Implement
+- [x] Test (PHPUnit on the planner, both restore points)
+  - `RestorePlannerTest` (a changed agent counted and nothing written, dropped properties listed, a newer register refused, a moment rebuilt from the audit trail with created-after and no-history objects), `RestorePointTest`, `BackupFilesTest`, `BackupControllerTest` (admin-only attributes, preview 200/422/404/409).
+
+### Task 4: The restore job with the kill switch and the record
+- **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003`
+- **files**: `lib/Service/Backup/RestoreRunner.php`, `lib/BackgroundJob/RestoreJob.php`, `lib/Service/TenantControlService.php`, `lib/Notification/Notifier.php`
+- **acceptance_criteria**:
+  - GIVEN a restore WHEN it starts THEN the kill switch is engaged before the first write, and released after a clean finish
+  - GIVEN two failing saves WHEN it finishes THEN the switch stays engaged and the record and notification name both
+  - GIVEN a file from a newer register version WHEN a restore is requested THEN it is refused
+- [x] Implement
+- [x] Test (PHPUnit on the runner with a failing save and a version check)
+  - `RestoreRunnerTest` (switch on before the first write and off after a clean finish, two failing saves keep it on and are named in the record and notification, a switch already on is left alone, later objects removed when chosen, a refused point touches nothing), `RestoreJobTest`, `NotifierRestoreTest`, `BackupControllerTest` (restore queued with the point and administrator, refused restore not queued).
+  - The restore record is an audit entry with action `restore` on the organisation's TenantControl object; the notification subject is `restore_finished`. A moment is rebuilt from each object's create and update entries and written through `ObjectService::saveObject()`, so it is on the audit trail like a backup restore.
+
+### Task 5: The restore dialog
+- **spec_ref**: `openspec/changes/operations-backup-and-restore/specs/backup-restore/spec.md#requirement-a-restore-starts-with-a-preview-of-what-will-change-req-bkup-002`
+- **files**: `src/modals/RestoreDialog.vue`, `src/views/AdminRoot.vue`, `src/api/backup.js`, `l10n/en.json`, `l10n/nl.json`
+- **acceptance_criteria**:
+  - GIVEN the admin section WHEN the administrator picks a backup THEN the preview shows per schema counts and a choice for objects created after the point, before any restore starts
+- [x] Implement
+  - "Restore" in the admin Backups section opens `src/modals/RestoreDialog.vue`: a backup from the folder or a moment for an organisation, the preview per schema (put back, changed back, created after, missing, no history, not restorable), and only after a preview that is not refused the restore, with the switch for objects created after the point. vitest: `tests/vitest/restore-dialog.spec.js`, `tests/vitest/admin-root.spec.js`.
+- [x] Test (Playwright under `tests/e2e/spec-coverage/backup-restore.spec.ts`)
+  - Written 17 Nov: the administrator picks a backup, previews, reads 12 agents changed back and 1 created after, and the spec fails if the preview sent a restore. The backup list and preview are fixed through page.route in the pinned shapes. Not run: needs a live instance.
+  - Open: needs a running instance with a backup in the folder.
+  - 2026-11-24: written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
+
+## Verification
+- [x] `openspec validate operations-backup-and-restore --type change --strict` passes
+  - 2026-11-21: valid under `@fission-ai/openspec@1.2.0`, the version hydra's apply loop pins.
+- [x] PHPUnit, Newman and the Playwright file run, exit codes read
+  - 2026-11-24: run on development 671a9f6e: the change's PHPUnit tests 50 pass, vitest 24/24 exit 0 (PHPUnit exits 1 only for the missing coverage driver; the full suite fails only on the 3 inherited `ToolAccessRequestPropertyRulesTest` errors). Newman and Playwright written, runs in nightly (UNBLOCK rule 3); not verified against a live instance here.
+- [x] A live check on the dev instance: back up, change an agent's prompt, restore, and read the agent's version history
+  - 2026-11-25, sandbox instance (Nextcloud 34.0.6, PostgreSQL 16, OpenRegister main 55f2aa3e, hermiq development 4cf6be78): an agent created with prompt "Original prompt: answer in Dutch.", backup settings saved, "Back up now" queued (202) and run by cron, backup file listed in the folder. Prompt changed to "Changed prompt: answer in English." (200). Restore preview from the latest backup: agent changed 1, unchanged 5, refused none, writes 1. Restore queued (202) and run by cron. The agent's prompt read back as "Original prompt: answer in Dutch.", and `/api/agents/{id}/versions` lists three versions: create (admin), update (admin, the change), update (System, the restore).

@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
 
 declare(strict_types=1);
@@ -36,7 +36,7 @@ use LLPhant\Chat\OpenAIChat;
 /**
  * Immutable provider-selection result.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-2-1
  */
 final class ChatDriver {
 	/**
@@ -74,6 +74,16 @@ final class ChatDriver {
 	 *                            call site rather than on a chat object,
 	 *                            so it has nowhere else to read it from.
 	 *                            Null means "use the provider default".
+	 * @param string $apiMode `chat_completions` (default) or `responses`
+	 *                        (openai / openai-compatible only): which OpenAI
+	 *                        API the turn is sent to (models-provider-connections D4).
+	 * @param bool $ownNetwork Whether a keyless base URL is a server on the
+	 *                         organisation's own network, as the admin stated.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) a driver value object: the flag is data it carries, not a
+	 * behaviour switch.
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) carried in with this batch's feature work; splitting it
+	 * is follow-up work, not part of this merge.
 	 */
 	public function __construct(
 		public readonly string $provider,
@@ -84,6 +94,8 @@ final class ChatDriver {
 		public readonly ?string $authMode = null,
 		public readonly string $executionMode = 'http',
 		public readonly ?int $maxTokens = null,
+		public readonly string $apiMode = 'chat_completions',
+		public readonly bool $ownNetwork = false,
 	) {
 	}//end __construct()
 }//end class

@@ -13,6 +13,7 @@ difference is a bug worth filing.
 |------|-------------------|------|
 | [Dashboard](dashboard.md) | See how your agents are doing | `dashboard-page` |
 | [Chat](chat.md) | Talk to an agent | `talk-chat-bridge` |
+| [Ask about a document](document-chat.md) | Ask about the open document and see its sources | `document-chat` |
 | [Agents](agents.md) | Define an agent and give it a job | `agent-management-ui` |
 | [Store](store.md) | Install an agent or a skill someone else built | `skills-marketplace` |
 | [Approvals](approvals.md) | Approve or refuse what an agent wants to do | `human-approval-gate` |

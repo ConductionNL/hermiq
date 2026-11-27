@@ -141,6 +141,106 @@ final class ForgeCredentialResolverTest extends TestCase {
 	}//end testAProxyOnlyCredentialCannotPush()
 
 	/**
+	 * The forge credential is looked up personal-only, the model credential in the
+	 * agent's organisation, both with the agent's pins; a model credential that is
+	 * not personal is no reason to refuse.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-mismatched-credential-owners-are-refused
+	 */
+	public function testTheLookupsCarryTheOrganisationAndPins(): void {
+		$asked = [];
+		$scopes = $this->createMock(CredentialScopeResolver::class);
+		$scopes->method('resolve')->willReturnCallback(
+			static function (string $provider, string $actingUserId, ?string $organisation, ?array $pinned) use (&$asked): ?string {
+				$asked[] = [$provider, $actingUserId, $organisation, $pinned];
+				return ($provider === 'github' ? 'forge-alice' : 'model-org');
+			}
+		);
+		$scopes->method('scopeOfCredential')->willReturnCallback(
+			static fn (string $credentialId): string => ($credentialId === 'forge-alice' ? 'personal' : 'organisation')
+		);
+		$scopes->method('ownerOfCredential')->willReturnCallback(
+			static fn (string $credentialId): ?string => ($credentialId === 'forge-alice' ? 'alice' : 'admin')
+		);
+		$pins = ['github' => 'forge-alice', 'anthropic' => 'model-org'];
+
+		$result = $this->resolver(credentials: [], scopes: $scopes)->resolve(
+			ownerUid: 'alice',
+			agent: $this->agent(data: ['provider' => ' anthropic ', 'credentialIds' => $pins], organisation: 'org-1')
+		);
+
+		self::assertSame('forge-alice', $result['credentialId']);
+		self::assertSame([['github', 'alice', null, $pins], ['anthropic', 'alice', 'org-1', $pins]], $asked);
+	}//end testTheLookupsCarryTheOrganisationAndPins()
+
+	/**
+	 * A pin the run may not use refuses the push with its own sentence; pins that
+	 * are not a list count as none.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-mismatched-credential-owners-are-refused
+	 */
+	public function testARefusedPinRefusesThePush(): void {
+		$asked = [];
+		$scopes = $this->createMock(CredentialScopeResolver::class);
+		$scopes->method('resolve')->willReturnCallback(
+			static function (string $provider, string $actingUserId, ?string $organisation, ?array $pinned) use (&$asked): ?string {
+				$asked[] = $pinned;
+				throw new \OCA\Hermiq\Service\Credential\PinnedCredentialRefusedException('nope');
+			}
+		);
+
+		try {
+			$this->resolver(credentials: [], scopes: $scopes)->resolve(ownerUid: 'alice', agent: $this->agent(data: ['credentialIds' => 'not-a-list']));
+			self::fail('Expected a refusal.');
+		} catch (WorkspaceException $e) {
+			self::assertSame(WorkspaceException::CREDENTIAL_SCOPE_REFUSED, $e->getErrorCode());
+			self::assertSame('The credential pinned on this agent cannot be used by this run, so nothing was pushed.', $e->getMessage());
+		}
+
+		self::assertSame([null], $asked);
+	}//end testARefusedPinRefusesThePush()
+
+	/**
+	 * A broker that fails is a refusal, not a push without a credential.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-the-forge-credential-and-the-model-credential-are-separate-and-neither-reaches-the-model
+	 */
+	public function testAFailingBrokerRefusesThePush(): void {
+		$resolver = $this->resolver(credentials: [$this->credential(uuid: 'forge-alice', provider: 'github', owner: 'alice')], brokerFails: true);
+
+		try {
+			$resolver->resolve(ownerUid: 'alice', agent: null);
+			self::fail('Expected a refusal.');
+		} catch (WorkspaceException $e) {
+			self::assertSame(WorkspaceException::CREDENTIAL_SCOPE_REFUSED, $e->getErrorCode());
+			self::assertSame('The forge credential cannot be used for a push (it must be an inject-only credential), so nothing was pushed.', $e->getMessage());
+		}
+	}//end testAFailingBrokerRefusesThePush()
+
+	/**
+	 * The admin's forge provider picks the credential; a blank setting means the default forge.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-credential-is-absent-from-the-models-container
+	 */
+	public function testTheForgeProviderSettingPicksTheCredential(): void {
+		$credentials = [
+			$this->credential(uuid: 'forge-github', provider: 'github', owner: 'alice'),
+			$this->credential(uuid: 'forge-gitea', provider: 'gitea', owner: 'alice'),
+		];
+
+		self::assertSame('forge-gitea', $this->resolver(credentials: $credentials, providerSetting: ' gitea ')->resolve(ownerUid: 'alice', agent: null)['credentialId']);
+		self::assertSame('forge-github', $this->resolver(credentials: $credentials, providerSetting: '   ')->resolve(ownerUid: 'alice', agent: null)['credentialId']);
+	}//end testTheForgeProviderSettingPicksTheCredential()
+
+	/**
 	 * Assert a call is refused with a code, and that the message holds no secret.
 	 *
 	 * @param string   $code The expected error code.
@@ -163,11 +263,13 @@ final class ForgeCredentialResolverTest extends TestCase {
 	 *
 	 * @param array<int, ObjectEntity>     $credentials The credential objects.
 	 * @param CredentialScopeResolver|null $scopes      A scope resolver double, or null for the real one.
-	 * @param bool                         $injectable  Whether the broker returns a secret.
+	 * @param bool                         $injectable      Whether the broker returns a secret.
+	 * @param bool                         $brokerFails     Whether the broker throws.
+	 * @param string|null                  $providerSetting The stored forge provider, or null when unset.
 	 *
 	 * @return ForgeCredentialResolver
 	 */
-	private function resolver(array $credentials, ?CredentialScopeResolver $scopes = null, bool $injectable = true): ForgeCredentialResolver {
+	private function resolver(array $credentials, ?CredentialScopeResolver $scopes = null, bool $injectable = true, bool $brokerFails = false, ?string $providerSetting = null): ForgeCredentialResolver {
 		$objects = $this->createMock(ObjectService::class);
 		$objects->method('setRegister')->willReturnSelf();
 		$objects->method('setSchema')->willReturnSelf();
@@ -175,8 +277,12 @@ final class ForgeCredentialResolverTest extends TestCase {
 
 		$broker = $this->createMock(CredentialBrokerService::class);
 		$broker->method('resolveInjectable')->willReturnCallback(
-			function (string $credentialId) use ($injectable): ?string {
+			function (string $credentialId) use ($injectable, $brokerFails): ?string {
 				$this->injected[] = $credentialId;
+				if ($brokerFails === true) {
+					throw new \RuntimeException('broker unavailable');
+				}
+
 				return ($injectable === true ? 'secret-of-' . $credentialId : null);
 			}
 		);
@@ -184,7 +290,9 @@ final class ForgeCredentialResolverTest extends TestCase {
 		$container->method('get')->willReturn($broker);
 
 		$appConfig = $this->createMock(IAppConfig::class);
-		$appConfig->method('getValueString')->willReturnCallback(static fn (string $app, string $key, string $default = ''): string => $default);
+		$appConfig->method('getValueString')->willReturnCallback(
+			static fn (string $app, string $key, string $default = ''): string => ($key === 'workspace_forge_provider' && $providerSetting !== null ? $providerSetting : $default)
+		);
 
 		return new ForgeCredentialResolver(
 			scopes: ($scopes ?? new CredentialScopeResolver(objectService: $objects)),

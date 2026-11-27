@@ -41,6 +41,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\Hermiq\Kernel\Contracts\SeedCustodyServiceInterface;
 use OCP\IGroupManager;
 
 /**
@@ -49,7 +50,7 @@ use OCP\IGroupManager;
  * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
  */
-class SeedCustodyService {
+class SeedCustodyService implements SeedCustodyServiceInterface {
 
 	/**
 	 * The owner uid OpenRegister repair-step imports stamp on seeded objects.

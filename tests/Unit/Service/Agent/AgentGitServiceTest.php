@@ -35,7 +35,7 @@ use OCA\Hermiq\Service\AgentTemplateService;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\Hermiq\Service\SkillService;
-use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCA\Hermiq\Service\EffectiveModelPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -44,6 +44,10 @@ use Opis\JsonSchema\Validator;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectFindOptions as PublishedObjectFindOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * An owner keeps an agent in git: publish once, push to that repository only, pull back after a diff.
@@ -87,6 +91,20 @@ final class AgentGitServiceTest extends TestCase {
 	 */
 	private string $severity = ContentScanService::SEVERITY_CLEAN;
 
+	/**
+	 * The arguments each package fetch was called with.
+	 *
+	 * @var array<int, array<string, mixed>>
+	 */
+	private array $fetchCalls = [];
+
+	/**
+	 * A failure the push service raises, or null to succeed.
+	 *
+	 * @var RuntimeException|null
+	 */
+	private ?RuntimeException $pushFailure = null;
+
 	protected function setUp(): void {
 		$this->agentData = [
 			'name' => 'Complaint router',
@@ -105,6 +123,8 @@ final class AgentGitServiceTest extends TestCase {
 		$this->pushCalls = [];
 		$this->remotePackage = null;
 		$this->severity = ContentScanService::SEVERITY_CLEAN;
+		$this->fetchCalls = [];
+		$this->pushFailure = null;
 	}//end setUp()
 
 	public function testThePublishCreatesTheRepositoryAndStampsItOnTheAgent(): void {
@@ -217,6 +237,84 @@ final class AgentGitServiceTest extends TestCase {
 	}//end testTheFragmentRefusesAGitOwnerThatIsNotAString()
 
 	/**
+	 * A pull reads the stamped repository at the stamped ref, as the caller.
+	 *
+	 * @return void
+	 */
+	public function testAPullReadsTheStampedRefAsTheCaller(): void {
+		$this->keptInGit(prompt: 'Route each complaint to its team.');
+		$this->agentData['gitRef'] = 'v2';
+
+		$this->service()->pullPreview(agentId: self::AGENT, uid: 'alice', credentialId: 'gh-1');
+
+		self::assertSame(
+			[
+				'kind' => GitHubTemplateCatalogService::KIND_AGENT_TEMPLATE,
+				'owner' => 'gemeente-x',
+				'repo' => 'complaint-router-agent',
+				'ref' => 'v2',
+				'actingUserId' => 'alice',
+				'credentialId' => 'gh-1',
+			],
+			$this->fetchCalls[0]
+		);
+	}//end testAPullReadsTheStampedRefAsTheCaller()
+
+	/**
+	 * Without a stamped ref the pull reads the default branch.
+	 *
+	 * @return void
+	 */
+	public function testAPullWithoutARefReadsTheDefaultBranch(): void {
+		$this->keptInGit(prompt: 'Route each complaint to its team.');
+		$this->agentData['gitRef'] = '';
+
+		$this->service()->pullPreview(agentId: self::AGENT, uid: 'alice', credentialId: 'gh-1');
+
+		self::assertNull($this->fetchCalls[0]['ref']);
+	}//end testAPullWithoutARefReadsTheDefaultBranch()
+
+	/**
+	 * A repository without a readable package is a 502, and the agent is left alone.
+	 *
+	 * @return void
+	 */
+	public function testAnUnreadablePackageIs502AndWritesNothing(): void {
+		$this->keptInGit(prompt: 'Route each complaint to its team.');
+		$this->remotePackage = null;
+
+		try {
+			$this->service()->pullApply(agentId: self::AGENT, uid: 'alice', credentialId: 'gh-1');
+			self::fail('an unreadable package must refuse the pull');
+		} catch (RuntimeException $e) {
+			self::assertSame(502, $e->getCode());
+			self::assertSame('Could not read the agent from its repository.', $e->getMessage());
+		}
+
+		self::assertSame([], $this->saved);
+	}//end testAnUnreadablePackageIs502AndWritesNothing()
+
+	/**
+	 * A GitHub failure during a push becomes a 502 that keeps its message and cause.
+	 *
+	 * @return void
+	 */
+	public function testAGitHubFailureOnPushIs502(): void {
+		$this->agentData['gitOwner'] = 'gemeente-x';
+		$this->agentData['gitRepo'] = 'complaint-router-agent';
+		$this->pushFailure = new RuntimeException('Bad credentials', 401);
+
+		try {
+			$this->service()->push(agentId: self::AGENT, uid: 'alice', credentialId: 'gh-1');
+			self::fail('a GitHub failure must surface');
+		} catch (RuntimeException $e) {
+			self::assertSame(502, $e->getCode());
+			self::assertSame('Bad credentials', $e->getMessage());
+			self::assertSame($this->pushFailure, $e->getPrevious());
+		}
+	}//end testAGitHubFailureOnPushIs502()
+
+	/**
 	 * Stamp the agent and put a package with the given prompt in the repository.
 	 *
 	 * @param string $prompt The prompt in git.
@@ -252,15 +350,16 @@ final class AgentGitServiceTest extends TestCase {
 
 			public function find(
 				int|string $id,
-				?array $_extend = [],
-				bool $files = false,
-				mixed $register = null,
-				mixed $schema = null,
+				ObjectFindOptions|PublishedObjectFindOptions|null $options = null,
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $_render = true,
-				bool $_audit = true,
+				bool $_multitenancy = true
 			): ?ObjectEntity {
+				$_extend = $options?->extend ?? [];
+				$files = $options?->files ?? false;
+				$register = $options?->register;
+				$schema = $options?->schema;
+				$_render = $options?->render ?? true;
+				$_audit = $options?->audit ?? true;
 				$agent = new ObjectEntity();
 				$agent->setUuid((string)$id);
 				$agent->setOwner('alice');
@@ -270,20 +369,22 @@ final class AgentGitServiceTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				bool $failIfExists = false,
-				bool $_unowned = false,
-				bool $_dedupOverride = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->test->saved[] = ['object' => $payload, 'rbac' => $_rbac];
 				$entity = new ObjectEntity();
@@ -302,6 +403,10 @@ final class AgentGitServiceTest extends TestCase {
 		);
 		$push->method('pushUpdate')->willReturnCallback(
 			function (string $package, string $owner, string $repo, string $credentialId, ?string $actingUserId = null, string $kind = '', array $auxFiles = []): array {
+				if ($this->pushFailure !== null) {
+					throw $this->pushFailure;
+				}
+
 				$this->pushCalls['pushUpdate'][] = compact('package', 'owner', 'repo', 'credentialId', 'actingUserId', 'kind');
 				return ['repoUrl' => 'https://github.com/' . $owner . '/' . $repo, 'commitSha' => 'beef'];
 			}
@@ -309,7 +414,10 @@ final class AgentGitServiceTest extends TestCase {
 
 		$catalog = $this->createMock(GitHubTemplateCatalogService::class);
 		$catalog->method('fetchPackageFile')->willReturnCallback(
-			fn (): ?string => $this->remotePackage
+			function (string $kind, string $owner, string $repo, ?string $ref = null, ?string $actingUserId = null, ?string $credentialId = null): ?string {
+				$this->fetchCalls[] = compact('kind', 'owner', 'repo', 'ref', 'actingUserId', 'credentialId');
+				return $this->remotePackage;
+			}
 		);
 
 		$scanner = $this->createMock(ContentScanService::class);
@@ -327,7 +435,7 @@ final class AgentGitServiceTest extends TestCase {
 			objectService: $objects,
 			serializer: new AgentTemplateSerializer(),
 			contentScanService: $scanner,
-			modelPolicyService: $this->createMock(TenantModelPolicyService::class),
+			modelPolicyService: $this->createMock(EffectiveModelPolicy::class),
 			skillService: $this->createMock(SkillService::class),
 		);
 

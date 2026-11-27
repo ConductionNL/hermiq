@@ -5,7 +5,7 @@
  *
  * Stands in for OCA\OpenRegister\Db\OrganisationMapper when OpenRegister is not installed
  * (standalone CI). Exposes the lookups the kill-switch surface uses: findByUuid (owner
- * check in TenantControlController) and findAll / findByUserId (manageable-org list in
+ * check in OrganisationControlController) and findAll / findByUserId (manageable-org list in
  * DashboardController), plus getActiveOrganisationWithFallback (tenant-model-policy's
  * effective-policy read — resolves "the caller's own organisation" from a session with
  * no request parameter). The real mapper ships with OpenRegister.
@@ -45,10 +45,11 @@ class OrganisationMapper {
 	 *
 	 * @param int $limit Maximum rows.
 	 * @param int $offset Row offset.
+	 * @param array<string, mixed>|null $filters Column => value equality filters.
 	 *
 	 * @return array<int, Organisation>
 	 */
-	public function findAll(int $limit = 50, int $offset = 0): array {
+	public function findAll(int $limit = 50, int $offset = 0, ?array $filters = []): array {
 		return [];
 	}//end findAll()
 

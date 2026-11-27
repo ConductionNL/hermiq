@@ -46,6 +46,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\NcNative;
 
+use OCA\Hermiq\Kernel\Contracts\AgentArtefactMarkerInterface;
 use OCP\SystemTag\ISystemTagManager;
 use OCP\SystemTag\ISystemTagObjectMapper;
 use OCP\SystemTag\TagNotFoundException;
@@ -60,7 +61,7 @@ use Throwable;
  *
  * @spec openspec/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider
  */
-class AgentArtefactMarker {
+class AgentArtefactMarker implements AgentArtefactMarkerInterface {
 
 	/**
 	 * The system tag applied to agent-authored files.
@@ -73,6 +74,16 @@ class AgentArtefactMarker {
 	 * @var string
 	 */
 	public const TAG_NAME = 'Agent authored';
+
+	/**
+	 * The system tag a person adds to an agent-authored file they have read.
+	 *
+	 * A second tag next to TAG_NAME, which stays: counting reviewed files is
+	 * counting files with both. Untranslated for the same reason as TAG_NAME.
+	 *
+	 * @var string
+	 */
+	public const REVIEWED_TAG_NAME = 'Agent authored, reviewed';
 
 	/**
 	 * The `X-` property carrying the mark on vCard and iCalendar objects.
@@ -91,9 +102,9 @@ class AgentArtefactMarker {
 	/**
 	 * Constructor.
 	 *
-	 * @param ISystemTagManager $tagManager System tag resolution/creation.
-	 * @param ISystemTagObjectMapper $tagMapper Assigns tags to objects.
-	 * @param LoggerInterface $logger Diagnostics.
+	 * @param ISystemTagManager      $tagManager System tag resolution/creation.
+	 * @param ISystemTagObjectMapper $tagMapper  Assigns tags to objects.
+	 * @param LoggerInterface        $logger     Diagnostics.
 	 */
 	public function __construct(
 		private readonly ISystemTagManager $tagManager,
@@ -117,7 +128,7 @@ class AgentArtefactMarker {
 	 * @throws ArtefactMarkingFailedException When the tag cannot be resolved,
 	 *                                        created or assigned.
 	 *
-	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	public function markFile(int $fileId): void {
 		try {
@@ -149,7 +160,7 @@ class AgentArtefactMarker {
 	 *
 	 * @return bool True when the mark is present.
 	 *
-	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	public function isFileMarked(int $fileId): bool {
 		try {
@@ -174,7 +185,7 @@ class AgentArtefactMarker {
 	 *
 	 * @return string The property value to store under `self::OBJECT_PROPERTY`.
 	 *
-	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored-req-ailbl-001
 	 */
 	public function objectPropertyValue(string $agentId = ''): string {
 		if (trim($agentId) === '') {
@@ -195,12 +206,93 @@ class AgentArtefactMarker {
 	 * @return string The system tag id.
 	 */
 	private function resolveTagId(): string {
-		try {
-			return $this->tagManager->getTag(self::TAG_NAME, true, false)->getId();
-		} catch (TagNotFoundException) {
-			return $this->tagManager->createTag(self::TAG_NAME, true, false)->getId();
-		}
+		return $this->resolveNamedTagId(name: self::TAG_NAME);
 
 	}//end resolveTagId()
+
+	/**
+	 * Mark an agent-authored file as reviewed by a person.
+	 *
+	 * The caller has already checked that the person may read the file and that it
+	 * carries the agent-authored tag; the agent-authored tag is left in place.
+	 *
+	 * @param int $fileId The file id.
+	 *
+	 * @return void
+	 *
+	 * @throws ArtefactMarkingFailedException When the reviewed tag cannot be resolved or assigned.
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 */
+	public function markReviewed(int $fileId): void {
+		try {
+			$tagId = $this->resolveNamedTagId(name: self::REVIEWED_TAG_NAME);
+			$this->tagMapper->assignTags((string)$fileId, self::OBJECT_TYPE_FILES, [$tagId]);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq: could not apply the reviewed tag to file {fileId}',
+				['fileId' => $fileId, 'exception' => $e]
+			);
+
+			throw new ArtefactMarkingFailedException('The file could not be marked as reviewed.', 0, $e);
+		}
+
+	}//end markReviewed()
+
+	/**
+	 * The ids of the files carrying a tag, without creating the tag.
+	 *
+	 * @param string $name TAG_NAME or REVIEWED_TAG_NAME.
+	 *
+	 * @return array{tagId: string|null, fileIds: list<string>} The tag id (null when it was never
+	 *                                                         created) and the tagged file ids.
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-a-person-can-mark-a-labelled-file-as-reviewed-and-the-oversight-page-counts-the-labels-req-ailbl-002
+	 */
+	public function taggedFiles(string $name): array {
+		try {
+			$tagId = (string)$this->tagManager->getTag($name, true, $this->userAssignable(name: $name))->getId();
+		} catch (TagNotFoundException) {
+			return ['tagId' => null, 'fileIds' => []];
+		}
+
+		$ids = $this->tagMapper->getObjectIdsForTags([$tagId], self::OBJECT_TYPE_FILES);
+
+		return ['tagId' => $tagId, 'fileIds' => array_values(array_map('strval', $ids))];
+
+	}//end taggedFiles()
+
+	/**
+	 * Resolve a system tag id, creating the tag on first use.
+	 *
+	 * Both are visible. The agent-authored tag is not user-assignable (a person
+	 * hand-applying it would make the mark mean two things); the reviewed tag is,
+	 * because a person may also mark a file as reviewed from Files (design D2).
+	 *
+	 * @param string $name The tag name.
+	 *
+	 * @return string The system tag id.
+	 */
+	private function resolveNamedTagId(string $name): string {
+		$assignable = $this->userAssignable(name: $name);
+		try {
+			return $this->tagManager->getTag($name, true, $assignable)->getId();
+		} catch (TagNotFoundException) {
+			return $this->tagManager->createTag($name, true, $assignable)->getId();
+		}
+
+	}//end resolveNamedTagId()
+
+	/**
+	 * Whether a person may assign the tag by hand: only the reviewed tag.
+	 *
+	 * @param string $name The tag name.
+	 *
+	 * @return bool True for REVIEWED_TAG_NAME.
+	 */
+	private function userAssignable(string $name): bool {
+		return $name === self::REVIEWED_TAG_NAME;
+
+	}//end userAssignable()
 
 }//end class

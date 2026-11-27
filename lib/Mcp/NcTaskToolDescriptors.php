@@ -24,7 +24,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Mcp;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
 use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 
 /**
@@ -37,11 +37,11 @@ use OCA\OpenRegister\Service\Capability\ToolReachResolver;
  */
 final class NcTaskToolDescriptors {
 
-	public const LIST_TASKS = Application::APP_ID . '.listTasks';
+	public const LIST_TASKS = AppIdentity::APP_ID . '.listTasks';
 
-	public const CREATE_TASK = Application::APP_ID . '.createTask';
+	public const CREATE_TASK = AppIdentity::APP_ID . '.createTask';
 
-	public const COMPLETE_TASK = Application::APP_ID . '.completeTask';
+	public const COMPLETE_TASK = AppIdentity::APP_ID . '.completeTask';
 
 	public const IDS = [self::LIST_TASKS, self::CREATE_TASK, self::COMPLETE_TASK];
 

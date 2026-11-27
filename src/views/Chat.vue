@@ -36,7 +36,7 @@
 		<!-- Session list column -->
 		<aside class="chat-page__list">
 			<div class="chat-page__list-head">
-				<NcButton variant="primary" wide @click="newSession">
+				<NcButton variant="primary" wide @click="onNewSessionClick">
 					<template #icon>
 						<Plus :size="20" />
 					</template>
@@ -64,7 +64,98 @@
 						{{ t('hermiq', 'Archive') }}
 					</NcCheckboxRadioSwitch>
 				</div>
+				<NcTextField
+					:modelValue="searchTerm"
+					class="chat-page__search"
+					data-testid="chat-session-search"
+					:label="t('hermiq', 'Search sessions')"
+					trailingButtonIcon="close"
+					:trailingButtonLabel="t('hermiq', 'Clear search')"
+					:showTrailingButton="searchTerm !== ''"
+					@update:modelValue="onSearchInput"
+					@trailingButtonClick="clearSearch" />
+				<NcButton
+					v-if="!selecting"
+					variant="tertiary"
+					wide
+					data-testid="chat-session-select"
+					:disabled="selectableShown.length === 0"
+					@click="startSelecting">
+					<template #icon>
+						<CheckboxMultipleMarkedOutline :size="20" />
+					</template>
+					{{ t('hermiq', 'Select') }}
+				</NcButton>
 			</div>
+
+			<!--
+				Selection mode (REQ-SSRCH-002): the bar names how many rows are ticked and
+				acts on all of them in one request per 100. Its buttons follow the row
+				checkboxes in tab order; space toggles the focused row.
+			-->
+			<div
+				v-if="selecting"
+				class="chat-page__bulk"
+				role="toolbar"
+				data-testid="chat-session-bulk-bar"
+				:aria-label="t('hermiq', 'Selected sessions')">
+				<span class="chat-page__bulk-count" data-testid="chat-session-bulk-count">
+					{{ n('hermiq', '%n selected', '%n selected', selected.length) }}
+				</span>
+				<NcButton
+					variant="tertiary"
+					data-testid="chat-session-select-all"
+					:disabled="bulkBusy"
+					@click="selectAllShown">
+					{{ t('hermiq', 'Select all shown') }}
+				</NcButton>
+				<NcButton
+					v-if="!showArchive"
+					data-testid="chat-session-bulk-archive"
+					:disabled="bulkBusy || selected.length === 0"
+					@click="runBulk('archive')">
+					<template #icon>
+						<NcLoadingIcon v-if="bulkBusy" :size="20" />
+						<Archive v-else :size="20" />
+					</template>
+					{{ t('hermiq', 'Archive selected') }}
+				</NcButton>
+				<NcButton
+					v-else
+					data-testid="chat-session-bulk-restore"
+					:disabled="bulkBusy || selected.length === 0"
+					@click="runBulk('restore')">
+					<template #icon>
+						<NcLoadingIcon v-if="bulkBusy" :size="20" />
+						<Restore v-else :size="20" />
+					</template>
+					{{ t('hermiq', 'Restore selected') }}
+				</NcButton>
+				<NcButton
+					variant="error"
+					data-testid="chat-session-bulk-delete"
+					:disabled="bulkBusy || selected.length === 0"
+					@click="showBulkDelete = true">
+					<template #icon>
+						<Delete :size="20" />
+					</template>
+					{{ t('hermiq', 'Delete selected') }}
+				</NcButton>
+				<NcButton
+					variant="tertiary"
+					data-testid="chat-session-bulk-cancel"
+					:disabled="bulkBusy"
+					@click="stopSelecting">
+					{{ t('hermiq', 'Cancel') }}
+				</NcButton>
+			</div>
+
+			<NcNoteCard
+				v-if="searchActive && searchTruncated"
+				type="info"
+				data-testid="chat-session-search-truncated">
+				{{ t('hermiq', 'Only your 1000 most recent sessions were searched.') }}
+			</NcNoteCard>
 
 			<div v-if="sessionsLoading" class="chat-page__list-state">
 				<NcLoadingIcon :size="28" />
@@ -72,7 +163,9 @@
 
 			<NcNoteCard v-else-if="visibleSessions.length === 0" type="info">
 				{{
-					showArchive
+					searchActive
+						? t('hermiq', 'No sessions match {term}.', { term: appliedSearch })
+						: showArchive
 						? t('hermiq', 'No archived sessions.')
 						: t(
 								'hermiq',
@@ -101,14 +194,26 @@
 						:key="session.uuid"
 						class="chat-page__row"
 						:data-testid="`chat-session-row-${group.key}`"
-						:class="{ 'chat-page__row--active': isActive(session) }">
+						:class="{
+							'chat-page__row--active': isActive(session),
+							'chat-page__row--selected': selecting && isSelected(session),
+						}">
+						<NcCheckboxRadioSwitch
+							v-if="selecting && isSelectable(session)"
+							class="chat-page__row-check"
+							data-testid="chat-session-row-check"
+							type="checkbox"
+							:modelValue="isSelected(session)"
+							:aria-label="t('hermiq', 'Select {title}', { title: session.title || t('hermiq', 'New session') })"
+							@update:modelValue="toggleSelected(session)" />
 						<div
 							class="chat-page__row-main"
 							data-testid="chat-session-row"
 							role="button"
 							tabindex="0"
-							@click="selectSession(session)"
-							@keydown.enter="selectSession(session)">
+							@click="onRowActivate(session)"
+							@keydown.enter="onRowActivate(session)"
+							@keydown.space.prevent="onRowSpace(session)">
 							<span class="chat-page__row-icon">
 								<component :is="originIcon(session)" :size="20" />
 							</span>
@@ -119,6 +224,10 @@
 								<span class="chat-page__row-meta">{{
 									rowMeta(session)
 								}}</span>
+								<span
+									v-if="session.match && session.match.excerpt"
+									class="chat-page__row-excerpt"
+									data-testid="chat-session-row-excerpt">{{ session.match.excerpt }}</span>
 							</span>
 						</div>
 						<NcActions
@@ -133,12 +242,30 @@
 								{{ t('hermiq', 'Continue') }}
 							</NcActionButton>
 							<NcActionButton
+								v-if="talkUrl(session)"
+								data-testid="chat-session-open-in-talk"
+								@click="openInTalk(session)">
+								<template #icon>
+									<Forum :size="20" />
+								</template>
+								{{ t('hermiq', 'Open in Talk') }}
+							</NcActionButton>
+							<NcActionButton
 								v-if="canInvite(session)"
 								@click="openParticipants(session)">
 								<template #icon>
 									<AccountMultiplePlus :size="20" />
 								</template>
 								{{ t('hermiq', 'Invite colleagues') }}
+							</NcActionButton>
+							<NcActionButton
+								v-if="!showArchive && canShare(session)"
+								data-testid="chat-session-share"
+								@click="openShare(session)">
+								<template #icon>
+									<ShareVariant :size="20" />
+								</template>
+								{{ t('hermiq', 'Share') }}
 							</NcActionButton>
 							<NcActionButton
 								v-if="!showArchive && session.role !== 'participant'"
@@ -165,6 +292,39 @@
 								{{ t('hermiq', 'Delete session') }}
 							</NcActionButton>
 						</NcActions>
+					</div>
+				</template>
+				<!--
+					Chat-fork-and-share-link: sessions shared with the reader,
+					read-only. Each opens its own read-only page.
+				-->
+				<template v-if="!showArchive && sharedSessions.length > 0">
+					<h3 class="chat-page__group" data-testid="chat-session-group-shared-with-you">
+						{{ t('hermiq', 'Shared with you') }}
+					</h3>
+					<div
+						v-for="session in sharedSessions"
+						:key="`shared-${session.uuid}`"
+						class="chat-page__row"
+						data-testid="chat-session-row-shared-with-you">
+						<div
+							class="chat-page__row-main"
+							role="button"
+							tabindex="0"
+							@click="openShared(session)"
+							@keydown.enter="openShared(session)">
+							<span class="chat-page__row-icon">
+								<ShareVariant :size="20" />
+							</span>
+							<span class="chat-page__row-text">
+								<strong>{{ session.title || t('hermiq', 'New session') }}</strong>
+								<span class="chat-page__row-meta">{{
+									session.share && session.share.sharedByDisplayName
+										? t('hermiq', 'Shared by {name}', { name: session.share.sharedByDisplayName })
+										: ''
+								}}</span>
+							</span>
+						</div>
 					</div>
 				</template>
 			</div>
@@ -239,11 +399,18 @@
 				</NcButton>
 			</div>
 			<p
+				v-if="activeSession && sessionProjectName"
+				class="chat-page__start-values"
+				data-testid="chat-project">
+				{{ t('hermiq', 'Project: {project}', { project: sessionProjectName }) }}
+			</p>
+			<p
 				v-if="activeSession && sessionStartValues.length > 0"
 				class="chat-page__start-values"
 				data-testid="chat-start-values">
 				{{ sessionStartValues.join(' · ') }}
 			</p>
+			<WorkspaceFilesPanel v-if="activeSession && activeSession.uuid" :sessionId="activeSession.uuid" />
 
 			<div v-if="!activeSession" ref="startSurface" class="chat-page__empty">
 				<div class="chat-page__empty-inner" data-testid="chat-start-surface">
@@ -265,12 +432,28 @@
 						class="chat-page__start-error">
 						<p>{{ startError }}</p>
 					</NcNoteCard>
+					<NcTextField
+						v-model="newProjectName"
+						class="chat-page__new-project"
+						data-testid="chat-new-project"
+						:label="t('hermiq', 'New project (optional)')"
+						:helperText="
+							t(
+								'hermiq',
+								'Name a project to keep what the agent remembers in it apart.',
+							)
+						" />
 					<AgentSelector
 						:agents="agents"
 						:loading="agentsLoading"
 						:error="agentsError"
 						:startingId="startingId"
 						@start="startWithAgent" />
+					<ProjectPickerDialog
+						v-if="projectPicker"
+						:projects="projectPicker.projects"
+						@close="projectPicker = null"
+						@start="onProjectChosen" />
 				</div>
 			</div>
 
@@ -288,7 +471,11 @@
 						v-for="message in messages"
 						:key="message.uuid || message.id"
 						class="chat-page__message"
-						:class="`chat-page__message--${message.role}`">
+						:data-turn-uuid="message.uuid || message.id"
+						:class="[
+							`chat-page__message--${message.role}`,
+							{ 'chat-page__message--found': highlightTurn !== '' && (message.uuid || message.id) === highlightTurn },
+						]">
 						<div class="chat-page__avatar">
 							<NcAvatar
 								v-if="message.role === 'user'"
@@ -311,6 +498,12 @@
 								<span class="chat-page__time">{{
 									formatTime(message.created)
 								}}</span>
+								<span
+									v-if="typedInTalk(message)"
+									class="chat-page__via"
+									data-testid="chat-message-via-talk">
+									{{ t('hermiq', 'via Talk') }}
+								</span>
 							</div>
 							<!-- What happened to the attachments the model could not read
 								natively, above the answer they belong to (chat-attachments-and-images D6). -->
@@ -339,6 +532,23 @@
 							<div
 								class="chat-page__text"
 								v-html="renderMarkdown(message.content)" />
+
+							<!-- A translated recording: the player and what was used (chat-translate-a-recording). -->
+							<div
+								v-if="message.translation"
+								class="chat-page__translation"
+								data-testid="chat-message-translation">
+								<audio
+									v-if="message.translation.audioPath"
+									class="chat-page__translation-player"
+									controls
+									preload="none"
+									:src="translationAudioUrl(message.translation)"
+									:aria-label="t('hermiq', 'Spoken translation')" />
+								<p class="chat-page__translation-line">
+									{{ translationLine(message.translation, locale) }}
+								</p>
+							</div>
 
 							<!-- Files attached to this turn (chat-attachments-and-images). -->
 							<ul
@@ -380,6 +590,98 @@
 								</li>
 							</ul>
 
+							<!-- How this answer came about (chat-how-an-answer-came-about D5):
+							     sentences the server built from the stored record. A native
+							     details element is keyboard operable and announces its state. -->
+							<details
+								v-if="
+									message.role === 'assistant'
+									&& message.provenanceAccount
+									&& message.provenanceAccount.length > 0
+								"
+								class="chat-page__provenance"
+								data-testid="chat-message-provenance">
+								<summary class="chat-page__provenance-summary">
+									{{ t('hermiq', 'How this answer came about') }}
+								</summary>
+								<ul class="chat-page__provenance-list">
+									<li
+										v-for="(sentence, sentenceIndex) in message.provenanceAccount"
+										:key="sentenceIndex">
+										{{ sentence }}
+									</li>
+								</ul>
+							</details>
+
+							<!-- The model's reasoning (chat-how-an-answer-came-about D5): only when the
+							     agent's owner asked for it and the provider returned it, filtered and
+							     redacted on the server; folded, keyboard operable. -->
+							<details
+								v-if="message.role === 'assistant' && message.reasoning"
+								class="chat-page__provenance chat-page__reasoning"
+								data-testid="chat-message-reasoning">
+								<summary class="chat-page__provenance-summary">
+									{{ t('hermiq', 'Model reasoning') }}
+								</summary>
+								<p class="chat-page__reasoning-note">
+									{{ t('hermiq', 'This is the model\'s own text. It can be wrong.') }}
+								</p>
+								<p class="chat-page__reasoning-text">
+									{{ message.reasoning }}
+								</p>
+							</details>
+							<p
+								v-else-if="message.role === 'assistant' && message.reasoningWithheld"
+								class="chat-page__reasoning-note"
+								data-testid="chat-message-reasoning-withheld">
+								{{ t('hermiq', 'The reasoning was withheld by the organisation\'s filter.') }}
+							</p>
+							<!-- The question the agent asked with hermiq.askPerson
+							     (oversight-ask-and-hold D1): a button per suggested answer;
+							     the chosen one is sent as the next message. -->
+							<AgentQuestionCard
+								v-if="
+									message.role !== 'user'
+									&& pendingQuestion
+									&& (message.uuid || message.id)
+										=== pendingQuestionFor
+								"
+								:question="pendingQuestion"
+								:disabled="sending"
+								@answer="answerQuestion" />
+							<!-- The scope the answer was given (memory-retrieval-scope D5). -->
+							<div
+								v-if="message.role === 'assistant' && scopeDisplay(message.retrievalScope)"
+								class="chat-page__scope"
+								data-testid="chat-retrieval-scope">
+								<p
+									v-if="scopeDisplay(message.retrievalScope).abstained"
+									class="chat-page__scope-abstained">
+									{{
+										t(
+											'hermiq',
+											'No validated document matched this question. The assistant did not answer from other knowledge.',
+										)
+									}}
+								</p>
+								<p class="chat-page__scope-detail">
+									<span v-if="scopeDisplay(message.retrievalScope).validated">{{
+										t(
+											'hermiq',
+											'Validated mode, floor {floor}. Passages at or above it: {passed}. Best match: {best}.',
+											{
+												passed: String(scopeDisplay(message.retrievalScope).passed),
+												floor: similarityText(scopeDisplay(message.retrievalScope).floor),
+												best: similarityText(scopeDisplay(message.retrievalScope).best),
+											},
+										)
+									}}</span>
+									<span v-if="scopeDisplay(message.retrievalScope).filtered">{{
+										t('hermiq', 'The agent’s file filters limited which files were searched.')
+									}}</span>
+								</p>
+							</div>
+
 							<!-- RAG sources -->
 							<div
 								v-if="message.sources && message.sources.length > 0"
@@ -396,9 +698,23 @@
 										v-if="source.type === 'file'"
 										:size="16" />
 									<CubeOutline v-else :size="16" />
-									<span class="chat-page__source-name">{{
-										source.name || source.id
+									<span
+										v-if="message.sources.length > 1 || source.passage"
+										class="chat-page__source-number">[{{ sourceIndex + 1 }}]</span>
+									<a
+										v-if="sourceFileId(source)"
+										class="chat-page__source-name"
+										:href="fileLink({ fileId: sourceFileId(source) })"
+										target="_blank"
+										rel="noopener noreferrer">{{ sourceName(source) }}</a>
+									<span v-else class="chat-page__source-name">{{
+										sourceName(source)
 									}}</span>
+									<span
+										v-if="sourcePage(source)"
+										class="chat-page__source-page">
+										{{ t('hermiq', 'page {page}', { page: sourcePage(source) }) }}
+									</span>
 									<span
 										v-if="source.similarity"
 										class="chat-page__source-match">
@@ -423,6 +739,21 @@
 									)
 								"
 								:text="message.content" />
+
+							<!-- Models-prompt-and-answer-cache: an answer the cache served says so -->
+							<div
+								v-if="message.role === 'assistant' && message.fromCache"
+								class="chat-page__from-cache">
+								<span class="chat-page__from-cache-note">
+									{{ t('hermiq', 'Answered from cache') }}
+								</span>
+								<NcButton
+									variant="tertiary"
+									:disabled="sending"
+									@click="askModelAgain(message)">
+									{{ t('hermiq', 'Ask the model again') }}
+								</NcButton>
+							</div>
 
 							<!-- Feedback (assistant messages with a persisted id) -->
 							<div
@@ -464,6 +795,19 @@
 									@click="openSaveAsSkill(message)">
 									<template #icon>
 										<PuzzlePlusOutline :size="16" />
+									</template>
+								</NcButton>
+								<!-- chat-fork-and-share-link: the owner continues from this answer in a new session. -->
+								<NcButton
+									v-if="canFork"
+									variant="tertiary"
+									data-testid="chat-fork-from-here"
+									:aria-label="t('hermiq', 'Fork from here')"
+									:title="t('hermiq', 'Fork from here')"
+									:disabled="forking"
+									@click="forkFrom(message)">
+									<template #icon>
+										<SourceBranch :size="16" />
 									</template>
 								</NcButton>
 								<!-- agents-plain-language-builder: a message with an agent draft opens it in the agent form. -->
@@ -510,6 +854,20 @@
 									{{ t('hermiq', 'Send feedback') }}
 								</NcButton>
 							</div>
+
+							<!-- Work this turn started and waits for (flows-hand-off-and-wait). -->
+							<ul
+								v-if="handoffGroups[message.id]"
+								class="chat-page__handoffs"
+								data-testid="chat-handoffs">
+								<li
+									v-for="handoff in handoffGroups[message.id]"
+									:key="handoff.id || handoff.uuid || handoff.requestedAt"
+									class="chat-page__handoff"
+									:class="`chat-page__handoff--${handoff.status}`">
+									{{ handoffLine(handoff, t, clockTime) }}
+								</li>
+							</ul>
 						</div>
 					</div>
 
@@ -527,21 +885,17 @@
 								}}</span>
 							</div>
 							<div
-								v-if="streamingTools.length > 0"
+								v-if="streamingSteps.length > 0"
 								class="chat-page__stream-tools">
 								<span
-									v-for="(tool, toolIndex) in streamingTools"
-									:key="toolIndex"
-									class="chat-page__stream-tool">
-									{{
-										tool.done
-											? t('hermiq', 'Used tool: {tool}', {
-													tool: tool.toolId,
-												})
-											: t('hermiq', 'Using tool: {tool}…', {
-													tool: tool.toolId,
-												})
-									}}
+									v-for="step in streamingSteps"
+									:key="step.key"
+									class="chat-page__stream-tool"
+									:class="[
+										`chat-page__stream-tool--${step.kind}`,
+										`chat-page__stream-tool--${step.state}`,
+									]">
+									{{ step.label }}
 								</span>
 							</div>
 							<!-- Streamed markdown is sanitised via DOMPurify with the shared safe config. -->
@@ -599,6 +953,25 @@
 							</NcButton>
 						</li>
 					</ul>
+					<!-- Deep research (tools-deep-research-report task 6): a running run's
+					     progress and its stop button, read from the session's research handoff. -->
+					<div
+						v-if="activeResearch"
+						class="chat-page__research"
+						role="status"
+						data-testid="chat-research-progress">
+						<span>{{ researchProgress }}</span>
+						<NcButton
+							variant="secondary"
+							data-testid="chat-research-stop"
+							:disabled="stoppingResearch || activeResearch.stopRequested === true"
+							@click="onStopResearch">
+							<template #icon>
+								<StopCircleOutline :size="20" />
+							</template>
+							{{ t('hermiq', 'Stop research') }}
+						</NcButton>
+					</div>
 					<div class="chat-page__composer-row">
 						<!-- Attach (chat-attachments-and-images): an upload lands in the
 						     person's own Files; a file chosen from Files is sent by id. -->
@@ -642,6 +1015,16 @@
 								</template>
 								{{ t('hermiq', 'Create an image') }}
 							</NcActionButton>
+							<!-- Shown while the on-instance speech service answers (chat-translate-a-recording D5). -->
+							<NcActionButton
+								v-if="speechService && speechService.available && activeSession"
+								data-testid="chat-translate-recording"
+								@click="showTranslateForm = true">
+								<template #icon>
+									<Translate :size="20" />
+								</template>
+								{{ t('hermiq', 'Translate a recording') }}
+							</NcActionButton>
 						</NcActions>
 						<!-- Same reason as the feedback box: the placeholder is a hint,
 						     not a name, and it is gone as soon as there is a message. -->
@@ -661,6 +1044,15 @@
 							:disabled="sending"
 							@transcript="insertTranscript"
 							@error="sendError = $event" />
+						<!-- Shown when the agent holds hermiq.webSearch and hermiq.webFetch. -->
+						<NcCheckboxRadioSwitch
+							v-if="canDeepResearch"
+							v-model="deepResearch"
+							type="switch"
+							data-testid="chat-deep-research"
+							:disabled="sending || Boolean(activeResearch)">
+							{{ t('hermiq', 'Deep research') }}
+						</NcCheckboxRadioSwitch>
 						<NcButton
 							variant="primary"
 							:disabled="
@@ -684,11 +1076,30 @@
 							)
 						}}
 					</p>
+					<!-- How full the model's context is (chat-how-an-answer-came-about D4). -->
+					<p
+						v-if="contextReadout"
+						class="chat-page__context"
+						role="status"
+						data-testid="chat-context-usage">
+						{{ contextReadout.text }}
+						<strong
+							v-if="contextReadout.warning"
+							class="chat-page__context-warning"
+							data-testid="chat-context-warning">
+							{{ contextReadout.warning }}
+						</strong>
+					</p>
 				</div>
 			</template>
 		</section>
 
 		<!-- Isolated modals (ADR-004) -->
+		<SessionShareModal
+			:show="shareTarget !== null"
+			:session="shareTarget"
+			@close="shareTarget = null"
+			@changed="onSharesChanged" />
 		<SessionParticipantsModal
 			:show="participantsTarget !== null"
 			:session="participantsTarget"
@@ -699,6 +1110,11 @@
 			:session="activeSession"
 			@close="showImageForm = false"
 			@created="onImageCreated" />
+		<TranslateRecordingModal
+			:show="showTranslateForm"
+			:session="activeSession"
+			@close="showTranslateForm = false"
+			@translated="onRecordingTranslated" />
 		<GoalFormModal
 			:show="showGoalForm"
 			:session="activeSession"
@@ -714,6 +1130,11 @@
 			:session="deleteTarget"
 			@close="showDelete = false"
 			@deleted="onDeleted" />
+		<SessionBulkDeleteModal
+			:show="showBulkDelete"
+			:uuids="selected"
+			@close="showBulkDelete = false"
+			@deleted="onBulkDeleted" />
 		<ChatSettingsModal
 			:show="showSettings"
 			:availableViews="availableViews"
@@ -754,7 +1175,8 @@
 import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
 import { getCurrentUser } from '@nextcloud/auth'
 import { getFilePickerBuilder, showError, showSuccess } from '@nextcloud/dialogs'
-import { generateUrl } from '@nextcloud/router'
+import { getLanguage } from '@nextcloud/l10n'
+import { generateRemoteUrl, generateUrl } from '@nextcloud/router'
 import {
 	NcActionButton,
 	NcActions,
@@ -763,11 +1185,13 @@ import {
 	NcCheckboxRadioSwitch,
 	NcLoadingIcon,
 	NcNoteCard,
+	NcTextField,
 } from '@nextcloud/vue'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import AccountMultiplePlus from 'vue-material-design-icons/AccountMultiplePlus.vue'
 import Archive from 'vue-material-design-icons/Archive.vue'
+import CheckboxMultipleMarkedOutline from 'vue-material-design-icons/CheckboxMultipleMarkedOutline.vue'
 // One icon per session row, chosen by what started the session. A row that
 // always drew the same mark would leave the human/automated split visible only
 // in the group headings, which scroll away; the agent itself is named in the
@@ -786,6 +1210,7 @@ import FileDocumentOutline from 'vue-material-design-icons/FileDocumentOutline.v
 import FlagCheckered from 'vue-material-design-icons/FlagCheckered.vue'
 import FlashOutline from 'vue-material-design-icons/FlashOutline.vue'
 import FolderOutline from 'vue-material-design-icons/FolderOutline.vue'
+import Forum from 'vue-material-design-icons/Forum.vue'
 import ImageOutline from 'vue-material-design-icons/ImageOutline.vue'
 import MessageText from 'vue-material-design-icons/MessageText.vue'
 import Paperclip from 'vue-material-design-icons/Paperclip.vue'
@@ -795,43 +1220,60 @@ import PuzzlePlusOutline from 'vue-material-design-icons/PuzzlePlusOutline.vue'
 import Restore from 'vue-material-design-icons/Restore.vue'
 import RobotOutline from 'vue-material-design-icons/RobotOutline.vue'
 import Send from 'vue-material-design-icons/Send.vue'
+import ShareVariant from 'vue-material-design-icons/ShareVariant.vue'
 import SitemapOutline from 'vue-material-design-icons/SitemapOutline.vue'
+import SourceBranch from 'vue-material-design-icons/SourceBranch.vue'
 import StopCircleOutline from 'vue-material-design-icons/StopCircleOutline.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
+import Translate from 'vue-material-design-icons/Translate.vue'
 import Upload from 'vue-material-design-icons/Upload.vue'
+import AgentQuestionCard from '../components/AgentQuestionCard.vue'
 import AgentSelector from '../components/AgentSelector.vue'
 import DictateButton from '../components/DictateButton.vue'
 import ReadAloudButton from '../components/ReadAloudButton.vue'
 import StartFieldsForm from '../components/StartFieldsForm.vue'
+import WorkspaceFilesPanel from '../components/WorkspaceFilesPanel.vue'
+import ProjectPickerDialog from '../dialogs/ProjectPickerDialog.vue'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
 import GenerateImageModal from '../modals/GenerateImageModal.vue'
 import GoalFormModal from '../modals/GoalFormModal.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
+import SessionBulkDeleteModal from '../modals/SessionBulkDeleteModal.vue'
 import SessionDeleteModal from '../modals/SessionDeleteModal.vue'
 import SessionParticipantsModal from '../modals/SessionParticipantsModal.vue'
 import SessionRenameModal from '../modals/SessionRenameModal.vue'
+import SessionShareModal from '../modals/SessionShareModal.vue'
 import SkillFormModal from '../modals/SkillFormModal.vue'
+import TranslateRecordingModal from '../modals/TranslateRecordingModal.vue'
 import { checkAgentDraft } from '../api/agents.js'
 import {
 	answerStartFields,
 	archiveSession,
+	bulkSessions,
 	ChatStreamError,
 	createSession,
+	forkSession,
 	getImageAvailability,
 	getSession,
 	getSessionGoal,
+	listHandoffs,
 	listMessages,
 	listSessions,
+	listSharedSessions,
 	restoreSession,
 	sendChatMessage,
 	sendMessageFeedback,
 	stopGoal,
 	streamChatMessage,
 	uploadChatAttachment,
+	warmChat,
 } from '../api/chat.js'
+import { listMemoryProjects } from '../api/memory.js'
+import { getPreference, PREFERENCE_KEYS } from '../api/preferences.js'
 import { speechCapabilities } from '../api/speech.js'
+import { isTypedInTalk, talkRoomUrl } from '../services/sessionChannel.js'
 import { useAgentStore } from '../store/store.js'
 import {
 	agentFromDraft,
@@ -839,6 +1281,10 @@ import {
 	findingsByField,
 	scheduleFromDraft,
 } from '../utils/agentDraft.js'
+import { questionBefore } from '../utils/answerCache.js'
+import { sourceFileId, sourceName, sourcePage } from '../utils/chatSources.js'
+import { contextReadout } from '../utils/contextUsage.js'
+import { clockTime, handoffLine, handoffsByMessage } from '../utils/handoffLines.js'
 import {
 	initialAnswers,
 	missingRequired,
@@ -846,8 +1292,18 @@ import {
 	startFieldsOf,
 	startValueSummary,
 } from '../utils/instructionVariables.js'
+import { projectNameOf } from '../utils/memoryProjects.js'
+import { defaultAgentOf } from '../utils/personalPreferences.js'
+import { translationLine } from '../utils/recordingTranslation.js'
+import { scopeDisplay, similarityText } from '../utils/retrievalScope.js'
+import { canForkSession, forkedSessionToOpen } from '../utils/sessionFork.js'
+import { canShareSession } from '../utils/sessionShare.js'
 import { sessionStartErrorMessage } from '../utils/sessionStartError.js'
 import { appendTranscript, speechControls } from '../utils/speech.js'
+import { deepResearchControls } from './chatDeepResearch.js'
+import { goalLine as describeGoal } from './chatGoalLine.js'
+import { headedSessionGroups, partitionSessions } from './chatSessionGroups.js'
+import { chatToolSteps } from './chatToolSteps.js'
 
 /**
  * The trigger origins that mean "no person started this".
@@ -858,6 +1314,16 @@ import { appendTranscript, speechControls } from '../utils/speech.js'
  * to look under the first time a new origin ships.
  */
 const AUTOMATED_ORIGINS = ['cron', 'event', 'flow']
+
+/**
+ * Session search (REQ-SSRCH-001): the shortest term searched (the server ignores
+ * shorter ones), the pause after typing before it searches, how many results one
+ * search shows, and how long a found turn stays highlighted.
+ */
+const SEARCH_MIN_LENGTH = 2
+const SEARCH_DEBOUNCE_MS = 300
+const SEARCH_LIMIT = 100
+const HIGHLIGHT_MS = 2000
 
 /** The row icon for each trigger origin; anything else uses the agent mark. */
 const ORIGIN_ICONS = {
@@ -872,16 +1338,24 @@ export default {
 
 	components: {
 		AccountMultiplePlus,
+		AgentQuestionCard,
 		AgentSelector,
+		ProjectPickerDialog,
 		Archive,
 		ChatSettingsModal,
+		CheckboxMultipleMarkedOutline,
 		Close,
 		ClockOutline,
 		CogOutline,
+		SessionBulkDeleteModal,
 		SessionDeleteModal,
 		SessionParticipantsModal,
 		SessionRenameModal,
+		SessionShareModal,
+		ShareVariant,
 		GenerateImageModal,
+		TranslateRecordingModal,
+		Translate,
 		GoalFormModal,
 		ImageOutline,
 		FlagCheckered,
@@ -893,6 +1367,7 @@ export default {
 		FileDocumentOutline,
 		FlashOutline,
 		FolderOutline,
+		Forum,
 		MessageText,
 		NcActionButton,
 		NcActions,
@@ -901,6 +1376,7 @@ export default {
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
 		NcNoteCard,
+		NcTextField,
 		Paperclip,
 		Pencil,
 		Plus,
@@ -910,6 +1386,7 @@ export default {
 		Creation,
 		Send,
 		SitemapOutline,
+		SourceBranch,
 		SkillFormModal,
 		ScheduleFormModal,
 		AgentFormModal,
@@ -918,6 +1395,7 @@ export default {
 		ThumbDown,
 		ThumbUp,
 		Upload,
+		WorkspaceFilesPanel,
 	},
 
 	// nc-vue's floating AI companion self-gates on the injected `cnAiContext`
@@ -928,6 +1406,8 @@ export default {
 	// directly over the composer's Send button, swallowing the click. Declaring
 	// the page kind here is the contract's intended opt-out, and it also stops
 	// hermiq offering an "Open AI chat" shortcut on top of the chat itself.
+	mixins: [deepResearchControls],
+
 	inject: {
 		cnAiContext: { default: null },
 	},
@@ -945,20 +1425,50 @@ export default {
 			showArchive: false,
 			sessionsLoading: true,
 
+			// Session search (REQ-SSRCH-001): what is typed, the term the shown
+			// results are for, and those results. An empty appliedSearch means the
+			// grouped list shows.
+			searchTerm: '',
+			appliedSearch: '',
+			searchResults: [],
+			searchTruncated: false,
+			searchTimer: null,
+			searchSeq: 0,
+			// The turn a search result was opened at, highlighted briefly.
+			highlightTurn: '',
+
+			// Selection mode (REQ-SSRCH-002).
+			selecting: false,
+			selected: [],
+			bulkBusy: false,
+			showBulkDelete: false,
+
 			// The session whose participants dialog is open (chat-work-together-in-one-session).
 			participantsTarget: null,
+			// Chat-fork-and-share-link: the session whose share dialog is open, and the sessions shared with the reader.
+			shareTarget: null,
+			sharedSessions: [],
 
 			// Active thread
 			activeSession: null,
 			messages: [],
+			// Flows-hand-off-and-wait: the work agents started in this session.
+			handoffs: [],
 			messagesLoading: false,
 			currentAgent: null,
 
 			// Agent selector
 			agents: [],
+			// personal-preferences: the agent a new session starts with, or ''.
+			defaultAgentId: '',
 			agentsLoading: true,
 			agentsError: '',
 			startingId: '',
+			// Memory-project-scopes: the picker for an agent with projects, the
+			// name typed for a new project, and the active agent's projects.
+			projectPicker: null,
+			newProjectName: '',
+			sessionProjects: [],
 			startError: '',
 
 			// Agents-instruction-variables: the answers to the agent's start
@@ -983,9 +1493,18 @@ export default {
 			// assistant message they belong to (chat-attachments-and-images D6).
 			attachmentNotices: [],
 			attachmentNoticesFor: '',
+			// The context usage each session's last turn reported, by session uuid
+			// (chat-how-an-answer-came-about D4); the session's stored one otherwise.
+			contextUsageBySession: {},
+			// The question the agent asked in the last turn (hermiq.askPerson), and
+			// the id of the answer it belongs under (oversight-ask-and-hold).
+			pendingQuestion: null,
+			pendingQuestionFor: '',
 			// "Create an image" (chat-attachments-and-images D7).
 			imageAvailable: false,
 			showImageForm: false,
+			// "Translate a recording" (chat-translate-a-recording D5).
+			showTranslateForm: false,
 
 			// Per-session settings (rides on POST /api/chat/send)
 			settings: this.defaultSettings(),
@@ -1002,6 +1521,8 @@ export default {
 			// hermiq-skill-conversational-authoring: "Save as skill" seam state.
 			showSaveAsSkill: false,
 			saveAsSkillBody: '',
+			// chat-fork-and-share-link: a fork is being made.
+			forking: false,
 
 			// agents-plain-language-builder: the checked draft the agent form opens
 			// with, its findings, and the schedule offered after the save.
@@ -1017,6 +1538,55 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * The reader's language, for naming the languages of a translated recording.
+		 *
+		 * @return {string} The language code.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#scenario-a-reviewer-can-see-what-was-used
+		 */
+		locale() {
+			try {
+				return getLanguage() || 'en'
+			} catch {
+				return 'en'
+			}
+		},
+
+		/**
+		 * The session's handoffs under the message each one belongs to.
+		 *
+		 * @return {Object<string, Array<object>>} Message id → handoffs.
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+		 */
+		handoffGroups() {
+			return handoffsByMessage(this.handoffs, this.messages)
+		},
+
+		/**
+		 * The context readout of the open session, or null without a usage record.
+		 *
+		 * @return {{text: string, warning: string}|null}
+		 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+		 */
+		contextReadout() {
+			const uuid = this.activeSession?.uuid || this.activeSession?.id
+			if (!uuid) {
+				return null
+			}
+			const usage = this.contextUsageBySession[uuid] || this.activeSession?.metadata?.contextUsage
+			return contextReadout(usage, this.t)
+		},
+
+		/**
+		 * Whether "Fork from here" is offered: the owner of an open, unarchived session.
+		 *
+		 * @return {boolean}
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+		 */
+		canFork() {
+			return canForkSession(this.activeSession)
+		},
+
 		/**
 		 * Whether this person can set a goal here: their own session without an active goal.
 		 *
@@ -1038,45 +1608,31 @@ export default {
 		 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-a-person-can-give-an-agent-a-standing-goal-with-a-check-req-aggoal-001
 		 */
 		goalLine() {
-			const goal = this.sessionGoal
-			if (!goal) {
-				return ''
-			}
-			const statement = goal.statement || ''
-			if (goal.status === 'stopped') {
-				return this.t('hermiq', 'Goal stopped: {statement}', { statement })
-			}
-			if (goal.status === 'reached') {
-				return this.t('hermiq', 'Goal reached: {statement}', { statement })
-			}
-			if (goal.status === 'exhausted') {
-				return this.t('hermiq', 'Turn limit used: {statement}', {
-					statement,
-				})
-			}
-			const turns = this.t('hermiq', 'turn {used} of {max}', {
-				used: goal.turnsUsed ?? 0,
-				max: goal.maxTurns ?? 10,
+			return describeGoal(this.sessionGoal)
+		},
+
+		/**
+		 * The tool steps drawn under the streaming answer: one per tool call,
+		 * and one per part of a parallel delegation, with its target agent
+		 * and state.
+		 *
+		 * @return {Array<object>} The steps.
+		 * @spec openspec/changes/delegation-runs-in-parallel/tasks.md#task-2-1
+		 */
+		streamingSteps() {
+			return chatToolSteps(this.streamingTools, (id) => {
+				const agent = this.agents.find(
+					(entry) => entry.id === id || entry.uuid === id,
+				)
+				return agent?.name || ''
 			})
-			const summary = goal.lastCheckResult?.summary
-			const blocked = goal.blocked ? this.t('hermiq', 'blocked') : ''
-			return [
-				this.t('hermiq', 'Goal: {statement}', { statement }),
-				turns,
-				blocked,
-				summary
-					? this.t('hermiq', 'last check: {summary}', { summary })
-					: '',
-			]
-				.filter(Boolean)
-				.join(', ')
 		},
 
 		/**
 		 * The speech controls the chat's agent allows (dictation, read aloud).
 		 *
 		 * @return {{dictate: boolean, readAloud: boolean}} The controls to show.
-		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
 		 */
 		speechControls() {
 			return speechControls(
@@ -1094,7 +1650,30 @@ export default {
 		 * @spec openspec/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 		 */
 		visibleSessions() {
+			if (this.searchActive) {
+				return this.searchResults
+			}
 			return this.showArchive ? this.archivedSessions : this.sessions
+		},
+
+		/**
+		 * Whether the list shows search results rather than the grouped sessions.
+		 *
+		 * @return {boolean}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		searchActive() {
+			return this.appliedSearch !== ''
+		},
+
+		/**
+		 * The shown sessions a person may select: their own, not ones they joined.
+		 *
+		 * @return {Array<object>}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		selectableShown() {
+			return this.visibleSessions.filter((session) => this.isSelectable(session))
 		},
 
 		/**
@@ -1113,50 +1692,23 @@ export default {
 		 * @spec openspec/specs/session-surface/spec.md#requirement-human-and-automated-sessions-must-be-listed-separately
 		 */
 		sessionGroups() {
+			if (this.searchActive) {
+				return [
+					{
+						key: 'results',
+						heading: this.t('hermiq', 'Results for "{term}"', { term: this.appliedSearch }),
+						sessions: this.visibleSessions,
+					},
+				]
+			}
 			if (this.showArchive) {
 				return [
 					{ key: 'archive', heading: '', sessions: this.visibleSessions },
 				]
 			}
-
-			const human = []
-			const shared = []
-			const automated = []
-			for (const session of this.visibleSessions) {
-				if (session.role === 'participant') {
-					shared.push(session)
-					continue
-				}
-				;(this.isAutomated(session) ? automated : human).push(session)
-			}
-
-			const groups = []
-			if (human.length > 0) {
-				groups.push({
-					key: 'human',
-					heading: this.t('hermiq', 'Started by you'),
-					sessions: human,
-				})
-			}
-			if (shared.length > 0) {
-				groups.push({
-					key: 'shared',
-					heading: this.t('hermiq', 'Shared with me'),
-					sessions: shared,
-				})
-			}
-			if (automated.length > 0) {
-				groups.push({
-					key: 'automated',
-					heading: this.t('hermiq', 'Started automatically'),
-					sessions: automated,
-				})
-			}
-			// One group needs no heading: the tab label already says what it is.
-			if (groups.length === 1) {
-				groups[0].heading = ''
-			}
-			return groups
+			return headedSessionGroups(
+				partitionSessions(this.visibleSessions, (session) => this.isAutomated(session)),
+			)
 		},
 
 		/**
@@ -1274,6 +1826,16 @@ export default {
 		},
 
 		/**
+		 * The readable name of the active session's project, or '' outside one.
+		 *
+		 * @return {string}
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		sessionProjectName() {
+			return projectNameOf(this.activeSession?.projectKey || '', this.sessionProjects)
+		},
+
+		/**
 		 * "Label: answer" for each answered start field, for the session header.
 		 *
 		 * @return {string[]}
@@ -1313,11 +1875,18 @@ export default {
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.loadSessions()
 		this.loadAgents()
+		this.loadDefaultAgent()
 		this.loadSpeechService()
 		this.loadImageAvailability()
 	},
 
+	/**
+	 * Stop a pending session search, and hand the shared page kind back.
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+	 */
 	beforeUnmount() {
+		clearTimeout(this.searchTimer)
 		// The holder is shared across routes, so leaving it on 'chat' would
 		// suppress the companion on every page visited after the chat.
 		if (this.cnAiContext) {
@@ -1326,6 +1895,34 @@ export default {
 	},
 
 	methods: {
+		sourceFileId,
+		clockTime,
+		handoffLine,
+
+		/**
+		 * Read the session's handoffs; a failure leaves the lines out, never the thread.
+		 *
+		 * @param {string} uuid The session.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-work-an-agent-starts-and-waits-for-is-recorded-as-a-handoff-req-handoff-001
+		 */
+		async loadHandoffs(uuid) {
+			let handoffs
+			try {
+				handoffs = await listHandoffs(uuid)
+			} catch {
+				handoffs = []
+			}
+			if (this.activeSession?.uuid === uuid) {
+				this.handoffs = handoffs
+			}
+		},
+
+		scopeDisplay,
+		similarityText,
+		sourceName,
+		sourcePage,
+
 		/**
 		 * The name shown on a person's turn: "You" for the caller, the author's name
 		 * captured at send time for a colleague in a shared session.
@@ -1367,6 +1964,63 @@ export default {
 		},
 
 		/**
+		 * Whether the share dialog is offered for a session: to its owner.
+		 *
+		 * @param {object} session The session row.
+		 * @return {boolean}
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 */
+		canShare(session) {
+			return canShareSession(session)
+		},
+
+		/**
+		 * Open the share dialog for a session.
+		 *
+		 * @param {object} session The session row.
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 */
+		openShare(session) {
+			this.shareTarget = session
+		},
+
+		/**
+		 * Keep the row's share count in step after a share or a removal.
+		 *
+		 * @param {Array<object>} shares The shares now.
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+		 */
+		onSharesChanged(shares) {
+			if (this.shareTarget) {
+				this.shareTarget.shareCount = shares.length
+			}
+		},
+
+		/**
+		 * Open a session shared with the reader on its read-only page.
+		 *
+		 * @param {object} session The shared session row.
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+		 */
+		openShared(session) {
+			this.$router.push(`/chat/shared/${encodeURIComponent(session.uuid)}`)
+		},
+
+		/**
+		 * Load the sessions shared with the reader; a failure leaves the group out.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-a-share-recipient-can-read-and-do-nothing-else-req-sshare-002
+		 */
+		async loadSharedSessions() {
+			try {
+				this.sharedSessions = await listSharedSessions()
+			} catch {
+				this.sharedSessions = []
+			}
+		},
+
+		/**
 		 * Keep the row's roster in step after an invite or removal.
 		 *
 		 * @param {Array<{uid: string}>} participants The participants now.
@@ -1382,7 +2036,7 @@ export default {
 		 * Ask once whether the on-instance speech service answers.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-follows-the-agents-speech-policy-req-chvoice-003
 		 */
 		async loadSpeechService() {
 			this.speechService = await speechCapabilities()
@@ -1392,7 +2046,7 @@ export default {
 		 * Ask once whether "Create an image" may be shown; any failure means no.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#scenario-no-provider-no-button
+		 * @spec openspec/specs/image-generation/spec.md#scenario-no-provider-no-button
 		 */
 		async loadImageAvailability() {
 			try {
@@ -1407,7 +2061,7 @@ export default {
 		 *
 		 * @param {{userTurn: object, assistantTurn: object}} turns The two stored turns.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 		 */
 		async onImageCreated(turns) {
 			this.showImageForm = false
@@ -1420,12 +2074,47 @@ export default {
 			await this.refreshThread(uuid)
 		},
 
+		translationLine,
+
+		/**
+		 * Show the request and the translated recording in the thread, then re-sync.
+		 *
+		 * @param {{userTurn: object, assistantTurn: object}} turns The two stored turns.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#scenario-a-front-office-employee-translates-a-voicemail
+		 */
+		async onRecordingTranslated(turns) {
+			this.showTranslateForm = false
+			const uuid = this.activeSession?.uuid
+			if (!uuid || !turns?.userTurn || !turns?.assistantTurn) {
+				return
+			}
+			this.messages.push(turns.userTurn, turns.assistantTurn)
+			this.scrollToBottom()
+			await this.refreshThread(uuid)
+		},
+
+		/**
+		 * The spoken translation's WebDAV URL in the signed-in person's Files.
+		 *
+		 * @param {object} translation The translation record.
+		 * @return {string} The URL.
+		 * @spec openspec/changes/chat-translate-a-recording/specs/speech-services/spec.md#requirement-a-person-can-translate-a-recording-and-hear-the-result-req-strn-001
+		 */
+		translationAudioUrl(translation) {
+			const path = String(translation?.audioPath || '')
+				.split('/')
+				.map(encodeURIComponent)
+				.join('/')
+			return `${generateRemoteUrl('dav')}/files/${encodeURIComponent(this.currentUserId)}/${path}`
+		},
+
 		/**
 		 * Whether an attachment is an image, shown as a thumbnail.
 		 *
 		 * @param {object} attachment The attachment reference.
 		 * @return {boolean} True for an image type.
-		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 		 */
 		isImage(attachment) {
 			return String(attachment?.mimeType || '').startsWith('image/')
@@ -1436,7 +2125,7 @@ export default {
 		 *
 		 * @param {object} attachment The attachment reference.
 		 * @return {string} The preview URL.
-		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 		 */
 		previewUrl(attachment) {
 			return generateUrl('/core/preview?fileId={fileId}&x=256&y=256&a=1', {
@@ -1449,7 +2138,7 @@ export default {
 		 *
 		 * @param {object} attachment The attachment reference.
 		 * @return {string} The Files link.
-		 * @spec openspec/changes/chat-attachments-and-images/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
+		 * @spec openspec/specs/image-generation/spec.md#requirement-a-created-image-shows-in-the-answer-req-cimg-004
 		 */
 		fileLink(attachment) {
 			return generateUrl('/f/{fileId}', { fileId: attachment.fileId })
@@ -1459,7 +2148,7 @@ export default {
 		 * Put dictated words after what is in the message box, without sending.
 		 *
 		 * @param {string} words The transcript.
-		 * @spec openspec/changes/chat-speak-and-listen/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
+		 * @spec openspec/specs/speech-services/spec.md#requirement-the-chat-page-offers-dictation-req-chvoice-001
 		 */
 		insertTranscript(words) {
 			this.sendError = ''
@@ -1527,6 +2216,7 @@ export default {
 			try {
 				const { results } = await listSessions({ archived: false })
 				this.sessions = results
+				this.loadSharedSessions()
 				if (this.showArchive) {
 					const archived = await listSessions({ archived: true })
 					this.archivedSessions = archived.results
@@ -1565,6 +2255,11 @@ export default {
 		 */
 		async setArchiveTab(archive) {
 			this.showArchive = archive
+			this.stopSelecting()
+			if (this.searchActive) {
+				await this.runSearch()
+				return
+			}
 			if (archive) {
 				this.sessionsLoading = true
 				try {
@@ -1612,7 +2307,45 @@ export default {
 		 * @spec openspec/specs/session-surface/spec.md#requirement-a-session-row-must-identify-its-agent-and-its-time
 		 */
 		originIcon(session) {
+			if (session?.talkRoomToken) {
+				return 'Forum'
+			}
 			return ORIGIN_ICONS[session?.triggerOrigin] || 'Creation'
+		},
+
+		/**
+		 * The session's Talk room, or an empty string for a session without one.
+		 *
+		 * @param {object} session The session row.
+		 * @return {string}
+		 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+		 */
+		talkUrl(session) {
+			return talkRoomUrl(session)
+		},
+
+		/**
+		 * Open the session's Talk room.
+		 *
+		 * @param {object} session The session row.
+		 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+		 */
+		openInTalk(session) {
+			const url = talkRoomUrl(session)
+			if (url) {
+				window.location.assign(url)
+			}
+		},
+
+		/**
+		 * Whether a person's turn was typed in Talk.
+		 *
+		 * @param {object} message The turn.
+		 * @return {boolean}
+		 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+		 */
+		typedInTalk(message) {
+			return isTypedInTalk(message)
 		},
 
 		/**
@@ -1651,6 +2384,37 @@ export default {
 				return time
 			}
 			return `${agent} · ${time}`
+		},
+
+		/**
+		 * The "New session" button: with a default agent the person can still
+		 * pick (personal-preferences), start a session with it at once; else
+		 * clear the thread and show the agent picker.
+		 *
+		 * @return {void}
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 */
+		onNewSessionClick() {
+			const agent = defaultAgentOf(this.agents, this.defaultAgentId)
+			if (agent && !this.startingId) {
+				this.startWithAgent(agent)
+				return
+			}
+			this.newSession()
+		},
+
+		/**
+		 * Read the person's default agent for new sessions; none on failure.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+		 */
+		async loadDefaultAgent() {
+			try {
+				this.defaultAgentId = await getPreference(PREFERENCE_KEYS.defaultAgent)
+			} catch {
+				this.defaultAgentId = ''
+			}
 		},
 
 		/**
@@ -1697,11 +2461,14 @@ export default {
 			this.activeSession = session
 			this.loadGoalFor(session)
 			this.messages = []
+			this.handoffs = []
 			// Files queued in another session do not follow the person here.
 			this.pendingAttachments = []
 			this.sendError = ''
 			this.attachmentNotices = []
 			this.attachmentNoticesFor = ''
+			this.pendingQuestion = null
+			this.pendingQuestionFor = ''
 			this.messagesLoading = true
 			try {
 				const [{ results }] = await Promise.all([
@@ -1709,8 +2476,9 @@ export default {
 					this.loadAgentFor(session),
 				])
 				this.messages = results
+				this.loadHandoffs(session.uuid)
 				this.settings = this.defaultSettingsFor(this.currentAgent)
-				this.scrollToBottom()
+				this.scrollToTurn(session.match?.turnUuid || '')
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not load the session.'))
 			} finally {
@@ -1785,23 +2553,112 @@ export default {
 			if (!session.agentId) {
 				return
 			}
+			// Start the agent's CLI process while the person reads and types, not
+			// inside their first question. Fire and forget: it never throws.
+			warmChat(session.agentId, session.uuid)
+			this.loadSessionProjects(session)
 			const agent = await this.agentStore.fetchObject('agent', session.agentId)
 			this.currentAgent = agent || null
 		},
 
 		/**
-		 * Create a session with the picked agent and activate it.
+		 * The agent's projects, for the name in a project session's header.
+		 * Non-fatal: the header falls back to the key.
+		 *
+		 * @param {object} session The session.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async loadSessionProjects(session) {
+			this.sessionProjects = []
+			if (!session?.projectKey || !session.agentId) {
+				return
+			}
+			try {
+				this.sessionProjects = await listMemoryProjects(session.agentId)
+			} catch {
+				this.sessionProjects = []
+			}
+		},
+
+		/**
+		 * The agent's projects, or none when they cannot be read.
+		 *
+		 * @param {string} agentUuid The agent.
+		 * @return {Promise<Array<object>>}
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async projectsOf(agentUuid) {
+			try {
+				return await listMemoryProjects(agentUuid)
+			} catch {
+				return []
+			}
+		},
+
+		/**
+		 * The person chose the project in the picker: start the session in it.
+		 *
+		 * @param {{projectKey?: string, projectName?: string}|null} project The project, or null for none.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async onProjectChosen(project) {
+			const picker = this.projectPicker
+			this.projectPicker = null
+			if (picker) {
+				await this.startSession(picker.agent, project, picker.projects)
+			}
+		},
+
+		/**
+		 * The person picked an agent: start right away, in the new project they
+		 * named, or ask which project when the agent already has some
+		 * (memory-project-scopes, design D2).
 		 *
 		 * @param {object} agent The agent to start with.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
 		 */
 		async startWithAgent(agent) {
+			const agentUuid = agent.uuid || agent.id
+			const newName = this.newProjectName.trim()
+			if (newName) {
+				await this.startSession(agent, { projectName: newName }, [])
+				return
+			}
+			const projects = await this.projectsOf(agentUuid)
+			if (projects.length > 0) {
+				this.projectPicker = { agent, projects }
+				return
+			}
+			await this.startSession(agent, null, [])
+		},
+
+		/**
+		 * Create a session with the picked agent, in a project or none, and activate it.
+		 *
+		 * @param {object} agent The agent to start with.
+		 * @param {{projectKey?: string, projectName?: string}|null} project The project, or null.
+		 * @param {Array<object>} projects The agent's known projects, for the header.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-starting-a-new-session-must-produce-a-visible-result
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+		 */
+		async startSession(agent, project, projects) {
 			const agentUuid = agent.uuid || agent.id
 			this.startingId = agentUuid
 			this.startError = ''
 			try {
-				const session = await createSession(agentUuid)
+				const session = project
+					? await createSession(agentUuid, undefined, project)
+					: await createSession(agentUuid)
+				warmChat(agentUuid, session?.uuid)
+				this.sessionProjects = project?.projectName && session?.projectKey
+					? [{ projectKey: session.projectKey, projectName: project.projectName }]
+					: projects
+				this.newProjectName = ''
 				this.currentAgent = agent
 				this.activeSession = session
 				this.messages = []
@@ -1864,29 +2721,15 @@ export default {
 		 */
 		async handleSend() {
 			const text = this.currentMessage.trim()
-			if (!text || this.sending || !this.activeSession) {
+			if (!this.mayStartTurn(text) || !(await this.startAnswersSaved())) {
 				return
 			}
-			if (this.startFields.length > 0 && !(await this.saveStartAnswers())) {
+			if (this.deepResearch && this.canDeepResearch) {
+				await this.sendAsResearch(text)
 				return
 			}
-			const attached = this.pendingAttachments
-			this.currentMessage = ''
-			this.pendingAttachments = []
-			this.sendError = ''
-			this.attachmentNotices = []
-			this.attachmentNoticesFor = ''
-			this.sending = true
-
-			// Optimistic user bubble (replaced by server truth after the turn).
-			this.messages.push({
-				id: `optimistic-${Date.now()}`,
-				role: 'user',
-				content: text,
-				attachments: attached,
-				created: new Date().toISOString(),
-			})
-			this.scrollToBottom()
+			const attached = this.takeComposerAttachments()
+			this.showOptimisticTurn(text, attached)
 
 			// Only the id and where it came from go out: the server reads the file
 			// itself, as the person sending, and takes its name and type from Files.
@@ -1902,23 +2745,138 @@ export default {
 					await this.sendViaStream(text, uuid, attachments)
 				}
 			} catch (e) {
-				this.sendError =
-					e?.response?.data?.message
-					|| e?.message
-					|| this.t('hermiq', 'Failed to get a response.')
-				this.sendNeedsCourse =
-					(e?.code || e?.response?.data?.errorCode)
-					=== 'ai_literacy_required'
+				this.showSendFailure(e)
 			} finally {
-				this.isStreaming = false
-				this.streamingText = ''
-				this.streamingTools = []
-				this.sending = false
-				// Server truth: persisted ids (feedback), sources, generated title.
-				await this.refreshThread(uuid)
-				this.scrollToBottom()
-				this.focusComposer()
+				await this.finishTurn(uuid)
 			}
+		},
+
+		/**
+		 * "Ask the model again": resend the question a cached answer replied to,
+		 * with the answer cache bypassed, over the same path a typed turn takes.
+		 *
+		 * @param {object} message The assistant message the cache served.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/models-prompt-and-answer-cache/specs/answer-cache/spec.md#requirement-cached-answers-can-be-cleared-and-expire-req-acache-004
+		 */
+		async askModelAgain(message) {
+			const text = questionBefore(this.messages, message)
+			if (!this.mayStartTurn(text)) {
+				return
+			}
+			this.sendError = ''
+			this.sending = true
+			this.showOptimisticTurn(text, [])
+			const uuid = this.activeSession.uuid
+			try {
+				if (this.settingsCustomised) {
+					await this.sendViaPost(text, uuid, [], true)
+				} else {
+					await this.sendViaStream(text, uuid, [], true)
+				}
+			} catch (e) {
+				this.showSendFailure(e)
+			} finally {
+				await this.finishTurn(uuid)
+			}
+		},
+
+		/**
+		 * Whether a turn can start: there is text, no turn in flight, and a session.
+		 *
+		 * @param {string} text The trimmed message.
+		 * @return {boolean} True when it can.
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		mayStartTurn(text) {
+			return Boolean(text) && !this.sending && Boolean(this.activeSession)
+		},
+
+		/**
+		 * Save the session's start answers first, when the agent asks for any.
+		 *
+		 * @return {Promise<boolean>} True when the turn may go on.
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		async startAnswersSaved() {
+			if (this.startFields.length === 0) {
+				return true
+			}
+			return Boolean(await this.saveStartAnswers())
+		},
+
+		/**
+		 * Empty the composer and the turn's notices, mark the turn in flight, and
+		 * hand back the attachments it carries.
+		 *
+		 * @return {Array<object>} The pending attachments.
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		takeComposerAttachments() {
+			const attached = this.pendingAttachments
+			this.currentMessage = ''
+			this.pendingAttachments = []
+			this.sendError = ''
+			this.attachmentNotices = []
+			this.attachmentNoticesFor = ''
+			this.pendingQuestion = null
+			this.pendingQuestionFor = ''
+			this.sending = true
+			return attached
+		},
+
+		/**
+		 * The optimistic user bubble (replaced by server truth after the turn).
+		 *
+		 * @param {string} text The message.
+		 * @param {Array<object>} attached Its attachments.
+		 * @return {void}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		showOptimisticTurn(text, attached) {
+			this.messages.push({
+				id: `optimistic-${Date.now()}`,
+				role: 'user',
+				content: text,
+				attachments: attached,
+				created: new Date().toISOString(),
+			})
+			this.scrollToBottom()
+		},
+
+		/**
+		 * Show why the turn failed, and whether the AI-literacy course is the way on.
+		 *
+		 * @param {object} e What was thrown.
+		 * @return {void}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		showSendFailure(e) {
+			this.sendError =
+				e?.response?.data?.message
+				|| e?.message
+				|| this.t('hermiq', 'Failed to get a response.')
+			this.sendNeedsCourse =
+				(e?.code || e?.response?.data?.errorCode)
+				=== 'ai_literacy_required'
+		},
+
+		/**
+		 * End the turn: stop streaming, then load the server truth (persisted ids
+		 * for feedback, sources, generated title) and return to the composer.
+		 *
+		 * @param {string} uuid The session.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 */
+		async finishTurn(uuid) {
+			this.isStreaming = false
+			this.streamingText = ''
+			this.streamingTools = []
+			this.sending = false
+			await this.refreshThread(uuid)
+			this.scrollToBottom()
+			this.focusComposer()
 		},
 
 		/**
@@ -1929,17 +2887,19 @@ export default {
 		 * @param {string} text The user message.
 		 * @param {string} uuid The session UUID.
 		 * @param {Array<object>} [attachments] Files on the turn, by file id.
+		 * @param {boolean} [answerCacheBypass] True to ask the model again instead of the answer cache.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-chat-page-streams-the-answer-as-the-agent-writes-it-req-chstrm-001
 		 */
-		async sendViaStream(text, uuid, attachments = []) {
+		async sendViaStream(text, uuid, attachments = [], answerCacheBypass = false) {
 			this.isStreaming = true
 			this.streamingText = ''
 			this.streamingTools = []
 			try {
 				const finalPayload = await streamChatMessage(
-					{ message: text, sessionUuid: uuid, attachments },
+					{ message: text, sessionUuid: uuid, attachments, ...(answerCacheBypass ? { answerCacheBypass: true } : {}) },
 					{
 						onToken: (delta) => {
 							this.streamingText += delta
@@ -1948,6 +2908,8 @@ export default {
 						onToolCall: (payload) => {
 							this.streamingTools.push({
 								toolId: payload.toolId || this.t('hermiq', 'tool'),
+								arguments: payload.arguments || {},
+								result: null,
 								done: false,
 							})
 						},
@@ -1957,6 +2919,7 @@ export default {
 									tool.toolId === payload.toolId && !tool.done,
 							)
 							if (entry) {
+								entry.result = payload.result ?? null
 								entry.done = true
 							}
 						},
@@ -1964,11 +2927,13 @@ export default {
 				)
 				this.attachmentNotices = finalPayload?.attachmentNotices || []
 				this.attachmentNoticesFor = finalPayload?.messageId || ''
+				this.rememberContextUsage(uuid, finalPayload?.contextUsage)
+				this.takeQuestion(finalPayload)
 			} catch (e) {
 				if (e instanceof ChatStreamError && e.transport) {
 					// ADR-034 fallback ladder: degrade to the synchronous endpoint.
 					this.isStreaming = false
-					await this.sendViaPost(text, uuid, attachments)
+					await this.sendViaPost(text, uuid, attachments, answerCacheBypass)
 					return
 				}
 				throw e
@@ -1982,15 +2947,17 @@ export default {
 		 * @param {string} text The user message.
 		 * @param {string} uuid The session UUID.
 		 * @param {Array<object>} [attachments] Files on the turn, by file id.
+		 * @param {boolean} [answerCacheBypass] True to ask the model again instead of the answer cache.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
-		async sendViaPost(text, uuid, attachments = []) {
-			await sendChatMessage({
+		async sendViaPost(text, uuid, attachments = [], answerCacheBypass = false) {
+			const result = await sendChatMessage({
 				message: text,
 				sessionUuid: uuid,
 				attachments,
+				...(answerCacheBypass ? { answerCacheBypass: true } : {}),
 				views: this.settings.views,
 				tools: this.settings.tools,
 				ragSettings: {
@@ -2000,13 +2967,69 @@ export default {
 					numSourcesFiles: this.settings.numSourcesFiles,
 				},
 			})
+			this.rememberContextUsage(uuid, result?.contextUsage)
+			this.takeQuestion(result)
+		},
+
+		/**
+		 * Keep the question a turn's result carries (hermiq.askPerson), under the
+		 * answer it came with. A turn without one clears the previous question.
+		 *
+		 * @param {object|null|undefined} result The stream's final payload or the POST result.
+		 * @return {void}
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 */
+		takeQuestion(result) {
+			const question = result?.question
+			if (!question || typeof question.text !== 'string' || question.text.trim() === '') {
+				this.pendingQuestion = null
+				this.pendingQuestionFor = ''
+				return
+			}
+			this.pendingQuestion = {
+				text: question.text,
+				options: Array.isArray(question.options) ? question.options : [],
+				allowOther: question.allowOther === true,
+			}
+			this.pendingQuestionFor = String(result?.messageId || '')
+		},
+
+		/**
+		 * Send the person's answer to the agent's question as the next message.
+		 *
+		 * @param {string} answer The chosen or typed answer.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/human-approval-gate/spec.md#requirement-an-agent-can-ask-a-person-a-question-with-suggested-answers-req-askhold-001
+		 */
+		async answerQuestion(answer) {
+			const text = String(answer ?? '').trim()
+			if (text === '' || this.sending) {
+				return
+			}
+			this.currentMessage = text
+			await this.handleSend()
+		},
+
+		/**
+		 * Keep the context usage a turn reported for its session.
+		 *
+		 * @param {string} uuid The session UUID.
+		 * @param {object|null|undefined} usage The usage from the `final` frame or the send response.
+		 * @return {void}
+		 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+		 */
+		rememberContextUsage(uuid, usage) {
+			if (!uuid || !usage) {
+				return
+			}
+			this.contextUsageBySession = { ...this.contextUsageBySession, [uuid]: usage }
 		},
 
 		/**
 		 * Open the device's file chooser (the hidden input).
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		chooseDeviceFile() {
 			this.$refs.attachmentInput?.click()
@@ -2018,7 +3041,7 @@ export default {
 		 *
 		 * @param {Event} event The input's change event.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		async onDeviceFileChosen(event) {
 			const file = event?.target?.files?.[0]
@@ -2052,7 +3075,7 @@ export default {
 		 * so no copy is made.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		async chooseFromFiles() {
 			const picker = getFilePickerBuilder(
@@ -2087,7 +3110,7 @@ export default {
 		 *
 		 * @param {object} attachment {fileId, name, mimeType, origin}.
 		 * @return {void}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		queueAttachment(attachment) {
 			if (!attachment.fileId) {
@@ -2106,7 +3129,7 @@ export default {
 		 *
 		 * @param {object} attachment The queued file.
 		 * @return {void}
-		 * @spec openspec/changes/chat-attachments-and-images/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-person-can-attach-a-file-they-already-have-in-files-req-catt-002
 		 */
 		removeAttachment(attachment) {
 			this.pendingAttachments = this.pendingAttachments.filter(
@@ -2130,6 +3153,7 @@ export default {
 				if (this.activeSession?.uuid === uuid) {
 					this.messages = results
 					this.activeSession = session
+					this.loadHandoffs(uuid)
 				}
 				await this.loadSessions(true)
 			} catch (e) {
@@ -2145,6 +3169,7 @@ export default {
 		 * @param {string} type 'positive' or 'negative'.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 		 */
 		async sendFeedback(message, type) {
 			const cleared = message.feedback === type
@@ -2173,6 +3198,7 @@ export default {
 		 * @param {object} message The assistant message.
 		 * @return {Promise<void>}
 		 * @spec openspec/specs/session-surface/spec.md#requirement-the-application-must-use-one-word-for-a-session
+		 * @spec openspec/specs/agent-engine-port/spec.md#requirement-a-person-rates-an-answer-up-or-down-with-an-optional-comment-req-chfb-001
 		 */
 		async saveFeedbackComment(message) {
 			if (!message.feedbackComment || !message.feedbackComment.trim()) {
@@ -2199,7 +3225,7 @@ export default {
 		 *
 		 * @param {object} message The message.
 		 * @return {boolean}
-		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		hasAgentDraft(message) {
 			return (
@@ -2212,7 +3238,7 @@ export default {
 		 *
 		 * @param {object} message The message.
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		async openAgentDraft(message) {
 			this.checkingDraft = true
@@ -2236,7 +3262,7 @@ export default {
 		 * The agent form closed: drop the draft.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		closeAgentDraft() {
 			this.draftAgent = null
@@ -2248,13 +3274,37 @@ export default {
 		 *
 		 * @param {object} saved The saved agent.
 		 * @return {void}
-		 * @spec openspec/changes/agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
+		 * @spec openspec/changes/archive/2026-11-24-agents-plain-language-builder/specs/agent-management-ui/spec.md#requirement-a-draft-opens-in-the-full-agent-form-after-a-check-req-agbuild-002
 		 */
 		onDraftAgentSaved(saved) {
 			const agentId = saved?.['@self']?.id || saved?.id || saved?.uuid || ''
 			this.loadAgents()
 			if (this.draftSchedule && agentId) {
 				this.draftScheduleAgentId = agentId
+			}
+		},
+
+		/**
+		 * Start a new session from this answer, with every turn up to it, and open it.
+		 * The open session stays as it was.
+		 *
+		 * @param {object} message The assistant message to fork at.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-fork/spec.md#requirement-the-owner-can-fork-a-session-at-an-answer-req-sfork-001
+		 */
+		async forkFrom(message) {
+			if (!this.canFork || this.forking) {
+				return
+			}
+			this.forking = true
+			try {
+				const fork = await forkSession(this.activeSession.uuid, message.uuid || message.id)
+				await this.loadSessions(true)
+				await this.selectSession(forkedSessionToOpen(this.sessions, fork))
+			} catch {
+				showError(this.t('hermiq', 'Could not fork the session.'))
+			} finally {
+				this.forking = false
 			}
 		},
 
@@ -2290,6 +3340,314 @@ export default {
 		},
 
 		/**
+		 * Debounce typing in the search field, then search the current tab.
+		 *
+		 * A term shorter than two characters searches nothing (the server ignores
+		 * it too), so clearing or shortening the field brings the groups back.
+		 *
+		 * @param {string} value The field's value.
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		onSearchInput(value) {
+			this.searchTerm = value ?? ''
+			clearTimeout(this.searchTimer)
+			if (this.searchTerm.trim().length < SEARCH_MIN_LENGTH) {
+				this.endSearch()
+				return
+			}
+			this.searchTimer = setTimeout(() => this.runSearch(), SEARCH_DEBOUNCE_MS)
+		},
+
+		/**
+		 * Search the current tab for the typed term; a slower earlier answer never
+		 * overwrites a newer one.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		async runSearch() {
+			const term = this.searchTerm.trim()
+			if (term.length < SEARCH_MIN_LENGTH) {
+				this.endSearch()
+				return
+			}
+			const seq = ++this.searchSeq
+			this.sessionsLoading = true
+			try {
+				const { results, truncated } = await listSessions({
+					archived: this.showArchive,
+					search: term,
+					limit: SEARCH_LIMIT,
+				})
+				if (seq !== this.searchSeq) {
+					return
+				}
+				this.searchResults = results
+				this.searchTruncated = truncated
+				this.appliedSearch = term
+				this.selected = this.selected.filter((uuid) => results.some((session) => session.uuid === uuid))
+			} catch {
+				if (seq === this.searchSeq) {
+					showError(this.t('hermiq', 'Could not search the sessions.'))
+				}
+			} finally {
+				if (seq === this.searchSeq) {
+					this.sessionsLoading = false
+				}
+			}
+		},
+
+		/**
+		 * Clear the search field and return to the grouped list.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		clearSearch() {
+			this.searchTerm = ''
+			clearTimeout(this.searchTimer)
+			this.endSearch()
+		},
+
+		/**
+		 * Drop the search results; a search still in flight is ignored when it lands.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		endSearch() {
+			this.searchSeq++
+			this.appliedSearch = ''
+			this.searchResults = []
+			this.searchTruncated = false
+			this.sessionsLoading = false
+		},
+
+		/**
+		 * Scroll the thread to one turn and highlight it briefly, or to the end
+		 * when there is no such turn among the loaded messages.
+		 *
+		 * @param {string} turnUuid The turn to show, or ''.
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		scrollToTurn(turnUuid) {
+			if (!turnUuid) {
+				this.scrollToBottom()
+				return
+			}
+			this.$nextTick(() => {
+				const container = this.$refs.messagesContainer
+				const turn = container?.querySelector?.(`[data-turn-uuid="${CSS.escape(turnUuid)}"]`)
+				if (!turn) {
+					this.scrollToBottom()
+					return
+				}
+				turn.scrollIntoView?.({ block: 'center' })
+				this.highlightTurn = turnUuid
+				setTimeout(() => {
+					if (this.highlightTurn === turnUuid) {
+						this.highlightTurn = ''
+					}
+				}, HIGHLIGHT_MS)
+			})
+		},
+
+		/**
+		 * A row was clicked or Enter was pressed: open it, or in selection mode tick it.
+		 *
+		 * @param {object} session The row's session.
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		onRowActivate(session) {
+			if (this.selecting) {
+				this.toggleSelected(session)
+				return
+			}
+			this.selectSession(session)
+		},
+
+		/**
+		 * Space on a focused row toggles its checkbox in selection mode.
+		 *
+		 * @param {object} session The row's session.
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		onRowSpace(session) {
+			if (this.selecting) {
+				this.toggleSelected(session)
+			}
+		},
+
+		/**
+		 * Whether a person may select a session: their own, not one they were invited into.
+		 *
+		 * @param {object} session The session.
+		 * @return {boolean}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		isSelectable(session) {
+			return Boolean(session?.uuid) && session.role !== 'participant'
+		},
+
+		/**
+		 * Whether a session is ticked.
+		 *
+		 * @param {object} session The session.
+		 * @return {boolean}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		isSelected(session) {
+			return this.selected.includes(session?.uuid)
+		},
+
+		/**
+		 * Tick or untick one session.
+		 *
+		 * @param {object} session The session.
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		toggleSelected(session) {
+			if (!this.isSelectable(session)) {
+				return
+			}
+			this.selected = this.isSelected(session)
+				? this.selected.filter((uuid) => uuid !== session.uuid)
+				: [...this.selected, session.uuid]
+		},
+
+		/**
+		 * Turn on selection mode with nothing ticked.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		startSelecting() {
+			this.selecting = true
+			this.selected = []
+		},
+
+		/**
+		 * Leave selection mode and untick everything.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		stopSelecting() {
+			this.selecting = false
+			this.selected = []
+			this.showBulkDelete = false
+		},
+
+		/**
+		 * Tick every selectable row currently shown, search results included.
+		 *
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		selectAllShown() {
+			this.selected = this.selectableShown.map((session) => session.uuid)
+		},
+
+		/**
+		 * Archive or restore the ticked sessions in one action.
+		 *
+		 * @param {'archive'|'restore'} action What to do.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		async runBulk(action) {
+			if (this.selected.length === 0 || this.bulkBusy) {
+				return
+			}
+			this.bulkBusy = true
+			try {
+				const results = await bulkSessions(action, [...this.selected])
+				await this.applyBulk(action, results)
+			} catch {
+				showError(this.t('hermiq', 'Could not change the selected sessions.'))
+			} finally {
+				this.bulkBusy = false
+			}
+		},
+
+		/**
+		 * The bulk delete modal finished: apply its per-session answer.
+		 *
+		 * @param {Array<{uuid: string, status: string}>} results The outcome per uuid.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		async onBulkDeleted(results) {
+			await this.applyBulk('delete', results)
+		},
+
+		/**
+		 * Take the sessions the server changed out of the shown lists, return the
+		 * thread to the start surface when the open one was among them, and say
+		 * how many were changed and how many were not.
+		 *
+		 * @param {'archive'|'restore'|'delete'} action The action that ran.
+		 * @param {Array<{uuid: string, status: string}>} results The outcome per uuid.
+		 * @return {Promise<void>}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		async applyBulk(action, results) {
+			const done = new Set(results.filter((entry) => entry.status === 'ok').map((entry) => entry.uuid))
+			const failed = this.selected.filter((uuid) => !done.has(uuid)).length
+			const keep = (session) => !done.has(session.uuid)
+			this.sessions = this.sessions.filter(keep)
+			this.archivedSessions = this.archivedSessions.filter(keep)
+			this.searchResults = this.searchResults.filter(keep)
+			if (this.activeSession && done.has(this.activeSession.uuid)) {
+				this.newSession()
+			}
+			this.stopSelecting()
+			if (done.size > 0) {
+				showSuccess(this.bulkDoneMessage(action, done.size))
+			}
+			if (failed > 0) {
+				showError(this.n('hermiq', '%n session could not be changed.', '%n sessions could not be changed.', failed))
+			}
+			if (action !== 'delete') {
+				await this.loadSessions(true)
+			}
+		},
+
+		/**
+		 * The confirmation after a bulk action.
+		 *
+		 * @param {'archive'|'restore'|'delete'} action The action that ran.
+		 * @param {number} count How many sessions it changed.
+		 * @return {string}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-archive-restore-or-delete-several-sessions-in-one-action-req-ssrch-002
+		 */
+		bulkDoneMessage(action, count) {
+			if (action === 'archive') {
+				return this.n('hermiq', '%n session archived', '%n sessions archived', count)
+			}
+			if (action === 'restore') {
+				return this.n('hermiq', '%n session restored', '%n sessions restored', count)
+			}
+			return this.n('hermiq', '%n session deleted', '%n sessions deleted', count)
+		},
+
+		/**
+		 * Take one session out of the shown search results after it left the tab.
+		 *
+		 * @param {object} session The session.
+		 * @return {void}
+		 * @spec openspec/changes/archive/2026-11-24-chat-session-search-and-bulk-delete/specs/session-surface/spec.md#requirement-a-person-can-search-their-own-sessions-by-title-and-content-req-ssrch-001
+		 */
+		dropFromSearch(session) {
+			this.searchResults = this.searchResults.filter((entry) => entry.uuid !== session.uuid)
+		},
+
+		/**
 		 * Archive (soft delete) a session.
 		 *
 		 * @param {object} session The session to archive.
@@ -2299,6 +3657,7 @@ export default {
 		async archive(session) {
 			try {
 				await archiveSession(session.uuid)
+				this.dropFromSearch(session)
 				if (this.isActive(session)) {
 					this.newSession()
 				}
@@ -2319,6 +3678,7 @@ export default {
 		async restore(session) {
 			try {
 				await restoreSession(session.uuid)
+				this.dropFromSearch(session)
 				this.archivedSessions = this.archivedSessions.filter(
 					(entry) => entry.uuid !== session.uuid,
 				)
@@ -2352,6 +3712,7 @@ export default {
 			this.archivedSessions = this.archivedSessions.filter(
 				(entry) => entry.uuid !== session.uuid,
 			)
+			this.dropFromSearch(session)
 			if (this.isActive(session)) {
 				this.newSession()
 			}
@@ -2572,6 +3933,43 @@ export default {
 	white-space: nowrap;
 }
 
+/* The matching words of a search result, under its title (REQ-SSRCH-001). */
+.chat-page__row-excerpt {
+	font-size: 12px;
+	color: var(--color-main-text);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.chat-page__row--selected {
+	background-color: var(--color-primary-element-light);
+}
+
+.chat-page__row-check {
+	flex: 0 0 auto;
+}
+
+/* Selection bar (REQ-SSRCH-002). */
+.chat-page__bulk {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 0;
+}
+
+.chat-page__bulk-count {
+	flex: 1 1 100%;
+	font-weight: 600;
+}
+
+/* A turn opened from a search result, highlighted for a moment. */
+.chat-page__message--found .chat-page__bubble {
+	box-shadow: 0 0 0 2px var(--color-primary-element);
+}
+
 .chat-page__row-actions {
 	flex-shrink: 0;
 }
@@ -2612,6 +4010,11 @@ export default {
 	margin: 0;
 	padding: 4px 16px;
 	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__new-project {
+	max-width: 420px;
+	margin: 0 auto 16px;
 }
 
 .chat-page__heading {
@@ -2768,6 +4171,96 @@ export default {
 
 /* ── Sources ──────────────────────────────────────────────────────── */
 
+.chat-page__provenance {
+	margin-top: 8px;
+	font-size: 0.9em;
+}
+
+.chat-page__provenance-summary {
+	cursor: pointer;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__provenance-summary:focus-visible {
+	outline: 2px solid var(--color-primary-element);
+	outline-offset: 2px;
+}
+
+.chat-page__provenance-list {
+	margin: 4px 0 0;
+	padding-left: 20px;
+	list-style: disc;
+	color: var(--color-main-text);
+}
+
+.chat-page__reasoning-note {
+	margin: 4px 0 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
+}
+
+.chat-page__reasoning-text {
+	margin: 4px 0 0;
+	white-space: pre-wrap;
+	color: var(--color-main-text);
+}
+
+.chat-page__context {
+	margin: 4px 0 0;
+	font-size: 0.85em;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__context-warning {
+	display: block;
+	color: var(--color-warning-text, var(--color-main-text));
+}
+
+.chat-page__research {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 4px 0;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__handoffs {
+	margin: 8px 0 0;
+	padding: 0;
+	list-style: none;
+	font-size: 13px;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__handoff--waiting {
+	color: var(--color-main-text);
+}
+
+.chat-page__handoff--failed,
+.chat-page__handoff--expired {
+	color: var(--color-error-text);
+}
+
+.chat-page__scope {
+	margin-top: 10px;
+	font-size: 12px;
+	color: var(--color-text-maxcontrast);
+}
+
+.chat-page__scope p {
+	margin: 0;
+}
+
+.chat-page__scope-abstained {
+	font-weight: 600;
+	color: var(--color-main-text);
+}
+
+.chat-page__scope-detail span + span::before {
+	content: ' ';
+}
+
 .chat-page__sources {
 	margin-top: 10px;
 	padding-top: 10px;
@@ -2809,7 +4302,31 @@ export default {
 	color: var(--color-text-maxcontrast);
 }
 
+a.chat-page__source-name {
+	color: var(--color-main-text);
+	text-decoration: underline;
+}
+
+.chat-page__source-number,
+.chat-page__source-page {
+	font-size: 11px;
+	color: var(--color-text-maxcontrast);
+}
+
 /* ── Feedback ─────────────────────────────────────────────────────── */
+
+.chat-page__from-cache {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 6px;
+}
+
+.chat-page__from-cache-note {
+	color: var(--color-text-maxcontrast);
+	font-size: var(--font-size-small, 13px);
+}
 
 .chat-page__feedback {
 	display: flex;
@@ -2862,6 +4379,16 @@ export default {
 	font-style: italic;
 }
 
+.chat-page__stream-tool--part {
+	font-style: normal;
+}
+
+.chat-page__stream-tool--refused,
+.chat-page__stream-tool--failed,
+.chat-page__stream-tool--timeout {
+	color: var(--color-error-text);
+}
+
 .chat-page__typing {
 	display: flex;
 	gap: 4px;
@@ -2910,6 +4437,23 @@ export default {
 	margin-top: 4px;
 	font-weight: bold;
 	text-decoration: underline;
+}
+
+.chat-page__translation {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-top: 8px;
+}
+
+.chat-page__translation-player {
+	max-width: 100%;
+}
+
+.chat-page__translation-line {
+	margin: 0;
+	font-size: 0.9em;
+	color: var(--color-text-maxcontrast);
 }
 
 .chat-page__attachments {

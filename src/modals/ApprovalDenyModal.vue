@@ -9,8 +9,8 @@
   plain approvals API helper (src/api/approvals.js); the gated run never executes.
   The parent ApprovalInbox opens it for one row and reloads on `denied`.
 
-  @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
-  @spec openspec/changes/human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
+  @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-3-1
+  @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/specs/human-approval-gate-ui/spec.md
 -->
 <template>
 	<NcModal :show="show" size="small" :name="heading" @close="$emit('close')">
@@ -60,6 +60,7 @@ import {
 	NcTextArea,
 } from '@nextcloud/vue'
 import { denyApproval } from '../api/approvals.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'ApprovalDenyModal',
@@ -101,7 +102,7 @@ export default {
 		 * Modal heading.
 		 *
 		 * @return {string} The localised heading.
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-3-1
 		 */
 		heading() {
 			return this.t('hermiq', 'Deny approval')
@@ -111,7 +112,7 @@ export default {
 		 * The gated schedule's name, for context.
 		 *
 		 * @return {string} The schedule name, or an empty string.
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-3-1
 		 */
 		scheduleName() {
 			return (
@@ -124,7 +125,7 @@ export default {
 
 	watch: {
 		/**
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-3-1
 		 */
 		show(open) {
 			if (open) {
@@ -139,7 +140,7 @@ export default {
 		 * Deny the approval via the guarded endpoint and notify the parent.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
+		 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-ui/tasks.md#task-3-1
 		 */
 		async confirm() {
 			if (!this.approval || !this.approval.id) {
@@ -152,10 +153,7 @@ export default {
 				this.$emit('denied', this.approval.id)
 				this.$emit('close')
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.saving = false
 			}

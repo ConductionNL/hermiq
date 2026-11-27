@@ -49,26 +49,30 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use OCA\Hermiq\Controller\Mcp\ToolCallRequest;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\GuardrailPolicyServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\RunStepBusInterface;
+use OCA\Hermiq\Kernel\Contracts\RunTokenServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolLoopInterface;
+use OCA\Hermiq\Kernel\Contracts\ToolSearchServiceInterface;
 use OCA\Hermiq\Service\Agent\AgentAvailability;
+use OCA\Hermiq\Service\AgentBuildService;
 use OCA\Hermiq\Service\Engine\RunToolCallCounter;
 use OCA\Hermiq\Service\Engine\TurnGuard;
-use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Engine\RunStepBus;
-use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
-use OCA\Hermiq\Service\Engine\ToolLoop;
-use OCA\Hermiq\Service\Llm\RunTokenService;
-use OCA\Hermiq\Service\ToolSearchService;
 use OCA\Hermiq\Service\Workspace\RepoEffectingGrants;
+use OCA\Hermiq\Service\Workspace\WorkspaceRunScope;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -83,7 +87,6 @@ use OCP\IUserManager;
 use OCP\IUserSession;
 use OCP\Security\Bruteforce\IThrottler;
 use Psr\Log\LoggerInterface;
-use stdClass;
 use Throwable;
 
 /**
@@ -97,7 +100,10 @@ use Throwable;
  *   method handlers (initialize, tools/list, tools/call) plus their per-branch
  *   governance guards — a dispatch surface, not one tangled algorithm.
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
+ * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
  */
 class McpRunController extends Controller {
 
@@ -127,6 +133,21 @@ class McpRunController extends Controller {
 	private const AGENT_SCHEMA = 'agent';
 
 	/**
+	 * Schema slug for the conversation (session) objects.
+	 *
+	 * @var string
+	 */
+	private const CONVERSATION_SCHEMA = 'agentsession';
+
+	/**
+	 * The chat policy for a run whose conversation cannot be read: the chat shows
+	 * the withheld placeholder for every tool step's arguments and result.
+	 *
+	 * @var array<string,string>
+	 */
+	private const WITHHOLD_ALL = ['source' => 'unreadable-conversation'];
+
+	/**
 	 * The MCP protocol version this server defaults to when the client names none.
 	 *
 	 * @var string
@@ -144,43 +165,49 @@ class McpRunController extends Controller {
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param RunTokenService $runTokenService Verifies the per-run bearer token.
+	 * @param RunTokenServiceInterface $runTokenService Verifies the per-run bearer token.
 	 * @param ObjectService $objectService Loads the run's agent (under the impersonated user).
 	 * @param ToolRegistryFacade $toolRegistryFacade OR's public tool read/invoke surface.
 	 * @param ToolGrantResolver $grantResolver Expands `Agent.tools` against the catalog.
-	 * @param ToolLoop $toolLoop Builds the governed `FacadeToolInvoker` (reused,
+	 * @param ToolLoopInterface $toolLoop Builds the governed `FacadeToolInvoker` (reused,
 	 *                           not reimplemented).
-	 * @param ToolSearchService $toolSearchService Holds the run's resolved set for the approval gate.
+	 * @param ToolSearchServiceInterface $toolSearchService Holds the run's resolved set for the approval gate.
 	 * @param IUserManager $userManager Resolves the token's user to an `IUser`.
 	 * @param IUserSession $userSession Impersonates that user for RBAC on dispatch.
 	 * @param IThrottler $throttler Brute-force protection for run-token authentication.
-	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
+	 * @param RunStepBusInterface $runStepBus Publishes run steps to whichever surface is watching.
 	 * @param LoggerInterface $logger PSR-3 logger (never receives a token value).
 	 * @param WorkspaceRunScope|null $workspaceScope Carries the token's run to the governed
 	 *                                              workspace tools for the length of one dispatch.
 	 * @param RunToolCallCounter|null $toolCallCounter Counts the run's tool calls across requests,
 	 *                                                 for the agent's tool call cap.
+	 * @param GuardrailPolicyServiceInterface|null $guardrailService Applies the output filters to
+	 *                                                      the steps shown in the chat.
+	 * @param AgentBuildService|null $agentBuilds Starts a new session workspace from the
+	 *                                            agent's pinned build.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly RunTokenService $runTokenService,
+		private readonly RunTokenServiceInterface $runTokenService,
 		private readonly ObjectService $objectService,
 		private readonly ToolRegistryFacade $toolRegistryFacade,
 		private readonly ToolGrantResolver $grantResolver,
-		private readonly ToolLoop $toolLoop,
-		private readonly ToolSearchService $toolSearchService,
+		private readonly ToolLoopInterface $toolLoop,
+		private readonly ToolSearchServiceInterface $toolSearchService,
 		private readonly IUserManager $userManager,
 		private readonly IUserSession $userSession,
 		private readonly IThrottler $throttler,
-		private readonly RunStepBus $runStepBus,
+		private readonly RunStepBusInterface $runStepBus,
 		private readonly LoggerInterface $logger,
 		private readonly ?WorkspaceRunScope $workspaceScope = null,
 		private readonly ?RunToolCallCounter $toolCallCounter = null,
+		private readonly ?GuardrailPolicyServiceInterface $guardrailService = null,
+		private readonly ?AgentBuildService $agentBuilds = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 
 	}//end __construct()
 
@@ -196,8 +223,8 @@ class McpRunController extends Controller {
 	 * @return Response The JSON-RPC response (200), a 202 for a notification, or a
 	 *                  400/401 transport error.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
 	 */
 	#[PublicPage]
 	#[NoCSRFRequired]
@@ -212,7 +239,30 @@ class McpRunController extends Controller {
 			return $this->refuseToken(token: $token);
 		}
 
+		// A sign-in token reaches no tools (models-provider-connections D5).
+		if (isset($binding['egressHosts']) === true) {
+			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+		}
+
 		$body = json_decode($this->readRawBody(), true);
+		$refusal = $this->jsonRpcRefusal(body: $body);
+		if ($refusal !== null) {
+			return $refusal;
+		}
+
+		return $this->handleRequest(body: $body, binding: $binding);
+
+	}//end handle()
+
+	/**
+	 * Refuse a body that is not a JSON-RPC 2.0 request: not JSON at all (parse error),
+	 * or without the version or a method (invalid request).
+	 *
+	 * @param mixed $body The decoded body.
+	 *
+	 * @return Response|null The JSON-RPC error, or null for a well-formed request.
+	 */
+	private function jsonRpcRefusal(mixed $body): ?Response {
 		if (is_array($body) === false) {
 			return $this->jsonRpcError(id: null, code: -32700, message: 'Parse error', status: Http::STATUS_BAD_REQUEST);
 		}
@@ -226,53 +276,132 @@ class McpRunController extends Controller {
 			);
 		}
 
-		$method = (string)$body['method'];
-		$id = ($body['id'] ?? null);
-		$params = $body['params'] ?? [];
-		if (is_array($params) === false) {
-			$params = [];
-		}
+		return null;
 
+	}//end jsonRpcRefusal()
+
+	/**
+	 * Answer a well-formed request: a notification (no id) is acknowledged, initialize
+	 * is answered directly, anything else is dispatched as the token's user.
+	 *
+	 * @param array<string, mixed> $body The JSON-RPC request.
+	 * @param array<string, mixed> $binding The verified token's run binding.
+	 *
+	 * @return Response The answer.
+	 */
+	private function handleRequest(array $body, array $binding): Response {
 		// Notifications (no id) — acknowledge with 202, no body (e.g.
 		// notifications/initialized).
-		if ($id === null) {
+		if (($body['id'] ?? null) === null) {
 			$response = new Response();
 			$response->setStatus(Http::STATUS_ACCEPTED);
 			return $response;
 		}
 
-		if ($method === 'initialize') {
-			return $this->handleInitialize(id: $id, params: $params);
+		if ((string)$body['method'] === 'initialize') {
+			return $this->handleInitialize(id: $body['id'], params: $this->requestParams(body: $body));
 		}
 
-		// Identity comes from the token ONLY — the request body cannot redirect
-		// the run. Impersonate the token's user so OR RBAC applies to that user.
+		return $this->dispatchAsTokenUser(body: $body, binding: $binding);
+
+	}//end handleRequest()
+
+	/**
+	 * The request's params when they are an object, none otherwise.
+	 *
+	 * @param array<string, mixed> $body The JSON-RPC request.
+	 *
+	 * @return array<mixed> The params.
+	 */
+	private function requestParams(array $body): array {
+		$params = $body['params'] ?? [];
+		if (is_array($params) === false) {
+			return [];
+		}
+
+		return $params;
+
+	}//end requestParams()
+
+	/**
+	 * Dispatch a request as the token's user.
+	 *
+	 * Identity comes from the token ONLY — the request body cannot redirect the run.
+	 * Impersonate the token's user so OR RBAC applies to that user.
+	 *
+	 * @param array<string, mixed> $body The JSON-RPC request.
+	 * @param array<string, mixed> $binding The verified token's run binding.
+	 *
+	 * @return Response The answer.
+	 */
+	private function dispatchAsTokenUser(array $body, array $binding): Response {
 		return $this->withImpersonatedUser(
 			userId: $binding['userId'],
-			work: function () use ($id, $method, $params, $binding): Response {
-				// The workspace tools address the run's checkout by THIS run id,
-				// taken from the verified token, never from the body.
-				$this->runId = (string)$binding['runId'];
-				$this->workspaceScope?->enter(
-					runId: $binding['runId'],
-					agentId: $binding['agentId'],
-					userId: $binding['userId']
-				);
-				try {
-					return $this->dispatch(
-						id: $id,
-						method: $method,
-						params: $params,
-						agentId: $binding['agentId'],
-						conversationId: $binding['conversationId']
-					);
-				} finally {
-					$this->workspaceScope?->leave();
-				}
-			}
+			work: fn (): Response => $this->dispatchInRunWorkspace(body: $body, binding: $binding)
 		);
 
-	}//end handle()
+	}//end dispatchAsTokenUser()
+
+	/**
+	 * Dispatch a request inside the token's run workspace, leaving it afterwards.
+	 *
+	 * @param array<string, mixed> $body The JSON-RPC request.
+	 * @param array<string, mixed> $binding The verified token's run binding.
+	 *
+	 * @return Response The answer.
+	 */
+	private function dispatchInRunWorkspace(array $body, array $binding): Response {
+		$this->enterRunWorkspace(binding: $binding);
+		try {
+			return $this->dispatch(
+				id: $body['id'],
+				method: (string)$body['method'],
+				params: $this->requestParams(body: $body),
+				agentId: $binding['agentId'],
+				conversationId: $binding['conversationId'],
+				projectKey: (string)($binding['projectKey'] ?? '')
+			);
+		} finally {
+			$this->workspaceScope?->leave();
+		}
+
+	}//end dispatchInRunWorkspace()
+
+	/**
+	 * Enter the token's run: the workspace tools address the run's checkout by THIS
+	 * run id, taken from the verified token, never from the body.
+	 *
+	 * @param array<string, mixed> $binding The verified token's run binding.
+	 *
+	 * @return void
+	 */
+	private function enterRunWorkspace(array $binding): void {
+		$this->runId = (string)$binding['runId'];
+		if ($this->workspaceScope === null) {
+			return;
+		}
+
+		// The lifetime is the AGENT's setting, read from the stored agent; the
+		// conversation comes from the verified token. Neither is taken from the
+		// request body.
+		$agent = $this->loadAgent(agentId: (string)$binding['agentId']);
+		$this->workspaceScope->enter(
+			runId: $binding['runId'],
+			agentId: $binding['agentId'],
+			userId: $binding['userId'],
+			context: [
+				'conversationId' => (string)($binding['conversationId'] ?? ''),
+				'workspaceMode'  => (string)($agent?->getObject()['workspaceMode'] ?? ''),
+			]
+		);
+
+		// A new conversation of an agent with a pinned build starts its workspace
+		// as a copy of that build; an open workspace is left as it is.
+		if ($agent !== null && $this->agentBuilds !== null && (string)$binding['runId'] !== '') {
+			$this->agentBuilds->startWorkspace(agent: $agent, workspaceKey: (string)$this->workspaceScope->current()['workspaceKey']);
+		}
+
+	}//end enterRunWorkspace()
 
 	/**
 	 * Refuse a token that failed verification, and count it with the brute-force
@@ -282,7 +411,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return JSONResponse The fail-closed 401.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
 	 */
 	private function refuseToken(string $token): JSONResponse {
 		// Same run-token action as EgressAuthorizeController on purpose: an
@@ -321,7 +450,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return JSONResponse The initialize result, with the session-id header.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
 	 */
 	private function handleInitialize(mixed $id, array $params): JSONResponse {
 		$protocolVersion = (string)($params['protocolVersion'] ?? '');
@@ -351,18 +480,35 @@ class McpRunController extends Controller {
 	 * @param string $agentId The run's agent UUID (from the token).
 	 * @param string $conversationId The conversation this run belongs to, so a step
 	 *                               published on the bus reaches the right stream.
+	 * @param string $projectKey The run's project, from the token (memory-project-scopes).
 	 *
 	 * @return Response The JSON-RPC response.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-tool-call-is-governed-not-passed-through
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-tool-call-is-governed-not-passed-through
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
 	 */
-	private function dispatch(mixed $id, string $method, array $params, string $agentId, string $conversationId = ''): Response {
+	private function dispatch(
+		mixed $id,
+		string $method,
+		array $params,
+		string $agentId,
+		string $conversationId = '',
+		string $projectKey = '',
+	): Response {
 		if ($method === 'tools/list') {
 			return $this->jsonRpcSuccess(id: $id, result: ['tools' => $this->resolveMcpTools(agentId: $agentId)]);
 		}
 
 		if ($method === 'tools/call') {
-			return $this->handleToolCall(id: $id, params: $params, agentId: $agentId, conversationId: $conversationId);
+			return $this->handleToolCall(
+				id: $id,
+				call: new ToolCallRequest(
+					params: $params,
+					agentId: $agentId,
+					conversationId: $conversationId,
+					projectKey: $projectKey
+				)
+			);
 		}
 
 		return $this->jsonRpcError(
@@ -385,7 +531,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return array<int, array<string, mixed>> The MCP tool list.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-only-granted-tools-are-listed
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-only-granted-tools-are-listed
 	 */
 	private function resolveMcpTools(string $agentId): array {
 		$tools = [];
@@ -393,7 +539,7 @@ class McpRunController extends Controller {
 			$tools[] = [
 				'name' => (string)$descriptor['name'],
 				'description' => (string)($descriptor['description'] ?? ''),
-				'inputSchema' => $this->normaliseInputSchema(schema: ($descriptor['parameters'] ?? [])),
+				'inputSchema' => (new McpInputSchema())->normalise(schema: ($descriptor['parameters'] ?? [])),
 			];
 		}
 
@@ -438,16 +584,16 @@ class McpRunController extends Controller {
 	 * or a pending approval returns `result.isError: true` and executes nothing.
 	 *
 	 * @param mixed $id The JSON-RPC request id.
-	 * @param array<string, mixed> $params The call params (`name`, `arguments`).
-	 * @param string $agentId The run's agent UUID.
-	 * @param string $conversationId The conversation this run belongs to, so a step
-	 *                               published on the bus reaches the right stream.
+	 * @param ToolCallRequest $call One MCP tool call and the agent and conversation it runs for.
 	 *
 	 * @return Response The JSON-RPC response (200; tool-level errors carry isError).
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-governed-refusal-is-visible-to-the-model-not-a-transport-failure
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#scenario-a-governed-refusal-is-visible-to-the-model-not-a-transport-failure
 	 */
-	private function handleToolCall(mixed $id, array $params, string $agentId, string $conversationId = ''): Response {
+	private function handleToolCall(mixed $id, ToolCallRequest $call): Response {
+		$params = $call->params;
+		$agentId = $call->agentId;
+		$conversationId = $call->conversationId;
 		$name = (string)($params['name'] ?? '');
 		if ($name === '') {
 			return $this->jsonRpcError(id: $id, code: -32602, message: 'Invalid params', status: Http::STATUS_BAD_REQUEST);
@@ -481,10 +627,14 @@ class McpRunController extends Controller {
 		// FacadeToolInvoker the http path builds.
 		$this->toolSearchService->registerResolved(descriptors: $descriptors);
 
+		// The project key comes from the verified token, never from the model:
+		// the invoker sets it on the memory tool calls (memory-project-scopes).
 		$functionInfos = $this->toolLoop->buildFunctionInfos(
 			functions: $descriptors,
 			agent: $agent,
-			organisation: $this->organisationOf(agent: $agent)
+			organisation: $this->organisationOf(agent: $agent),
+			runId: $this->runId,
+			projectKey: $call->projectKey
 		);
 
 		foreach ($functionInfos as $functionInfo) {
@@ -498,6 +648,8 @@ class McpRunController extends Controller {
 			// the UI is listening to — is never touched. The run token binds this
 			// request to its conversation, which is what lets the two be joined.
 			$startedAt = microtime(true);
+			$policy = $this->chatPolicy(conversationId: $conversationId);
+			$shownArguments = $this->shownInChat(policy: $policy, value: $arguments);
 
 			try {
 				$resultJson = (string)$functionInfo->callWithArguments($arguments);
@@ -510,10 +662,10 @@ class McpRunController extends Controller {
 				$this->runStepBus->record(
 					conversationId: $conversationId,
 					toolName: $name,
-					arguments: $arguments,
+					arguments: $shownArguments,
 					result: 'The tool call could not be completed.',
 					durationMs: (int)round((microtime(true) - $startedAt) * 1000),
-					outcome: RunStepBus::OUTCOME_ERROR
+					outcome: RunStepBusInterface::OUTCOME_ERROR
 				);
 
 				return $this->jsonRpcSuccess(id: $id, result: $this->toolError(text: 'The tool call could not be completed.'));
@@ -522,8 +674,8 @@ class McpRunController extends Controller {
 			$this->runStepBus->record(
 				conversationId: $conversationId,
 				toolName: $name,
-				arguments: $arguments,
-				result: $resultJson,
+				arguments: $shownArguments,
+				result: $this->shownResult(policy: $policy, resultJson: $resultJson),
 				durationMs: (int)round((microtime(true) - $startedAt) * 1000)
 			);
 
@@ -554,38 +706,75 @@ class McpRunController extends Controller {
 	 * @param ObjectEntity|null $agent The agent object, or null when unresolved.
 	 *
 	 * @return array<int, array<string, mixed>> The resolved descriptors.
-	 *
-	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants is a pure rule over the grant grammar, like ToolGrantResolver's static classifiers.
 	 */
 	private function resolvedDescriptorsFor(?ObjectEntity $agent): array {
 		if ($agent === null) {
 			return [];
 		}
 
+		$grants = $this->grantsOf(agent: $agent);
+		$catalog = $this->toolRegistryFacade->listTools(toolWhitelist: []);
+		$allowed = array_flip($this->resolvedToolIds(grants: $grants, catalog: $catalog));
+
+		return array_values(
+			array_filter(
+				$catalog,
+				static fn (mixed $descriptor): bool => self::isAllowedDescriptor(descriptor: $descriptor, allowed: $allowed)
+			)
+		);
+	}//end resolvedDescriptorsFor()
+
+	/**
+	 * An agent's tool grants; a non-array value grants nothing.
+	 *
+	 * @param ObjectEntity $agent The agent.
+	 *
+	 * @return array<mixed> The grants.
+	 */
+	private function grantsOf(ObjectEntity $agent): array {
 		$grants = ($agent->getObject()['tools'] ?? []);
 		if (is_array($grants) === false) {
-			$grants = [];
+			return [];
 		}
 
-		$catalog = $this->toolRegistryFacade->listTools(toolWhitelist: []);
-		// Hermiq-runner-git-capability: a repo-effecting tool resolves only from a
-		// grant that pins the repository and constrains the branch.
-		$resolvedIds = RepoEffectingGrants::filterIds(
+		return $grants;
+
+	}//end grantsOf()
+
+	/**
+	 * The catalogue tool ids the grants resolve to. Hermiq-runner-git-capability: a
+	 * repo-effecting tool resolves only from a grant that pins the repository and
+	 * constrains the branch.
+	 *
+	 * @param array<mixed> $grants The agent's grants.
+	 * @param array<int, array<string, mixed>> $catalog The tool catalogue.
+	 *
+	 * @return array<int, string> The resolved tool ids.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) RepoEffectingGrants is a pure rule over the grant grammar, like ToolGrantResolver's static classifiers.
+	 */
+	private function resolvedToolIds(array $grants, array $catalog): array {
+		return RepoEffectingGrants::filterIds(
 			resolvedIds: $this->grantResolver->resolve(grants: $grants, catalog: $catalog),
 			constraints: $this->grantResolver->argumentConstraints(grants: $grants)
 		);
-		$allowed = array_flip($resolvedIds);
 
-		$out = [];
-		foreach ($catalog as $descriptor) {
-			$descriptorId = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
-			if (is_string($descriptorId) === true && isset($allowed[$descriptorId]) === true) {
-				$out[] = $descriptor;
-			}
-		}
+	}//end resolvedToolIds()
 
-		return $out;
-	}//end resolvedDescriptorsFor()
+	/**
+	 * Whether a catalogue descriptor, by its mcpId or else its name, is among the
+	 * allowed tool ids.
+	 *
+	 * @param mixed $descriptor One catalogue descriptor.
+	 * @param array<string, int> $allowed The allowed tool ids as keys.
+	 *
+	 * @return bool True when the descriptor is allowed.
+	 */
+	private static function isAllowedDescriptor(mixed $descriptor, array $allowed): bool {
+		$descriptorId = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
+		return is_string($descriptorId) === true && isset($allowed[$descriptorId]) === true;
+
+	}//end isAllowedDescriptor()
 
 	/**
 	 * Whether an MCP tool name matches a granted descriptor (by `name` or `mcpId`).
@@ -618,7 +807,10 @@ class McpRunController extends Controller {
 		}
 
 		try {
-			$agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+			$agent = $this->objectService->find(
+				id: $agentId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA)
+			);
 		} catch (Throwable $e) {
 			// `ObjectService::find()` throws when the object is absent, and both
 			// callers invoke this helper OUTSIDE their own try block — so the
@@ -640,81 +832,133 @@ class McpRunController extends Controller {
 	}//end loadAgent()
 
 	/**
+	 * A tool step's arguments or result as the chat may show it: through the
+	 * policy's output filters, or as given when no policy is resolved.
+	 *
+	 * @param array<string,mixed>|null $policy The conversation's effective policy.
+	 * @param mixed                    $value  The arguments or the result text.
+	 *
+	 * @return mixed
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	private function shownInChat(?array $policy, mixed $value): mixed {
+		if ($policy === null || $this->guardrailService === null) {
+			return $value;
+		}
+
+		if ($policy === self::WITHHOLD_ALL) {
+			return $this->guardrailService->withheldPlaceholder();
+		}
+
+		return $this->guardrailService->filterOutputValue(policy: $policy, value: $value);
+	}//end shownInChat()
+
+	/**
+	 * The tool's result JSON as the chat may show it. The JSON is filtered as its
+	 * decoded value, so escaped characters such as `\/` do not hide a match.
+	 *
+	 * @param array<string,mixed>|null $policy     The conversation's effective policy.
+	 * @param string                   $resultJson The result JSON the tool returned.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+	 */
+	private function shownResult(?array $policy, string $resultJson): string {
+		$decoded = json_decode($resultJson, true);
+		if (is_array($decoded) === false) {
+			return (string)$this->shownInChat(policy: $policy, value: $resultJson);
+		}
+
+		$shown = $this->shownInChat(policy: $policy, value: $decoded);
+		if ($shown === $decoded) {
+			return $resultJson;
+		}
+
+		if (is_string($shown) === true) {
+			return $shown;
+		}
+
+		return (string)json_encode($shown, (JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+	}//end shownResult()
+
+	/**
+	 * The policy that decides what the chat shows of a tool step: the
+	 * conversation's, the same one that filters the answer. Null when there is no
+	 * guardrail service; WITHHOLD_ALL when the conversation cannot be read.
+	 *
+	 * @param string $conversationId The run's conversation UUID.
+	 *
+	 * @return array<string,mixed>|null
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 */
+	private function chatPolicy(string $conversationId): ?array {
+		if ($this->guardrailService === null) {
+			return null;
+		}
+
+		$organisation = $this->conversationOrganisation(conversationId: $conversationId);
+		if ($organisation === null) {
+			return self::WITHHOLD_ALL;
+		}
+
+		return $this->guardrailService->effectivePolicyFor(organisation: $organisation);
+	}//end chatPolicy()
+
+	/**
+	 * The conversation's organisation, whose policy also filters the answer: ''
+	 * when the run has no conversation, null when the conversation cannot be read.
+	 *
+	 * @param string $conversationId The run's conversation UUID.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#scenario-tool-details-follow-the-conversations-policy
+	 */
+	private function conversationOrganisation(string $conversationId): ?string {
+		if ($conversationId === '') {
+			return '';
+		}
+
+		try {
+			$conversation = $this->objectService->find(
+				id: $conversationId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[McpRunController] Conversation lookup failed',
+				context: ['conversationId' => $conversationId, 'error' => $e->getMessage()]
+			);
+			return null;
+		}
+
+		if ($conversation instanceof ObjectEntity) {
+			return (string)($conversation->getOrganisation() ?? '');
+		}
+
+		return null;
+	}//end conversationOrganisation()
+
+	/**
 	 * The agent's organisation (for the guardrail policy), or '' when unset.
+	 * OpenRegister keeps it on the object entity, not in the object data.
 	 *
 	 * @param ObjectEntity|null $agent The agent object.
 	 *
 	 * @return string
+	 *
+	 * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
 	 */
 	private function organisationOf(?ObjectEntity $agent): string {
 		if ($agent === null) {
 			return '';
 		}
 
-		return (string)($agent->getObject()['organisation'] ?? '');
+		return (string)($agent->getOrganisation() ?? '');
 	}//end organisationOf()
-
-	/**
-	 * Normalise a facade descriptor's JSON-schema into an MCP `inputSchema` whose
-	 * `properties` is ALWAYS a JSON object — never `[]` (the exact shape the
-	 * `claude` CLI's strict validator rejects). Recurses so nested object schemas
-	 * with an empty `properties` are also objects.
-	 *
-	 * @param mixed $schema The descriptor's `parameters` fragment.
-	 *
-	 * @return array<string, mixed> The MCP-safe input schema.
-	 */
-	private function normaliseInputSchema(mixed $schema): array {
-		if (is_array($schema) === false) {
-			$schema = [];
-		}
-
-		if (isset($schema['type']) === false) {
-			$schema['type'] = 'object';
-		}
-
-		// An object schema MUST carry a `properties` object — an argument-less tool
-		// that omits it entirely (or carries `[]`) is exactly what the CLI's strict
-		// validator rejects. Force a present, object-typed `properties`.
-		if ($schema['type'] === 'object' && array_key_exists('properties', $schema) === false) {
-			$schema['properties'] = new stdClass();
-		}
-
-		return $this->normaliseSchemaProperties(schema: $schema);
-	}//end normaliseInputSchema()
-
-	/**
-	 * Force every `properties` map in a schema fragment to serialise as an object,
-	 * recursing into each property's own schema.
-	 *
-	 * @param array<string, mixed> $schema The schema fragment.
-	 *
-	 * @return array<string, mixed> The normalised fragment.
-	 */
-	private function normaliseSchemaProperties(array $schema): array {
-		if (array_key_exists('properties', $schema) === true) {
-			$properties = $schema['properties'];
-			// Empty (or non-array) properties MUST be an object, not `[]`.
-			$schema['properties'] = new stdClass();
-			if (is_array($properties) === true && $properties !== []) {
-				$normalised = [];
-				foreach ($properties as $propName => $propSchema) {
-					$normalised[$propName] = $propSchema;
-					if (is_array($propSchema) === true) {
-						$normalised[$propName] = $this->normaliseSchemaProperties(schema: $propSchema);
-					}
-				}
-
-				$schema['properties'] = $normalised;
-			}
-		}//end if
-
-		if (isset($schema['items']) === true && is_array($schema['items']) === true) {
-			$schema['items'] = $this->normaliseSchemaProperties(schema: $schema['items']);
-		}
-
-		return $schema;
-	}//end normaliseSchemaProperties()
 
 	/**
 	 * Wrap a `FacadeToolInvoker` result string as an MCP `tools/call` result. The
@@ -816,7 +1060,7 @@ class McpRunController extends Controller {
 	 *
 	 * @return string The raw request body, or '' when unreadable.
 	 *
-	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
+	 * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
 	 */
 	protected function readRawBody(): string {
 		$body = file_get_contents('php://input');
