@@ -22,6 +22,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\BackgroundJob;
 
 use OCA\Hermiq\BackgroundJob\TalkTurnJob;
+use OCA\Hermiq\Service\Talk\TalkTurn;
 use OCA\Hermiq\Service\Talk\TalkTurnClaims;
 use OCA\Hermiq\Service\Talk\TalkTurnExecutor;
 use OCA\Hermiq\Service\Talk\TalkTurnService;
@@ -64,8 +65,8 @@ final class TalkTurnJobTest extends TestCase {
 		$calls   = [];
 		$service = $this->createMock(TalkTurnService::class);
 		$service->method('runTurn')->willReturnCallback(
-			static function (string $conversationUuid, string $speakerUid, string $message, string $roomToken) use (&$calls): bool {
-				$calls[] = [$conversationUuid, $speakerUid, $message, $roomToken];
+			static function (TalkTurn $turn) use (&$calls): bool {
+				$calls[] = [$turn->conversationUuid, $turn->speakerUid, $turn->message, $turn->roomToken];
 				return true;
 			}
 		);
