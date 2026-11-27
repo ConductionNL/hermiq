@@ -28,6 +28,8 @@ use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\ContextAgent\InteractionAudit;
+use OCA\Hermiq\Service\ContextAgent\TaskUserScope;
 use OCA\Hermiq\Service\ContextAgentInteractionService;
 use LLPhant\Chat\Message as LLPhantMessage;
 use OCA\Hermiq\Service\Engine\Engine;
@@ -137,11 +139,9 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->engine,
 			$this->approvalService,
 			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
-			$audit,
-			$redaction,
+			new InteractionAudit($audit, $redaction, $agentVersionService, new NullLogger()),
 			$this->appConfig,
 			new NullLogger(),
-			$agentVersionService,
 			$this->agentAccess,
 			$this->approvalInbox
 		);
@@ -293,11 +293,9 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->engine,
 			$this->approvalService,
 			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
-			$audit,
-			$redaction,
+			new InteractionAudit($audit, $redaction, $agentVersionService, new NullLogger()),
 			$this->appConfig,
 			new NullLogger(),
-			$agentVersionService,
 			$this->agentAccess,
 			$this->approvalInbox
 		);
@@ -625,16 +623,12 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->engine,
 			$this->approvalService,
 			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
-			$audit,
-			$redaction,
+			new InteractionAudit($audit, $redaction, $versions, new NullLogger()),
 			$this->appConfig,
 			new NullLogger(),
-			$versions,
 			$this->agentAccess,
 			$this->approvalInbox,
-			$factory,
-			$session,
-			$this->userManagerWith(uid: 'bob', enabled: true)
+			new TaskUserScope($this->objectService, $session, $this->userManagerWith(uid: 'bob', enabled: true), $factory)
 		);
 
 		// Without a session the whole interaction runs as the task's user in OpenRegister,
@@ -676,16 +670,12 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->engine,
 			$this->approvalService,
 			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
-			$this->createMock(AuditTrailMapper::class),
-			$this->createMock(RedactionService::class),
+			new InteractionAudit($this->createMock(AuditTrailMapper::class), $this->createMock(RedactionService::class), $this->createMock(AgentVersionService::class), new NullLogger()),
 			$this->appConfig,
 			new NullLogger(),
-			$this->createMock(AgentVersionService::class),
 			$this->agentAccess,
 			$this->approvalInbox,
-			null,
-			$session,
-			$this->userManagerWith(uid: 'bob', enabled: false)
+			new TaskUserScope($this->objectService, $session, $this->userManagerWith(uid: 'bob', enabled: false))
 		);
 
 		$this->expectException(ProcessingException::class);

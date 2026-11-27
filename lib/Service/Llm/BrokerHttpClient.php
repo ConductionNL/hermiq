@@ -113,6 +113,13 @@ class BrokerHttpClient implements ClientInterface {
 	];
 
 	/**
+	 * Whether this client acts for a background task's user; set by forBackgroundWork().
+	 *
+	 * @var boolean
+	 */
+	private bool $sessionless = false;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param string $credentialId Broker credential UUID. A reference, not a
@@ -126,24 +133,31 @@ class BrokerHttpClient implements ClientInterface {
 	 *                                          when this client is built by hand in a
 	 *                                          test, in which case sendRequest() fails
 	 *                                          closed like an absent broker.
-	 * @param bool $sessionless True for work acting for a background task's user. The
-	 *                          broker is then called through its PHP-internal
-	 *                          `requestForBackgroundUser()`, whose guards ignore any
-	 *                          session, so the sessionless rule (real membership) applies
-	 *                          even inside a `runAs()` user switch.
-	 *
-	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$sessionless` selects which broker entry
-	 *   one and the same send uses (request() or requestForBackgroundUser()); splitting the
-	 *   client in two would duplicate the header handling the security of both depends on.
 	 */
 	public function __construct(
 		private string $credentialId,
 		private LoggerInterface $logger,
 		private ?string $actingUserId = null,
 		private ?ContainerInterface $container = null,
-		private bool $sessionless = false,
 	) {
 	}//end __construct()
+
+	/**
+	 * A copy of this client for work acting for a background task's user.
+	 *
+	 * The broker is then called through its PHP-internal `requestForBackgroundUser()`,
+	 * whose guards ignore any session, so the sessionless rule (real membership) applies
+	 * even inside a `runAs()` user switch.
+	 *
+	 * @return self The background copy; this client is unchanged.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	public function forBackgroundWork(): self {
+		$copy = clone $this;
+		$copy->sessionless = true;
+		return $copy;
+	}//end forBackgroundWork()
 
 	/**
 	 * Whether OpenRegister's credential broker is installed.

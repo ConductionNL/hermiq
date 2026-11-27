@@ -53,10 +53,9 @@ use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ContextAgent\ConfirmationActor;
+use OCA\Hermiq\Service\ContextAgent\InteractionAudit;
+use OCA\Hermiq\Service\ContextAgent\TaskUserScope;
 use OCA\Hermiq\Service\Engine\Engine;
-use OCA\Hermiq\Service\Llm\ProviderFactory;
-use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
-use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
@@ -64,8 +63,6 @@ use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IAppConfig;
-use OCP\IUserManager;
-use OCP\IUserSession;
 use OCP\TaskProcessing\Exception\ProcessingException;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -122,18 +119,13 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	 * @param Engine $engine Hermiq agent engine (runs the turn).
 	 * @param ApprovalServiceInterface $approvalService Approval-gate decisions (confirmation mapping).
 	 * @param TenantKillSwitch $tenantKillSwitch Kill-switch source (isOrganisationEngaged).
-	 * @param AuditTrailMapper $auditTrailMapper Redacted per-interaction audit write-path.
-	 * @param RedactionService $redactionService Masks secrets/PII before the audit write.
+	 * @param InteractionAudit $interactionAudit Redacted per-interaction audit write-path.
 	 * @param IAppConfig $appConfig Reads the configured ContextAgent agent id.
 	 * @param LoggerInterface $logger Logger.
-	 * @param AgentVersionService $agentVersionService Resolves the serving agent's current version
-	 *                                                 identifier, pinned onto the interaction audit
-	 *                                                 context (agent-versioning).
 	 * @param AgentAccessService $agentAccess Decides whether the task user may use a fallback agent.
 	 * @param ApprovalInbox $approvalInbox The approvals routed to the task user.
-	 * @param ProviderFactory|null $providerFactory Runs the engine turn acting for the task's user.
-	 * @param IUserSession|null $userSession Tells a cron run (no session) from a request.
-	 * @param IUserManager|null $userManager Resolves the task's user for a cron run.
+	 * @param TaskUserScope|null $taskUserScope Runs the turn for the task's user; null runs it
+	 *                                          as the current caller, as before.
 	 *
 	 * @return void
 	 *
@@ -145,18 +137,13 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 		private readonly Engine $engine,
 		private readonly ApprovalServiceInterface $approvalService,
 		private readonly TenantKillSwitch $tenantKillSwitch,
-		private readonly AuditTrailMapper $auditTrailMapper,
-		private readonly RedactionService $redactionService,
+		private readonly InteractionAudit $interactionAudit,
 		private readonly IAppConfig $appConfig,
 		private readonly LoggerInterface $logger,
-		private readonly AgentVersionService $agentVersionService,
 		private readonly AgentAccessService $agentAccess,
 		private readonly ApprovalInbox $approvalInbox,
-		// Nullable and trailing so the existing construction sites keep working; the
-		// container autowires it. Absent, the turn runs without an acting user, as before.
-		private readonly ?ProviderFactory $providerFactory = null,
-		private readonly ?IUserSession $userSession = null,
-		private readonly ?IUserManager $userManager = null,
+		// Nullable and trailing: absent, the turn runs as the current caller, as before.
+		private readonly ?TaskUserScope $taskUserScope = null,
 	) {
 	}//end __construct()
 
@@ -190,25 +177,17 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 			throw new ProcessingException('Hermiq ContextAgent requires a non-empty message.');
 		}
 
-		$work = fn (): array => $this->runAsTaskUser(
+		$work = fn (): array => $this->interactAsTaskUser(
 			userId: $userId,
-			work: fn (): array => $this->interactAsTaskUser(
-				userId: $userId,
-				input: $input,
-				confirmation: $confirmation,
-				conversationToken: $conversationToken
-			)
+			input: $input,
+			confirmation: $confirmation,
+			conversationToken: $conversationToken
 		);
-
-		// The acting scope is entered OUTSIDE the runAs() switch: entered without a
-		// session, it marks the work as background, so every broker call in the turn is
-		// judged by the broker's sessionless rule (real membership of the credential's
-		// organisation) and not by the session rule runAs() would otherwise present.
-		if ($this->providerFactory === null) {
+		if ($this->taskUserScope === null) {
 			return $work();
 		}
 
-		return $this->providerFactory->actingFor(userId: $userId, work: $work);
+		return $this->taskUserScope->run(userId: $userId, work: $work);
 	}//end interact()
 
 	/**
@@ -293,43 +272,6 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 		];
 
 	}//end interactAsTaskUser()
-
-	/**
-	 * Run the whole interaction as the task's user when Nextcloud runs it from cron.
-	 *
-	 * Assistant routes chat to `core:contextagent:interaction`, which Nextcloud runs from
-	 * cron with no session. Every OpenRegister read and write of the turn (the agent, the
-	 * session, its messages, the agent's tools) is RBAC- and organisation-checked against
-	 * the session user, which in cron is nobody: the turn failed with "User 'Anonymous'
-	 * does not have permission to 'read' objects in schema 'Session'", and a session saved
-	 * anonymously could not be found again by the engine. Without a session the work runs
-	 * inside OpenRegister's `ObjectService::runAs()` for the task's user. That grants
-	 * nothing: every check answers for that user, and the previous user is restored after.
-	 *
-	 * With a session (a task run synchronously inside a request) nothing is switched: the
-	 * session user stays. A task whose user no longer exists or is disabled is refused.
-	 *
-	 * @param string $userId The task user (never request input: Nextcloud's stored task user).
-	 * @param callable $work The interaction, called without arguments.
-	 *
-	 * @return array The interaction's result.
-	 *
-	 * @throws ProcessingException When a cron run's task user is unknown or disabled.
-	 *
-	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
-	 */
-	private function runAsTaskUser(string $userId, callable $work): array {
-		if ($this->userSession === null || $this->userManager === null || $this->userSession->getUser() !== null) {
-			return $work();
-		}
-
-		$user = $this->userManager->get($userId);
-		if ($user === null || $user->isEnabled() === false) {
-			throw new ProcessingException('Hermiq ContextAgent cannot act for this task: its user is unknown or disabled.');
-		}
-
-		return $this->objectService->runAs($user, $work);
-	}//end runAsTaskUser()
 
 	/**
 	 * Resolve the agent that serves ContextAgent interactions: the configured
@@ -521,28 +463,6 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	 * @return void
 	 */
 	private function audit(ObjectEntity $object, string $status, string $summary, string $agentId): void {
-		try {
-			$this->auditTrailMapper->recordObjectEvent(
-				event: new ObjectAuditEvent(
-					object: $object,
-					action: 'contextagent-interaction',
-					context: [
-						'status' => $status,
-						'agentId' => $agentId,
-						'summary' => $this->redactionService->redact($summary),
-						// Agent-versioning: the version of the serving agent's config at
-						// the time of this interaction (null when unresolvable — never
-						// fatal to the interaction).
-						'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
-					]
-				)
-			);
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[ContextAgentInteractionService] Could not write interaction audit',
-				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
-			);
-		}
-
+		$this->interactionAudit->record(object: $object, status: $status, summary: $summary, agentId: $agentId);
 	}//end audit()
 }//end class

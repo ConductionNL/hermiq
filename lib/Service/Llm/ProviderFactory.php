@@ -957,13 +957,9 @@ class ProviderFactory implements ProviderFactoryInterface {
 		$body = (string)json_encode($payload);
 		if ((string)$driver->credentialId !== '') {
 			try {
-				$response = (new BrokerHttpClient(
-					credentialId: (string)$driver->credentialId,
-					logger: $this->logger,
-					actingUserId: $this->currentUid(),
-					container: $this->container,
-					sessionless: $this->backgroundActing
-				))->sendRequest(new Request('POST', $url, ['Content-Type' => 'application/json'], $body));
+				$response = $this->brokerClient(credentialId: (string)$driver->credentialId)->sendRequest(
+					new Request('POST', $url, ['Content-Type' => 'application/json'], $body)
+				);
 			} catch (Throwable $e) {
 				throw self::transportFailure(prefix: 'Responses API request failed: ', failure: $e);
 			}
@@ -1091,13 +1087,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @throws \Exception If the request cannot be sent.
 	 */
 	private function sendToFireworks(string $credentialId, Request $request): ResponseInterface {
-		$client = new BrokerHttpClient(
-			credentialId: $credentialId,
-			logger: $this->logger,
-			actingUserId: $this->currentUid(),
-			container: $this->container,
-			sessionless: $this->backgroundActing
-		);
+		$client = $this->brokerClient(credentialId: $credentialId);
 
 		try {
 			return $client->sendRequest($request);
@@ -2025,6 +2015,30 @@ class ProviderFactory implements ProviderFactoryInterface {
 	}//end postToAnthropic()
 
 	/**
+	 * The broker client for one call, acting for the current user; inside a background
+	 * acting scope it uses the broker's background entry.
+	 *
+	 * @param string $credentialId The broker credential UUID.
+	 *
+	 * @return BrokerHttpClient
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	private function brokerClient(string $credentialId): BrokerHttpClient {
+		$client = new BrokerHttpClient(
+			credentialId: $credentialId,
+			logger: $this->logger,
+			actingUserId: $this->currentUid(),
+			container: $this->container
+		);
+		if ($this->backgroundActing === true) {
+			return $client->forBackgroundWork();
+		}
+
+		return $client;
+	}//end brokerClient()
+
+	/**
 	 * Send one Messages request. Through the broker, not straight out: Hermiq has no
 	 * Anthropic secret to send — the broker holds it, checks the allow-rules, and
 	 * injects the auth header server-side.
@@ -2037,13 +2051,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @throws \Exception If the request cannot be sent.
 	 */
 	private function sendToAnthropic(AnthropicToolLoop $loop, array $payload): ResponseInterface {
-		$client = new BrokerHttpClient(
-			credentialId: $loop->run->credentialId,
-			logger: $this->logger,
-			actingUserId: $this->currentUid(),
-			container: $this->container,
-			sessionless: $this->backgroundActing
-		);
+		$client = $this->brokerClient(credentialId: $loop->run->credentialId);
 
 		try {
 			return $client->sendRequest(
@@ -2321,61 +2329,24 @@ class ProviderFactory implements ProviderFactoryInterface {
 		// user so the broker can admit that user's (or their organisation's) credential.
 		return $this->actingFor(
 			userId: $userId,
-			work: fn (): string => $this->generateTextAsCurrentUser(
-				prompt: $prompt,
-				userId: $userId,
-				allowNextcloud: $allowNextcloud,
-				organisation: $organisation,
-				aiFeature: $aiFeature,
-				documentReference: $documentReference
-			)
+			work: function () use ($prompt, $userId, $allowNextcloud, $organisation, $aiFeature, $documentReference): string {
+				$llmConfig = $this->getLlmConfig();
+				$driver = $this->createChatDriver(
+					llmConfig: $llmConfig,
+					organisation: $organisation,
+					aiFeature: $aiFeature,
+					documentReference: $documentReference
+				);
+
+				if ($driver->provider === 'nextcloud') {
+					$this->assertNextcloudMayGenerate(allowNextcloud: $allowNextcloud);
+					return $this->generateViaNextcloud(prompt: $prompt, userId: $userId);
+				}
+
+				return $this->generateWithDriver(driver: $driver, prompt: $prompt);
+			}
 		);
 	}//end generateText()
-
-	/**
-	 * The body of {@see generateText()}, run inside its acting-user scope.
-	 *
-	 * @param string      $prompt            The prompt text.
-	 * @param string|null $userId            The user id (forwarded to the nextcloud driver).
-	 * @param bool        $allowNextcloud    Whether the `nextcloud` driver may be selected.
-	 * @param string|null $organisation      The organisation for the model-policy check, or null.
-	 * @param string|null $aiFeature         The AI feature the generation belongs to, or null.
-	 * @param string|null $documentReference The document the generation reads, or null.
-	 *
-	 * @return string The generated text.
-	 *
-	 * @throws ProviderUnavailableException When no provider is configured/reachable, or
-	 *                                      `nextcloud` is selected while `$allowNextcloud`
-	 *                                      is false.
-	 *
-	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Carried through from generateText().
-	 *
-	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
-	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
-	 */
-	private function generateTextAsCurrentUser(
-		string $prompt,
-		?string $userId,
-		bool $allowNextcloud,
-		?string $organisation,
-		?string $aiFeature,
-		?string $documentReference,
-	): string {
-		$llmConfig = $this->getLlmConfig();
-		$driver = $this->createChatDriver(
-			llmConfig: $llmConfig,
-			organisation: $organisation,
-			aiFeature: $aiFeature,
-			documentReference: $documentReference
-		);
-
-		if ($driver->provider === 'nextcloud') {
-			$this->assertNextcloudMayGenerate(allowNextcloud: $allowNextcloud);
-			return $this->generateViaNextcloud(prompt: $prompt, userId: $userId);
-		}
-
-		return $this->generateWithDriver(driver: $driver, prompt: $prompt);
-	}//end generateTextAsCurrentUser()
 
 	/**
 	 * Refuse the `nextcloud` chat provider where it would back a Nextcloud
@@ -2721,13 +2692,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 		$config->client = OpenAI::factory()
 			->withApiKey(BrokerHttpClient::BROKER_MANAGED_KEY)
 			->withHttpClient(
-				new BrokerHttpClient(
-					credentialId: $credentialId,
-					logger: $this->logger,
-					actingUserId: $this->currentUid(),
-					container: $this->container,
-					sessionless: $this->backgroundActing
-				)
+				$this->brokerClient(credentialId: $credentialId)
 			)
 			->make();
 
@@ -2902,8 +2867,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 			configured: (string)($anthropicConfig['credentialId'] ?? ''),
 			authMode: $authMode,
 			executionMode: $executionMode,
-			organisation: $request->organisation,
-			pinned: $request->agentCredentialIds
+			request: $request
 		);
 		$this->assertBrokerCredential(credentialId: $credentialId, label: 'Anthropic');
 
@@ -2951,8 +2915,8 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @param string $configured The configured `anthropicConfig.credentialId`.
 	 * @param string $authMode The normalised auth mode (`api_key`|`oauth`).
 	 * @param string $executionMode The normalised transport (`http`|`cli`).
-	 * @param string|null $organisation The calling organisation, or null to skip the lookup.
-	 * @param array<string, string>|null $pinned The agent's pinned credential per provider.
+	 * @param ChatDriverRequest $request The calling organisation (null skips the lookup) and
+	 *                                   the agent's pinned credential per provider.
 	 *
 	 * @return string The credential id, or '' when none is configured or found.
 	 *
@@ -2964,14 +2928,17 @@ class ProviderFactory implements ProviderFactoryInterface {
 		string $configured,
 		string $authMode,
 		string $executionMode,
-		?string $organisation,
-		?array $pinned,
+		ChatDriverRequest $request,
 	): string {
 		if ($authMode !== 'api_key' || $executionMode !== 'http') {
 			return $configured;
 		}
 
-		$override = $this->resolveCredentialOverride(provider: 'anthropic', organisation: $organisation, pinned: $pinned);
+		$override = $this->resolveCredentialOverride(
+			provider: 'anthropic',
+			organisation: $request->organisation,
+			pinned: $request->agentCredentialIds
+		);
 		if ($override !== null && $override !== '') {
 			return $override;
 		}

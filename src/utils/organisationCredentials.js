@@ -18,6 +18,8 @@
  *
  * @param {Array<object>|null} results `[{uuid, name, active}]`.
  * @return {Array<{label: string, value: string, active: boolean}>} The options.
+ *
+ * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-the-organisation-credential-form-shows-and-chooses-its-organisation
  */
 export function organisationOptions(results) {
 	return (results || [])
@@ -34,6 +36,8 @@ export function organisationOptions(results) {
  *
  * @param {Array<{value: string, active: boolean}>} options The options.
  * @return {object|null} The default option, or null when there is none.
+ *
+ * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-the-organisation-credential-form-shows-and-chooses-its-organisation
  */
 export function defaultOrganisation(options) {
 	return options.find((option) => option.active) || options[0] || null
@@ -45,6 +49,8 @@ export function defaultOrganisation(options) {
  * @param {function(string): Promise<{data: {results: Array<object>}}>} get An axios-style `get(url)`.
  * @param {function(string): string} urlFor Builds an app URL from a path (`generateUrl`).
  * @return {Promise<Array<object>>} The options.
+ *
+ * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-the-organisation-credential-form-shows-and-chooses-its-organisation
  */
 export async function loadManageableOrganisations(get, urlFor) {
 	try {

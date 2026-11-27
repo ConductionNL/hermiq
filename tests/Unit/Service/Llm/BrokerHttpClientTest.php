@@ -206,13 +206,12 @@ class BrokerHttpClientTest extends TestCase {
 			->with('cred-1', 'hermiq', 'POST', '/v1/messages', $this->anything(), '{}', 'bob')
 			->willReturn(['status' => 200, 'headers' => [], 'body' => '{}']);
 
-		$client = new BrokerHttpClient(
+		$client = (new BrokerHttpClient(
 			credentialId: 'cred-1',
 			logger: new NullLogger(),
 			actingUserId: 'bob',
-			container: $this->containerWith(broker: $broker),
-			sessionless: true
-		);
+			container: $this->containerWith(broker: $broker)
+		))->forBackgroundWork();
 
 		$this->assertSame(200, $client->sendRequest(new Request('POST', 'https://api.anthropic.com/v1/messages', [], '{}'))->getStatusCode());
 	}//end testBackgroundWorkUsesTheBrokersBackgroundEntry()
@@ -236,13 +235,12 @@ class BrokerHttpClientTest extends TestCase {
 		};
 
 		foreach ([['bob', $oldBroker], ['', $this->createMock(\OCA\OpenRegister\Service\Credential\CredentialBrokerService::class)]] as [$user, $broker]) {
-			$client = new BrokerHttpClient(
+			$client = (new BrokerHttpClient(
 				credentialId: 'cred-1',
 				logger: new NullLogger(),
 				actingUserId: $user,
-				container: $this->containerWith(broker: $broker),
-				sessionless: true
-			);
+				container: $this->containerWith(broker: $broker)
+			))->forBackgroundWork();
 			try {
 				$client->sendRequest(new Request('POST', 'https://api.anthropic.com/v1/messages', [], '{}'));
 				$this->fail('Background work must fail closed here.');
