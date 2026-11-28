@@ -14,6 +14,7 @@ $appId = OCA\Hermiq\AppInfo\Application::APP_ID;
 // callback never fires, and the Vue app silently fails to mount inside the
 // `#content` wrapper. Register every chunk produced by splitChunks here,
 // in dependency order, before the main entry. (Mirrors zaakafhandelapp#206.)
+Util::addStyle($appId, 'nextcloud-vue');
 Util::addScript($appId, $appId . '-shared-vendor');
 Util::addScript($appId, $appId . '-shared-nc-vue');
 Util::addScript($appId, $appId . '-main');
