@@ -3688,7 +3688,12 @@ OC.L10N.register(
         "Ran {language}: timed out": "{language} uitgevoerd: tijdslimiet overschreden",
         "Ran {language}: exit code {code}": "{language} uitgevoerd: afsluitcode {code}",
         "Ran {language}: failed ({error})": "{language} uitgevoerd: mislukt ({error})",
-        "Ran {language}": "{language} uitgevoerd"
+        "Ran {language}": "{language} uitgevoerd",
+        "{name} (organisation)": "{name} (organisatie)",
+        "You see the credentials of {organisation}. New credentials are stored for {organisation}.": "Je ziet de credentials van {organisation}. Nieuwe credentials worden opgeslagen voor {organisation}.",
+        "Could not load the organisations you manage. You see the credentials of your active organisation.": "De organisaties die je beheert konden niet worden geladen. Je ziet de credentials van je actieve organisatie.",
+        "Could not save the credential": "De credential kon niet worden opgeslagen",
+        "{name} ({organisation})": "{name} ({organisation})"
     },
     "nplurals=2; plural=(n != 1);"
 )

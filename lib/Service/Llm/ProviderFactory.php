@@ -244,6 +244,26 @@ class ProviderFactory implements ProviderFactoryInterface {
 	private ?AnthropicMessageFormat $anthropicFormat = null;
 
 	/**
+	 * The user a sessionless unit of work acts for, set only inside {@see actingFor()}.
+	 *
+	 * Null outside that scope. Read by {@see currentUid()} only when there is no session.
+	 *
+	 * @var string|null
+	 */
+	private ?string $actingUserId = null;
+
+	/**
+	 * Whether the work in progress acts for a background task's user.
+	 *
+	 * True only inside an {@see actingFor()} scope entered WITHOUT a session. It survives a
+	 * `runAs()` user switch inside that scope, so the broker still applies its sessionless
+	 * rule (real membership) rather than the session rule an administrator passes.
+	 *
+	 * @var boolean
+	 */
+	private bool $backgroundActing = false;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param LlmSettingsHandler $settingsHandler Reads/writes `hermiq.llm`.
@@ -937,12 +957,9 @@ class ProviderFactory implements ProviderFactoryInterface {
 		$body = (string)json_encode($payload);
 		if ((string)$driver->credentialId !== '') {
 			try {
-				$response = (new BrokerHttpClient(
-					credentialId: (string)$driver->credentialId,
-					logger: $this->logger,
-					actingUserId: $this->currentUid(),
-					container: $this->container
-				))->sendRequest(new Request('POST', $url, ['Content-Type' => 'application/json'], $body));
+				$response = $this->brokerClient(credentialId: (string)$driver->credentialId)->sendRequest(
+					new Request('POST', $url, ['Content-Type' => 'application/json'], $body)
+				);
 			} catch (Throwable $e) {
 				throw self::transportFailure(prefix: 'Responses API request failed: ', failure: $e);
 			}
@@ -1070,12 +1087,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @throws \Exception If the request cannot be sent.
 	 */
 	private function sendToFireworks(string $credentialId, Request $request): ResponseInterface {
-		$client = new BrokerHttpClient(
-			credentialId: $credentialId,
-			logger: $this->logger,
-			actingUserId: $this->currentUid(),
-			container: $this->container
-		);
+		$client = $this->brokerClient(credentialId: $credentialId);
 
 		try {
 			return $client->sendRequest($request);
@@ -2003,6 +2015,30 @@ class ProviderFactory implements ProviderFactoryInterface {
 	}//end postToAnthropic()
 
 	/**
+	 * The broker client for one call, acting for the current user; inside a background
+	 * acting scope it uses the broker's background entry.
+	 *
+	 * @param string $credentialId The broker credential UUID.
+	 *
+	 * @return BrokerHttpClient
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	private function brokerClient(string $credentialId): BrokerHttpClient {
+		$client = new BrokerHttpClient(
+			credentialId: $credentialId,
+			logger: $this->logger,
+			actingUserId: $this->currentUid(),
+			container: $this->container
+		);
+		if ($this->backgroundActing === true) {
+			return $client->forBackgroundWork();
+		}
+
+		return $client;
+	}//end brokerClient()
+
+	/**
 	 * Send one Messages request. Through the broker, not straight out: Hermiq has no
 	 * Anthropic secret to send — the broker holds it, checks the allow-rules, and
 	 * injects the auth header server-side.
@@ -2015,12 +2051,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @throws \Exception If the request cannot be sent.
 	 */
 	private function sendToAnthropic(AnthropicToolLoop $loop, array $payload): ResponseInterface {
-		$client = new BrokerHttpClient(
-			credentialId: $loop->run->credentialId,
-			logger: $this->logger,
-			actingUserId: $this->currentUid(),
-			container: $this->container
-		);
+		$client = $this->brokerClient(credentialId: $loop->run->credentialId);
 
 		try {
 			return $client->sendRequest(
@@ -2284,6 +2315,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
 	 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-4-providerfactorygeneratetext-optional-organisation-param
 	 * @spec openspec/changes/ai-feature-run-on-a-document/specs/ai-feature-governance/spec.md#requirement-an-app-can-run-an-ai-feature-on-a-document-it-names-and-the-gates-apply-to-that-document
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
 	 */
 	public function generateText(
 		string $prompt,
@@ -2293,20 +2325,27 @@ class ProviderFactory implements ProviderFactoryInterface {
 		?string $aiFeature = null,
 		?string $documentReference = null,
 	): string {
-		$llmConfig = $this->getLlmConfig();
-		$driver = $this->createChatDriver(
-			llmConfig: $llmConfig,
-			organisation: $organisation,
-			aiFeature: $aiFeature,
-			documentReference: $documentReference
+		// A TaskProcessing provider runs from cron with no session; act for the task's
+		// user so the broker can admit that user's (or their organisation's) credential.
+		return $this->actingFor(
+			userId: $userId,
+			work: function () use ($prompt, $userId, $allowNextcloud, $organisation, $aiFeature, $documentReference): string {
+				$llmConfig = $this->getLlmConfig();
+				$driver = $this->createChatDriver(
+					llmConfig: $llmConfig,
+					organisation: $organisation,
+					aiFeature: $aiFeature,
+					documentReference: $documentReference
+				);
+
+				if ($driver->provider === 'nextcloud') {
+					$this->assertNextcloudMayGenerate(allowNextcloud: $allowNextcloud);
+					return $this->generateViaNextcloud(prompt: $prompt, userId: $userId);
+				}
+
+				return $this->generateWithDriver(driver: $driver, prompt: $prompt);
+			}
 		);
-
-		if ($driver->provider === 'nextcloud') {
-			$this->assertNextcloudMayGenerate(allowNextcloud: $allowNextcloud);
-			return $this->generateViaNextcloud(prompt: $prompt, userId: $userId);
-		}
-
-		return $this->generateWithDriver(driver: $driver, prompt: $prompt);
 	}//end generateText()
 
 	/**
@@ -2653,12 +2692,7 @@ class ProviderFactory implements ProviderFactoryInterface {
 		$config->client = OpenAI::factory()
 			->withApiKey(BrokerHttpClient::BROKER_MANAGED_KEY)
 			->withHttpClient(
-				new BrokerHttpClient(
-					credentialId: $credentialId,
-					logger: $this->logger,
-					actingUserId: $this->currentUid(),
-					container: $this->container
-				)
+				$this->brokerClient(credentialId: $credentialId)
 			)
 			->make();
 
@@ -2812,16 +2846,9 @@ class ProviderFactory implements ProviderFactoryInterface {
 	 *                                      mirroring createOpenAiDriver().
 	 *
 	 * @spec openspec/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-anthropic-resolves-a-personal-then-organisation-credential
 	 */
 	private function createAnthropicDriver(array $anthropicConfig, ChatDriverRequest $request): ChatDriver {
-		$credentialId = (string)($anthropicConfig['credentialId'] ?? '');
-		$this->assertBrokerCredential(credentialId: $credentialId, label: 'Anthropic');
-
-		$model = $this->resolveAnthropicModel(
-			configuredModel: ($anthropicConfig['chatModel'] ?? 'claude-opus-4-8'),
-			agentModel: $request->agentModel
-		);
-
 		$authMode = ($anthropicConfig['authMode'] ?? 'api_key');
 		if ($authMode !== 'oauth') {
 			$authMode = 'api_key';
@@ -2835,6 +2862,27 @@ class ProviderFactory implements ProviderFactoryInterface {
 		if ($executionMode !== 'cli') {
 			$executionMode = 'http';
 		}
+
+		$credentialId = $this->anthropicCredentialId(
+			configured: (string)($anthropicConfig['credentialId'] ?? ''),
+			authMode: $authMode,
+			executionMode: $executionMode,
+			request: $request
+		);
+		$this->assertBrokerCredential(credentialId: $credentialId, label: 'Anthropic');
+
+		// The settings dialog saves an untouched Model field as '' (its placeholder only
+		// shows the default), and `??` keeps an empty string, which Anthropic refuses as a
+		// model id. An empty or blank model therefore falls back to the default too.
+		$configuredModel = trim((string)($anthropicConfig['chatModel'] ?? ''));
+		if ($configuredModel === '') {
+			$configuredModel = 'claude-opus-4-8';
+		}
+
+		$model = $this->resolveAnthropicModel(
+			configuredModel: $configuredModel,
+			agentModel: $request->agentModel
+		);
 
 		$baseUrl = rtrim($anthropicConfig['baseUrl'] ?? 'https://api.anthropic.com/v1', '/');
 
@@ -2854,6 +2902,49 @@ class ProviderFactory implements ProviderFactoryInterface {
 		);
 
 	}//end createAnthropicDriver()
+
+	/**
+	 * The broker credential an Anthropic turn uses.
+	 *
+	 * For an API key over http this is the same personal then organisation lookup OpenAI
+	 * and Fireworks use ({@see resolveCredentialOverride()}), falling back to the configured
+	 * instance credential. The OAuth and CLI modes keep the configured credential: they carry
+	 * a Claude Max/Pro subscription, which the Anthropic terms keep personal, so no lookup
+	 * may swap another one in.
+	 *
+	 * @param string $configured The configured `anthropicConfig.credentialId`.
+	 * @param string $authMode The normalised auth mode (`api_key`|`oauth`).
+	 * @param string $executionMode The normalised transport (`http`|`cli`).
+	 * @param ChatDriverRequest $request The calling organisation (null skips the lookup) and
+	 *                                   the agent's pinned credential per provider.
+	 *
+	 * @return string The credential id, or '' when none is configured or found.
+	 *
+	 * @throws PinnedCredentialRefusedException When the agent's pin for Anthropic cannot be used.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-anthropic-resolves-a-personal-then-organisation-credential
+	 */
+	private function anthropicCredentialId(
+		string $configured,
+		string $authMode,
+		string $executionMode,
+		ChatDriverRequest $request,
+	): string {
+		if ($authMode !== 'api_key' || $executionMode !== 'http') {
+			return $configured;
+		}
+
+		$override = $this->resolveCredentialOverride(
+			provider: 'anthropic',
+			organisation: $request->organisation,
+			pinned: $request->agentCredentialIds
+		);
+		if ($override !== null && $override !== '') {
+			return $override;
+		}
+
+		return $configured;
+	}//end anthropicCredentialId()
 
 	/**
 	 * Resolve the model for an Anthropic turn, ignoring foreign agent overrides.
@@ -2905,18 +2996,74 @@ class ProviderFactory implements ProviderFactoryInterface {
 	}//end resolveAnthropicModel()
 
 	/**
-	 * The calling user's UID, when there is a session.
+	 * Run one unit of work on behalf of a named user when there is no session.
+	 *
+	 * Nextcloud runs TaskProcessing tasks (Assistant text2text, summary, headline and
+	 * contextagent interaction) from cron, in `SynchronousBackgroundJob`, with no user
+	 * session. The task still belongs to someone: Nextcloud hands the provider the task's
+	 * stored user. Inside this scope {@see currentUid()} answers that user, so every
+	 * broker call the work makes carries it as `actingUserId`, and the broker decides
+	 * whether that user may spend the credential (owner of a personal one, enabled member
+	 * of an organisation's one). Hermiq makes no trust decision of its own here.
+	 *
+	 * A session always wins: with a signed-in user the named user is ignored, so this can
+	 * never be used to act as someone else inside a request. The previous value is
+	 * restored in `finally`, so the acting user never outlives the work, also when it
+	 * throws, and nested scopes unwind correctly. Callers pass a user only from trusted
+	 * server state (a task's stored user), never from request input.
+	 *
+	 * @param string|null $userId The user the work belongs to; null or '' acts for nobody.
+	 * @param callable $work The work to run, called without arguments.
+	 *
+	 * @return mixed Whatever the work returns.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	public function actingFor(?string $userId, callable $work): mixed {
+		$previous = $this->actingUserId;
+		$previousBackground = $this->backgroundActing;
+		$this->actingUserId = null;
+		if ($userId !== null && $userId !== '') {
+			$this->actingUserId = $userId;
+		}
+
+		// Background mode is decided once, where the scope is entered: no session there
+		// means a cron run, whatever user switch the work makes later. A nested scope
+		// never turns it off.
+		if ($this->backgroundActing === false) {
+			$this->backgroundActing = ($this->actingUserId !== null && $this->userSession->getUser() === null);
+		}
+
+		try {
+			return $work();
+		} finally {
+			$this->actingUserId = $previous;
+			$this->backgroundActing = $previousBackground;
+		}
+	}//end actingFor()
+
+	/**
+	 * The calling user's UID: the session user, else the user the current work acts for.
 	 *
 	 * The broker's ownership guard needs an identity to check the credential against. On
-	 * the scheduled-agent path there is no session; the credential owner has to be carried
-	 * on the run instead.
+	 * the scheduled-agent and TaskProcessing paths there is no session; the user is then
+	 * the one {@see actingFor()} names for the work in progress, or null outside it.
 	 *
-	 * @return string|null The UID, or null when there is no session.
+	 * @return string|null The UID, or null when there is neither a session nor an acting user.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
 	 */
 	private function currentUid(): ?string {
+		// Background work answers for the task's user, also when the work runs inside a
+		// `runAs()` user switch (the contextagent turn), so a switch can never change who
+		// the broker judges.
+		if ($this->backgroundActing === true) {
+			return $this->actingUserId;
+		}
+
 		$user = $this->userSession->getUser();
 		if ($user === null) {
-			return null;
+			return $this->actingUserId;
 		}
 
 		return $user->getUID();

@@ -343,6 +343,8 @@
 </template>
 
 <script>
+import axios from '@nextcloud/axios'
+import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcCheckboxRadioSwitch,
@@ -354,6 +356,7 @@ import {
 } from '@nextcloud/vue'
 import ProviderDeclarations from '../components/ProviderDeclarations.vue'
 import { getLlmSettings, patchLlmSettings } from '../api/llm.js'
+import { loadLlmCredentials } from '../utils/llmCredentials.js'
 import { apiPathOf, applyStoredConfig, configKeyOf, optionWithValue } from './llmProviderForm.js'
 
 /** The host the broker locks Fireworks credentials to. */
@@ -743,6 +746,54 @@ export default {
 		},
 
 		/**
+		 * Load the caller's personal and active-organisation broker credentials.
+		 *
+		 * Overrides the `brokerCredentials` mixin, which lists personal credentials only.
+		 *
+		 * An organisation credential is the one key every member of the organisation can
+		 * use, so it has to be pickable here. The responses carry no secrets, only names,
+		 * providers, scopes and UUIDs.
+		 *
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-the-ai-provider-dialog-offers-organisation-credentials
+		 */
+		async fetchCredentials() {
+			this.loadingCredentials = true
+			try {
+				this.credentials = await loadLlmCredentials(
+					(url) => axios.get(url),
+					generateUrl,
+				)
+			} finally {
+				this.loadingCredentials = false
+			}
+		},
+
+		/**
+		 * The label of one credential option: its name, plus whose organisation it belongs to.
+		 *
+		 * @param {object} c The credential.
+		 * @return {string} The label.
+		 *
+		 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-the-ai-provider-dialog-offers-organisation-credentials
+		 */
+		credentialLabel(c) {
+			const name = c.name || c.id
+			if (c.scope !== 'organisation') {
+				return name
+			}
+			if (c.organisationName) {
+				return this.t('hermiq', '{name} ({organisation})', {
+					name,
+					organisation: c.organisationName,
+				})
+			}
+			return this.t('hermiq', '{name} (organisation)', { name })
+		},
+
+		/**
 		 * The broker credentials that can serve a given LLM provider.
 		 *
 		 * @param {string|Array<string>} provider One broker provider id, or several.
@@ -753,12 +804,16 @@ export default {
 		 * @return {Array} NcSelect options.
 		 *
 		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-the-ai-provider-dialog-offers-organisation-credentials
 		 */
 		credentialsFor(provider) {
 			const providers = Array.isArray(provider) ? provider : [provider]
 			return this.credentials
 				.filter((c) => providers.includes(c.provider))
-				.map((c) => ({ label: c.name || c.id, value: c.id }))
+				.map((c) => ({
+					label: this.credentialLabel(c),
+					value: c.id,
+				}))
 		},
 
 		/**

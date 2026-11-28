@@ -344,22 +344,18 @@
 			<RemoteAgents />
 		</NcSettingsSection>
 
-		<!-- CnCredentials renders its own heading and description, so no
-		     settings-section title wraps it (that duplicated both). -->
+		<!-- The organisation credentials render their own heading and description,
+		     so no settings-section title wraps them (that duplicated both). -->
 		<div
 			id="section-organisation-credentials"
 			class="hermiq-admin-settings__credentials">
-			<CnCredentials
-				scope="organisation"
-				appId="hermiq"
-				:appName="t('hermiq', 'Hermiq')"
+			<OrganisationCredentialSettings
 				:appCredentials="(manifest && manifest.credentials) || []" />
 		</div>
 	</div>
 </template>
 
 <script>
-import { CnCredentials } from '@conduction/nextcloud-vue'
 import { NcButton, NcNoteCard, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import OpenInNew from 'vue-material-design-icons/OpenInNew.vue'
@@ -367,6 +363,7 @@ import AssistantPromptLibrary from '../components/settings/AssistantPromptLibrar
 import CodeSandboxSettings from '../components/settings/CodeSandboxSettings.vue'
 import ComputerTargets from '../components/settings/ComputerTargets.vue'
 import IntakeSettings from '../components/settings/IntakeSettings.vue'
+import OrganisationCredentialSettings from '../components/settings/OrganisationCredentialSettings.vue'
 import RemoteAgents from '../components/settings/RemoteAgents.vue'
 import ReportGroupingSettings from '../components/settings/ReportGroupingSettings.vue'
 import RunConcurrencySettings from '../components/settings/RunConcurrencySettings.vue'
@@ -423,7 +420,6 @@ export default {
 		AiFeatureRegister,
 		AssistantPromptLibrary,
 		BackupSettingsModal,
-		CnCredentials,
 		Cog,
 		LlmProviderModal,
 		RestoreDialog,
@@ -433,6 +429,7 @@ export default {
 		CodeSandboxSettings,
 		IntakeSettings,
 		NcSettingsSection,
+		OrganisationCredentialSettings,
 		RemoteAgents,
 		ReportGroupingSettings,
 		RunRetentionSettings,

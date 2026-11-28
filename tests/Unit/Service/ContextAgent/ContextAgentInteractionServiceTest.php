@@ -28,19 +28,31 @@ use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\ContextAgent\InteractionAudit;
+use OCA\Hermiq\Service\ContextAgent\TaskUserScope;
 use OCA\Hermiq\Service\ContextAgentInteractionService;
+use LLPhant\Chat\Message as LLPhantMessage;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Llm\BrokerHttpClient;
+use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\TenantKillSwitch;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Credential\CredentialBrokerService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
+use OCP\IUser;
+use OCP\IUserManager;
+use OCP\IUserSession;
+use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Exception\ProcessingException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Container\ContainerInterface;
 use Psr\Log\NullLogger;
 use OCA\Hermiq\Tests\Support\LegacyObjectArgs;
 
@@ -127,11 +139,9 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->engine,
 			$this->approvalService,
 			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
-			$audit,
-			$redaction,
+			new InteractionAudit($audit, $redaction, $agentVersionService, new NullLogger()),
 			$this->appConfig,
 			new NullLogger(),
-			$agentVersionService,
 			$this->agentAccess,
 			$this->approvalInbox
 		);
@@ -283,11 +293,9 @@ class ContextAgentInteractionServiceTest extends TestCase {
 			$this->engine,
 			$this->approvalService,
 			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
-			$audit,
-			$redaction,
+			new InteractionAudit($audit, $redaction, $agentVersionService, new NullLogger()),
 			$this->appConfig,
 			new NullLogger(),
-			$agentVersionService,
 			$this->agentAccess,
 			$this->approvalInbox
 		);
@@ -534,4 +542,161 @@ class ContextAgentInteractionServiceTest extends TestCase {
 
 		$this->assertSame('shared-1', $args[0]['agentId']);
 	}//end testTheFallbackTakesTheFirstAgentTheUserMayUse()
+
+	/**
+	 * Assistant chat runs from cron: the engine turn's broker call acts for the task's user.
+	 *
+	 * Drives a REAL ProviderFactory (no session) whose broker is stubbed, and has the engine
+	 * make the Anthropic call a real turn makes. Fails on the old code: the broker received
+	 * `actingUserId` null, so an organisation key refused every Assistant chat message.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	public function testTheEngineTurnActsForTheTaskUser(): void {
+		$this->withConfiguredAgent($this->agent('agent-1', 'org-1'));
+		$this->killSwitchControls->method('findAll')->willReturn([]);
+		$this->objectService->method('saveObject')->willReturn($this->conversation('conv-new', 'bob'));
+
+		$acting = [];
+		$broker = $this->createMock(CredentialBrokerService::class);
+		// Background work must reach the broker through its background entry only.
+		$broker->expects($this->never())->method('request');
+		$broker->method('requestForBackgroundUser')->willReturnCallback(
+			static function (
+				string $credentialId,
+				string $appId,
+				string $method,
+				string $path,
+				array $headers = [],
+				?string $body = null,
+				string $actingUserId = '',
+			) use (&$acting): array {
+				$acting[] = $actingUserId;
+				return [
+					'status' => 200,
+					'headers' => [],
+					'body' => (string)json_encode(['content' => [['type' => 'text', 'text' => 'hello bob']], 'stop_reason' => 'end_turn']),
+				];
+			}
+		);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $id) => ($id === BrokerHttpClient::BROKER_CLASS ? $broker : null)
+		);
+		$session = $this->createMock(IUserSession::class);
+		$session->method('getUser')->willReturn(null);
+		$factory = new ProviderFactory(
+			$this->createMock(LlmSettingsHandler::class),
+			$this->createMock(IManager::class),
+			$session,
+			new NullLogger(),
+			'hermiq',
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			$container
+		);
+
+		$this->engine->method('processMessage')->willReturnCallback(
+			static fn (): array => [
+				'message' => $factory->callAnthropicChat(
+					credentialId: 'cred-org',
+					model: 'claude-opus-4-8',
+					baseUrl: 'https://api.anthropic.com/v1',
+					messageHistory: [LLPhantMessage::user('hi')]
+				),
+			]
+		);
+
+		$audit = $this->createMock(AuditTrailMapper::class);
+		$redaction = $this->createMock(RedactionService::class);
+		$redaction->method('redact')->willReturnArgument(0);
+		$versions = $this->createMock(AgentVersionService::class);
+		$versions->method('currentVersionId')->willReturn('version-1');
+		$service = new ContextAgentInteractionService(
+			$this->objectService,
+			$this->engine,
+			$this->approvalService,
+			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
+			new InteractionAudit($audit, $redaction, $versions, new NullLogger()),
+			$this->appConfig,
+			new NullLogger(),
+			$this->agentAccess,
+			$this->approvalInbox,
+			new TaskUserScope($this->objectService, $session, $this->userManagerWith(uid: 'bob', enabled: true), $factory)
+		);
+
+		// Without a session the whole interaction runs as the task's user in OpenRegister,
+		// so the engine's RBAC-checked reads answer for bob, not for an anonymous caller.
+		$ranAs = [];
+		$this->objectService->expects($this->once())->method('runAs')->willReturnCallback(
+			static function (IUser $user, callable $operation) use (&$ranAs) {
+				$ranAs[] = $user->getUID();
+				return $operation();
+			}
+		);
+
+		$result = $service->interact('bob', 'hi', null, '');
+
+		$this->assertSame('hello bob', $result['output']);
+		$this->assertSame(['bob'], $acting);
+		$this->assertSame(['bob'], $ranAs);
+	}//end testTheEngineTurnActsForTheTaskUser()
+
+	/**
+	 * A cron run for a disabled (or vanished) user is refused before the engine runs.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	public function testACronRunForADisabledUserIsRefused(): void {
+		$this->withConfiguredAgent($this->agent('agent-1', 'org-1'));
+		$this->killSwitchControls->method('findAll')->willReturn([]);
+		$this->objectService->expects($this->never())->method('saveObject');
+		$this->engine->expects($this->never())->method('processMessage');
+		$this->objectService->expects($this->never())->method('runAs');
+
+		$session = $this->createMock(IUserSession::class);
+		$session->method('getUser')->willReturn(null);
+
+		$service = new ContextAgentInteractionService(
+			$this->objectService,
+			$this->engine,
+			$this->approvalService,
+			new TenantKillSwitch($this->killSwitchControls, new NullLogger()),
+			new InteractionAudit($this->createMock(AuditTrailMapper::class), $this->createMock(RedactionService::class), $this->createMock(AgentVersionService::class), new NullLogger()),
+			$this->appConfig,
+			new NullLogger(),
+			$this->agentAccess,
+			$this->approvalInbox,
+			new TaskUserScope($this->objectService, $session, $this->userManagerWith(uid: 'bob', enabled: false))
+		);
+
+		$this->expectException(ProcessingException::class);
+		$service->interact('bob', 'hi', null, '');
+	}//end testACronRunForADisabledUserIsRefused()
+
+	/**
+	 * A user manager that knows one user.
+	 *
+	 * @param string $uid The user id.
+	 * @param bool $enabled Whether the account is enabled.
+	 *
+	 * @return IUserManager
+	 */
+	private function userManagerWith(string $uid, bool $enabled): IUserManager {
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn($uid);
+		$user->method('isEnabled')->willReturn($enabled);
+
+		$manager = $this->createMock(IUserManager::class);
+		$manager->method('get')->willReturnCallback(static fn (string $id): ?IUser => ($id === $uid ? $user : null));
+		return $manager;
+	}//end userManagerWith()
 }//end class

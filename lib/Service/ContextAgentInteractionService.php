@@ -53,9 +53,9 @@ use OCA\Hermiq\Kernel\Contracts\ApprovalServiceInterface;
 use OCA\Hermiq\Kernel\Contracts\ContextAgentInteractionServiceInterface;
 use OCA\Hermiq\Service\Approval\ApprovalInbox;
 use OCA\Hermiq\Service\ContextAgent\ConfirmationActor;
+use OCA\Hermiq\Service\ContextAgent\InteractionAudit;
+use OCA\Hermiq\Service\ContextAgent\TaskUserScope;
 use OCA\Hermiq\Service\Engine\Engine;
-use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
-use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
 use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
@@ -119,15 +119,13 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	 * @param Engine $engine Hermiq agent engine (runs the turn).
 	 * @param ApprovalServiceInterface $approvalService Approval-gate decisions (confirmation mapping).
 	 * @param TenantKillSwitch $tenantKillSwitch Kill-switch source (isOrganisationEngaged).
-	 * @param AuditTrailMapper $auditTrailMapper Redacted per-interaction audit write-path.
-	 * @param RedactionService $redactionService Masks secrets/PII before the audit write.
+	 * @param InteractionAudit $interactionAudit Redacted per-interaction audit write-path.
 	 * @param IAppConfig $appConfig Reads the configured ContextAgent agent id.
 	 * @param LoggerInterface $logger Logger.
-	 * @param AgentVersionService $agentVersionService Resolves the serving agent's current version
-	 *                                                 identifier, pinned onto the interaction audit
-	 *                                                 context (agent-versioning).
 	 * @param AgentAccessService $agentAccess Decides whether the task user may use a fallback agent.
 	 * @param ApprovalInbox $approvalInbox The approvals routed to the task user.
+	 * @param TaskUserScope|null $taskUserScope Runs the turn for the task's user; null runs it
+	 *                                          as the current caller, as before.
 	 *
 	 * @return void
 	 *
@@ -139,13 +137,13 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 		private readonly Engine $engine,
 		private readonly ApprovalServiceInterface $approvalService,
 		private readonly TenantKillSwitch $tenantKillSwitch,
-		private readonly AuditTrailMapper $auditTrailMapper,
-		private readonly RedactionService $redactionService,
+		private readonly InteractionAudit $interactionAudit,
 		private readonly IAppConfig $appConfig,
 		private readonly LoggerInterface $logger,
-		private readonly AgentVersionService $agentVersionService,
 		private readonly AgentAccessService $agentAccess,
 		private readonly ApprovalInbox $approvalInbox,
+		// Nullable and trailing: absent, the turn runs as the current caller, as before.
+		private readonly ?TaskUserScope $taskUserScope = null,
 	) {
 	}//end __construct()
 
@@ -168,6 +166,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	 *                             org kill-switch is engaged, or the turn fails.
 	 *
 	 * @spec openspec/changes/archive/2026-11-20-contextagent-provider/tasks.md#task-2-2
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
 	 */
 	public function interact(?string $userId, string $input, ?int $confirmation, string $conversationToken): array {
 		if ($userId === null || $userId === '') {
@@ -178,6 +177,34 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 			throw new ProcessingException('Hermiq ContextAgent requires a non-empty message.');
 		}
 
+		$work = fn (): array => $this->interactAsTaskUser(
+			userId: $userId,
+			input: $input,
+			confirmation: $confirmation,
+			conversationToken: $conversationToken
+		);
+		if ($this->taskUserScope === null) {
+			return $work();
+		}
+
+		return $this->taskUserScope->run(userId: $userId, work: $work);
+	}//end interact()
+
+	/**
+	 * The body of {@see interact()}, run as the task's user.
+	 *
+	 * @param string $userId The task creator.
+	 * @param string $input The chat message.
+	 * @param int|null $confirmation The client's confirmation, or null.
+	 * @param string $conversationToken The conversation token, or '' for a new one.
+	 *
+	 * @return array{output: string, conversation_token: string, actions: string} The ContextAgent output shape.
+	 *
+	 * @throws ProcessingException When no agent is available, the kill-switch is engaged, or the turn fails.
+	 *
+	 * @spec openspec/changes/contextagent-provider/tasks.md#task-2-2
+	 */
+	private function interactAsTaskUser(string $userId, string $input, ?int $confirmation, string $conversationToken): array {
 		$agent = $this->resolveAgent(userId: $userId);
 		if ($agent === null) {
 			throw new ProcessingException(
@@ -244,7 +271,7 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 			'actions' => $this->buildActions(agent: $agent),
 		];
 
-	}//end interact()
+	}//end interactAsTaskUser()
 
 	/**
 	 * Resolve the agent that serves ContextAgent interactions: the configured
@@ -436,28 +463,6 @@ class ContextAgentInteractionService implements ContextAgentInteractionServiceIn
 	 * @return void
 	 */
 	private function audit(ObjectEntity $object, string $status, string $summary, string $agentId): void {
-		try {
-			$this->auditTrailMapper->recordObjectEvent(
-				event: new ObjectAuditEvent(
-					object: $object,
-					action: 'contextagent-interaction',
-					context: [
-						'status' => $status,
-						'agentId' => $agentId,
-						'summary' => $this->redactionService->redact($summary),
-						// Agent-versioning: the version of the serving agent's config at
-						// the time of this interaction (null when unresolvable — never
-						// fatal to the interaction).
-						'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
-					]
-				)
-			);
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[ContextAgentInteractionService] Could not write interaction audit',
-				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
-			);
-		}
-
+		$this->interactionAudit->record(object: $object, status: $status, summary: $summary, agentId: $agentId);
 	}//end audit()
 }//end class

@@ -48,7 +48,11 @@ const FULL = {
  * @return {Promise<object>} The wrapper.
  */
 async function open(config) {
-	axios.get = vi.fn(async () => ({ data: { results: CREDENTIALS } }))
+	// The personal list carries the credentials; the organisation lists are empty
+	// (loadLlmCredentials also asks for the manageable organisations and their keys).
+	axios.get = vi.fn(async (url) => ({
+		data: { results: url.includes('scope=organisation') || url.includes('/organisations') ? [] : CREDENTIALS },
+	}))
 	if (config instanceof Error) {
 		api.getLlmSettings.mockRejectedValue(config)
 	} else {

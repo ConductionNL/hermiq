@@ -113,6 +113,13 @@ class BrokerHttpClient implements ClientInterface {
 	];
 
 	/**
+	 * Whether this client acts for a background task's user; set by forBackgroundWork().
+	 *
+	 * @var boolean
+	 */
+	private bool $sessionless = false;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param string $credentialId Broker credential UUID. A reference, not a
@@ -134,6 +141,23 @@ class BrokerHttpClient implements ClientInterface {
 		private ?ContainerInterface $container = null,
 	) {
 	}//end __construct()
+
+	/**
+	 * A copy of this client for work acting for a background task's user.
+	 *
+	 * The broker is then called through its PHP-internal `requestForBackgroundUser()`,
+	 * whose guards ignore any session, so the sessionless rule (real membership) applies
+	 * even inside a `runAs()` user switch.
+	 *
+	 * @return self The background copy; this client is unchanged.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
+	 */
+	public function forBackgroundWork(): self {
+		$copy = clone $this;
+		$copy->sessionless = true;
+		return $copy;
+	}//end forBackgroundWork()
 
 	/**
 	 * Whether OpenRegister's credential broker is installed.
@@ -266,22 +290,48 @@ class BrokerHttpClient implements ClientInterface {
 	}//end brokered()
 
 	/**
-	 * Resolve the broker and hand it the request.
+	 * Make the broker call; background work goes through the broker's background entry.
+	 *
+	 * Fails CLOSED when background work meets an OpenRegister without
+	 * `requestForBackgroundUser()`: its `request()` would judge a `runAs()` user as a
+	 * signed-in session, and a Nextcloud administrator would pass the session rule for
+	 * every organisation (Ruben, 2026-10-10: only real membership counts in the background).
 	 *
 	 * @param RequestInterface $request The request.
-	 * @param string           $path    The broker path.
+	 * @param string           $path    The provider-relative path (with query).
 	 *
-	 * @return array<string, mixed> The broker's response.
+	 * @return array The broker's `{status, headers, body}`.
+	 *
+	 * @throws RuntimeException When background work names no user, or meets a broker without
+	 *                          the background entry.
+	 *
+	 * @spec openspec/changes/claude-provider-for-every-member/specs/claude-provider-for-every-member/spec.md#requirement-a-background-task-acts-for-the-tasks-user
 	 */
 	private function callBroker(RequestInterface $request, string $path): array {
 		$broker = $this->brokerContainer()->get(self::BROKER_CLASS);
-		return $broker->request(
+		$method = $request->getMethod();
+		$headers = $this->headersWithoutAuth(request: $request);
+		$body = (string)$request->getBody();
+
+		if ($this->sessionless === false) {
+			return $broker->request($this->credentialId, self::APP_ID, $method, $path, $headers, $body, $this->actingUserId);
+		}
+
+		if ($this->actingUserId === null || $this->actingUserId === '') {
+			throw new RuntimeException('Hermiq LLM: background work names no user to act for; refusing to call the broker.');
+		}
+
+		if (method_exists($broker, 'requestForBackgroundUser') === false) {
+			throw new RuntimeException('Hermiq LLM: this OpenRegister cannot judge a background call; refusing to call the broker.');
+		}
+
+		return $broker->requestForBackgroundUser(
 			$this->credentialId,
 			self::APP_ID,
-			$request->getMethod(),
+			$method,
 			$path,
-			$this->headersWithoutAuth(request: $request),
-			(string)$request->getBody(),
+			$headers,
+			$body,
 			$this->actingUserId
 		);
 	}//end callBroker()
