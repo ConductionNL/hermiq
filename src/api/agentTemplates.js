@@ -11,25 +11,10 @@
 
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { githubSearchParams, listOrResults as toList } from './listEnvelope.js'
 
 /** Hermiq agent-templates API base. */
 const TEMPLATES_BASE = '/apps/hermiq/api/agent-templates'
-
-/**
- * Normalise the Hermiq list envelope to a plain array.
- *
- * @param {object} data The response body.
- * @return {Array<object>} The extracted list (empty array on miss).
- */
-function toList(data) {
-	if (Array.isArray(data)) {
-		return data
-	}
-	if (Array.isArray(data?.results)) {
-		return data.results
-	}
-	return []
-}
 
 /**
  * List the tenant's agent templates.
@@ -93,6 +78,19 @@ export async function exportAgentToTemplate(agentId) {
 }
 
 /**
+ * "Save as template": the owner turns an agent into an active template in the Store.
+ *
+ * @param {string} agentId The Agent UUID.
+ * @return {Promise<object>} The new template.
+ */
+export async function saveAgentAsTemplate(agentId) {
+	const response = await axios.post(
+		generateUrl(`${TEMPLATES_BASE}/from-agent/${agentId}`),
+	)
+	return response.data
+}
+
+/**
  * Export an existing template's own fields to a shareable JSON package (the read-only
  * counterpart to importAgentTemplate — hand a locally-authored template to another org/hub).
  *
@@ -117,6 +115,19 @@ export async function importAgentTemplate(pkg, source = 'org') {
 		package: pkg,
 		source,
 	})
+	return response.data
+}
+
+/**
+ * Ask the installed apps for the agent templates they offer for themselves. Offers land
+ * quarantined; the response counts them.
+ *
+ * @return {Promise<{imported: number, updated: number, unchanged: number, refused: number}>} The counts.
+ */
+export async function collectAppTemplates() {
+	const response = await axios.post(
+		generateUrl(`${TEMPLATES_BASE}/collect-from-apps`),
+	)
 	return response.data
 }
 
@@ -164,13 +175,7 @@ export async function instantiateAgentTemplate(id, overrides = {}) {
  * @return {Promise<object>} `{ outcome, cards, brokerCredentialAvailable, brokerUsed, rateLimited }`.
  */
 export async function searchGithubTemplates(query = '', credentialId = null) {
-	const params = {}
-	if (query) {
-		params.q = query
-	}
-	if (credentialId) {
-		params.credentialId = credentialId
-	}
+	const params = githubSearchParams(query, credentialId)
 	const response = await axios.get(
 		generateUrl(`${TEMPLATES_BASE}/github/search`),
 		{ params },

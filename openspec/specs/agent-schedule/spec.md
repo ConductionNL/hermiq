@@ -47,12 +47,13 @@ The system MUST let a user create a `Schedule` bound to an existing agent with a
 - AND reject the save with a clear error if the cron expression is invalid
 
 ### Requirement: Fire due schedules and run the agent [MVP]
-A single Nextcloud `TimedJob` MUST poll for due schedules and, for each, run the bound agent via OpenRegister's existing agent handler under the schedule owner's identity.
+A single Nextcloud `TimedJob` MUST poll for due schedules and, for each, commit the occurrence and hand it to a queued background job that runs the bound agent through hermiq's agent engine under the schedule owner's identity. Several background workers MAY run these jobs at the same time.
 
 #### Scenario: A due schedule fires exactly once
 - GIVEN a schedule whose `nextRun` is now or in the past and `enabled=true`
 - WHEN the dispatcher tick runs
-- THEN the system MUST advance `nextRun` and mark the schedule `running` **before** invoking the agent (at-most-once / crash safety)
+- THEN the system MUST advance `nextRun` and mark the schedule `queued` **before** any worker invokes the agent (at-most-once / crash safety)
+- AND the worker MUST claim the occurrence before it marks the schedule `running` and invokes the agent
 - AND run the agent impersonating `Schedule.owner` so file search, tools, and delivery stay tenant-scoped
 - AND record `lastStatus` and, for finite `repeat`, increment `repeat.completed` and delete the schedule when the limit is reached
 
@@ -190,6 +191,177 @@ re-run MUST NOT bypass either gate.
 - THEN the system MUST NOT invoke the agent directly — it MUST follow the
   existing approval-gate path (ensure a pending `Approval`, notify the
   reviewer) rather than running the retry unattended
+
+### Requirement: A person can give an agent a standing goal with a check (REQ-AGGOAL-001)
+
+The system MUST let a person set one active goal on a session with an agent they may use, with a statement, a check, an interval of 15 to 1440 minutes and a turn limit of 1 to 50. The check MUST be either an object count with a target, evaluated as the goal owner, or a judge question answered through the model provider chokepoint.
+
+#### Scenario: A permit officer sets a reminder goal
+- GIVEN a permit officer in a session with the agent "Permit reminder"
+- WHEN they choose "Set a goal", enter "Every overdue permit application has had a reminder", pick the check "Count of overdue applications without a reminder is 0", every 60 minutes, at most 10 turns, and save
+- THEN the session header shows the goal, "turn 0 of 10" and "Stop goal"
+
+### Requirement: Goal turns continue the same session through the scheduled-run gates (REQ-AGGOAL-002)
+
+The system MUST run each goal turn in the goal's session, through the kill switch, budget and approval gates of a scheduled run. After each turn it MUST run the check and store the result. It MUST set the goal to reached when the check passes, to exhausted when the turn limit is used, and MUST notify the goal owner in both cases.
+
+#### Scenario: The goal is reached after three turns
+- GIVEN an active goal whose check counts 4, 1 and then 0 overdue applications after turns one to three
+- WHEN the third turn's check runs
+- THEN the goal is reached, no fourth turn runs, and the officer gets a notification "Goal reached: Every overdue permit application has had a reminder"
+- @e2e exclude background job, covered by PHPUnit on ScheduleService and GoalCheckService
+
+#### Scenario: The kill switch holds a goal
+- GIVEN an active goal whose organisation's kill switch is engaged
+- WHEN its next turn is due
+- THEN no turn runs, the goal shows "blocked" for that turn, and it retries at the next interval
+- @e2e exclude background job, covered by PHPUnit
+
+### Requirement: A goal can be stopped by its owner or the agent owner (REQ-AGGOAL-003)
+
+The system MUST let the goal owner and the agent owner stop an active goal. A stopped goal MUST run no further turns. Any other user MUST get HTTP 404 for the goal.
+
+#### Scenario: The officer stops the goal
+- GIVEN an active goal in its session
+- WHEN the officer chooses "Stop goal"
+- THEN the header shows "Goal stopped" and no further turn runs
+
+### Requirement: A schedule can repeat on an interval or run once (REQ-SPCOV-003)
+
+Besides a cron rule, a person SHALL be able to schedule an agent every given number of
+minutes, or once at a set date and time. An interval schedule SHALL fire again that many
+minutes after its last due time. A one-time schedule SHALL fire once and SHALL NOT fire
+again.
+
+Rows: `sc-interval`, `sc-once`. Board: `hermiq/HmPlanning`.
+
+#### Scenario: An agent runs every thirty minutes
+- **GIVEN** a schedule of kind "Interval" with 30 minutes, last due at 09:00
+- **WHEN** the dispatcher runs at 09:30
+- **THEN** the agent runs, and the next run reads 10:00
+@e2e exclude The dispatcher runs on Nextcloud's background-job clock, which a browser test cannot advance; the next run per kind is covered by ScheduleServiceTest.
+
+#### Scenario: An agent runs once
+- **GIVEN** a schedule of kind "Once" set to 14 November 2026 at 16:00
+- **WHEN** that time has passed and the dispatcher has run
+- **THEN** the agent has run once, and the schedule shows no next run
+@e2e exclude The dispatcher runs on Nextcloud's background-job clock, which a browser test cannot advance; a one-time schedule clearing its next run is covered by ScheduleServiceTest.
+
+### Requirement: A schedule keeps its local time across daylight saving changes (REQ-SPCOV-004)
+
+The system SHALL compute a schedule's next run in the time zone of the schedule owner, as
+set in their Nextcloud profile, falling back to the instance time zone and then UTC. A
+schedule set for 08:00 SHALL keep firing at 08:00 local time when daylight saving time
+starts or ends.
+
+Rows: `sc-timezone`. No screen: computed on the server at every run.
+
+#### Scenario: Summer time ends
+- **GIVEN** an owner in `Europe/Amsterdam` with the cron rule `0 8 * * *`
+- **WHEN** the next run is computed on Saturday 24 October 2026, the day before summer time ends
+- **THEN** Sunday's run is at 08:00 Amsterdam time, which is 07:00 UTC
+@e2e exclude Computed on the server at every run, with no screen; the cron next run in the owner's Europe/Amsterdam zone is covered by ScheduleServiceTest.
+
+#### Scenario: The owner has no time zone set
+- **GIVEN** an owner without a time zone and an instance default of `Europe/Amsterdam`
+- **WHEN** the next run is computed
+- **THEN** it is computed in `Europe/Amsterdam`
+@e2e exclude Computed on the server at every run, with no screen; the zone resolution is covered by ScheduleServiceTest.
+
+### Requirement: A schedule does not start a new run while its last run is still going (REQ-SPCOV-014)
+
+The dispatcher SHALL run due schedules one tick at a time and SHALL NOT start a tick while the
+previous tick is still running. A schedule whose run is still going SHALL therefore not start a
+second run, and its next due run SHALL start on the first tick after the running one has ended.
+
+Row: `sc-overlap`. Board: `hermiq/HmPlanning`.
+
+#### Scenario: A long run is not doubled
+- **GIVEN** a schedule that runs every five minutes, and a run that started at 08:00 and takes twelve minutes
+- **WHEN** the dispatcher's next ticks come due at 08:05 and 08:10
+- **THEN** no second run of that schedule starts before 08:12
+- **AND** run history shows one run starting at 08:00 and the next one after 08:12
+@e2e exclude Needs a run that outlasts two background-job ticks, which a browser test cannot drive; covered by ScheduleTaskTest (parallel runs off).
+
+### Requirement: Every schedule a person may see is on one page (REQ-SCHED-001)
+
+The system MUST offer a Schedules page listing the schedules the user owns or of agents the user may use, and every schedule of the organisation to an organisation admin, with agent, when, next run, last result and enabled, filterable by agent, enabled and failed last result.
+
+#### Scenario: A functional admin checks which schedules failed last night
+- GIVEN a functional admin with twelve schedules across five agents, two of which failed
+- WHEN they open Schedules and filter on "Last result: failed"
+- THEN two rows show, each with its agent, next run and the error on hover
+
+#### Scenario: A colleague does not see another person's private agent's schedule
+- GIVEN a schedule of a private agent the user may not use
+- WHEN the user calls `GET /api/schedules`
+- THEN that schedule is not in the answer
+- @e2e exclude authorization contract, covered by PHPUnit and Newman
+
+### Requirement: An agent's page offers one choice of how it starts (REQ-SCHED-002)
+
+The system MUST show on the agent page how the agent starts: by hand, on a schedule and on an event, each with whether it is active. A user who may use the agent MUST be able to run it by hand with a prompt without a schedule, through the same governance gates as a scheduled run. "Add event" MUST create a draft flow with a trigger and this agent's step for the person to finish on the canvas.
+
+#### Scenario: A case handler runs an agent by hand without a schedule
+- GIVEN an agent with no schedule
+- WHEN a case handler enters "Summarise the open objections" under "By hand" and chooses "Run now"
+- THEN the run starts, appears in run history with trigger "manual", and no schedule was created
+
+#### Scenario: An owner adds an event start
+- GIVEN the owner on the agent page
+- WHEN they choose "Add event" and "When an object is created or changed"
+- THEN a draft flow opens on the canvas with a trigger node and this agent's step, inactive until they activate it
+
+### Requirement: A schedule can be set in plain words (REQ-SCHED-003)
+
+The system MUST read a plain English or Dutch description of when a schedule runs, turn it into a rule, and show a readback and the next three runs before saving. It MUST store the rule, not the words. Text it cannot read MUST be refused with an example.
+
+#### Scenario: A team lead schedules a weekday digest
+- GIVEN a team lead creating a schedule
+- WHEN they type "every weekday at eight" in "When should it run?"
+- THEN the form shows "Every weekday at 08:00, Europe/Amsterdam" and the next three weekday dates, and saving stores the cron rule `0 8 * * 1-5`
+
+#### Scenario: A Dutch phrase is read too
+- GIVEN the same form in Dutch
+- WHEN the team lead types "elke maandag om negen uur"
+- THEN the readback is "Elke maandag om 09:00" and the rule is `0 9 * * 1`
+- @e2e exclude parser table, covered by PHPUnit on ScheduleWhenParser
+
+### Requirement: Each occurrence is claimed once, whatever the number of workers (REQ-PRUN-001)
+
+Hermiq MUST let a worker run a scheduled occurrence only after it has claimed that occurrence, and exactly one claim per occurrence MUST succeed. A worker that loses the claim MUST exit without running. The gates for the kill switch, the budget and approval MUST be checked again by the worker before the turn.
+
+#### Scenario: Four workers, one occurrence
+- GIVEN four background workers and one queued occurrence of the schedule "Nachtelijke zaakcontrole", added twice to the queue by accident
+- WHEN the workers pick up both jobs at the same moment
+- THEN exactly one run of that occurrence appears on the Runs page, and the other job exits without a run
+- @e2e exclude needs parallel worker processes; covered by a race test on the claim and a live check with two workers
+
+#### Scenario: The kill switch engaged after queueing still stops the run
+- GIVEN an occurrence queued at 02:00
+- WHEN an administrator engages the organisation's kill switch at 02:01, before a worker picks it up
+- THEN the worker records the occurrence as skipped by the kill switch and does not run the agent
+- @e2e exclude timing across a background job; covered by PHPUnit on the worker
+
+### Requirement: A lost worker is recorded as a failed run (REQ-PRUN-002)
+
+Hermiq MUST mark an occurrence whose claim outlived its time-to-live without an outcome as failed with the message "The worker stopped before the run finished.", and MUST then apply the schedule's retry policy. Hermiq MUST NOT run that occurrence again under the same key.
+
+#### Scenario: A worker is killed mid-run
+- GIVEN a running occurrence whose worker process is stopped
+- WHEN the claim's time-to-live passes and the next tick sweeps
+- THEN the schedule shows `failed` with "The worker stopped before the run finished.", and a retry, if the schedule has one, runs under a new attempt key
+- @e2e exclude killing a worker process; covered by PHPUnit on the sweep
+
+### Requirement: An administrator limits how many runs go at once (REQ-PRUN-003)
+
+Hermiq MUST let only a Nextcloud administrator set a maximum of parallel runs for the instance and per organisation. A worker that would exceed either limit MUST put the occurrence back in the queue and MUST NOT drop it. The limits MUST apply to scheduled runs.
+
+#### Scenario: One organisation cannot take every worker
+- GIVEN a per-organisation limit of 2 and 40 nightly schedules of Gemeente Tilburg due at 02:00, with four workers
+- WHEN the workers run
+- THEN at most two Tilburg runs are running at any moment, and a run of another organisation due at 02:00 starts without waiting for all 40
+- @e2e exclude needs parallel workers and two organisations; covered by PHPUnit on the limit check and a live check
 
 ## User Stories
 

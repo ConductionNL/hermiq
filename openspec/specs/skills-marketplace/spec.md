@@ -303,6 +303,63 @@ dedicated unit test yet — verified instead via the live clean-install cycle
 this requirement was built to pass; a `SkillBundleInstallerTest` is follow-up
 work, not fabricated here.
 
+### Requirement: The curator SHALL propose merging duplicate skills
+
+The curator background job SHALL find active skills that duplicate each other and propose a
+merge for each pair, naming the skill that stays and the one that goes. A merge SHALL wait for
+a person's approval. On approval the system SHALL keep the surviving skill active, archive the
+duplicate, and move every agent that used the duplicate to the survivor. It SHALL NOT
+hard-delete either skill.
+
+Rows: `sk-curator` (hermiq matrix).
+
+#### Scenario: Two duplicate skills get one merge proposal
+- **GIVEN** two active skills that do the same thing
+- **WHEN** the curator job runs
+- **THEN** one merge proposal names the skill that stays and the skill that goes
+- **AND** both skills stay active until a person decides
+
+#### Scenario: An approved merge archives the duplicate and moves its agents
+- **GIVEN** a merge proposal and an agent that uses the duplicate skill
+- **WHEN** a person approves the merge
+- **THEN** the duplicate is archived, not deleted
+- **AND** the agent now uses the surviving skill
+
+#### Scenario: A rejected merge changes nothing
+- **WHEN** a person rejects a merge proposal
+- **THEN** both skills stay active and the curator does not propose the same pair again
+
+### Requirement: An installed skill records its canonical origin
+
+A skill installed from a published bundle SHALL record the canonical location it came
+from in `sourceUrl`, in the form `https://<host>/<owner>/<repo>/skills/<bundleName>`.
+
+The recorded URL SHALL NOT include a git ref. A branch is not identity, and pinning
+one would make the same skill on two branches two different skills.
+
+#### Scenario: The schema accepts a canonical source URL
+- **WHEN** a skill object is written with `sourceUrl` set to
+  `https://github.com/ConductionNL/buildiq-hydra/skills/example-skill`
+- **THEN** the value is stored and returned unchanged
+
+#### Scenario: A skill without an origin is still valid
+- **WHEN** a skill object is written with no `sourceUrl` at all
+- **THEN** the write succeeds
+- **AND** every one of the 101 pre-existing skills remains valid
+
+### Requirement: The refresh clock is separate from the publish clock
+
+A skill SHALL record when it was last updated FROM its source in `sourceUpdatedAt`,
+distinct from the existing `publishedAt`.
+
+`publishedAt` records publication TO a remote and is empty on an instance that only
+installs. Answering "has anything changed since we last synced?" against it would
+therefore always answer no, so the install direction SHALL have its own field.
+
+#### Scenario: The two clocks are independent
+- **WHEN** a skill has `sourceUpdatedAt` set and `publishedAt` empty
+- **THEN** both values are stored as given, and neither is derived from the other
+
 ## User Stories
 
 - As an org admin, I want to share skills across tenants within my organisation so that teams don't duplicate work.

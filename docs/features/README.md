@@ -13,6 +13,7 @@ difference is a bug worth filing.
 |------|-------------------|------|
 | [Dashboard](dashboard.md) | See how your agents are doing | `dashboard-page` |
 | [Chat](chat.md) | Talk to an agent | `talk-chat-bridge` |
+| [Ask about a document](document-chat.md) | Ask about the open document and see its sources | `document-chat` |
 | [Agents](agents.md) | Define an agent and give it a job | `agent-management-ui` |
 | [Store](store.md) | Install an agent or a skill someone else built | `skills-marketplace` |
 | [Approvals](approvals.md) | Approve or refuse what an agent wants to do | `human-approval-gate` |
@@ -36,6 +37,13 @@ live under Settings.
 | [Reports](reports.md) | Pick a report to open | `manifest-driven-pages` |
 | [AI oversight](ai-oversight.md) | Review advisory decisions an agent made | `ai-oversight-advisory-approvals` |
 | [Tenant ops](tenant-ops.md) | Set budgets and quotas per organisation | `multi-tenant-ops` |
+
+## What other apps call
+
+| Page | What it covers | Spec |
+|------|----------------|------|
+| [Lesson authoring](lesson-authoring.md) | AI drafts for learniq's lesson editor, off until your DPO acknowledges it | `lesson-authoring` |
+| [Message translation](message-translation.md) | Translated messages that say AI made them, off until your DPO acknowledges it | `message-translation` |
 
 ## How the answers reach you
 

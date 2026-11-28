@@ -109,11 +109,127 @@ class AnalyticsServiceTest extends TestCase {
 		$objectService->method('searchObjectsPaginated')
 			->willReturn(['results' => $page, 'total' => count($page)]);
 
-		$mapper = $this->createMock(AuditTrailMapper::class);
-		$mapper->method('findAll')->willReturn($runs);
-
-		return new AnalyticsService($objectService, $mapper);
+		return new AnalyticsService(
+			objectService: $objectService,
+			auditTrailMapper: $this->boundedMapper(runs: $runs, calls: $this->mapperCalls)
+		);
 	}//end service()
+
+	/**
+	 * The findAll() arguments the service under test passed, one entry per call.
+	 *
+	 * @var \ArrayObject<int, array{filters: array|null, search: string|null, limit: int|null}>
+	 */
+	private \ArrayObject $mapperCalls;
+
+	/**
+	 * Reset the recorded mapper calls before every test.
+	 *
+	 * @return void
+	 */
+	protected function setUp(): void {
+		parent::setUp();
+		$this->mapperCalls = new \ArrayObject();
+	}//end setUp()
+
+	/**
+	 * An audit mapper that behaves like the real one for the query shape the service
+	 * must use, and fails the test on any other.
+	 *
+	 * Every call must carry the run actions AND a non-empty search term (the bound); the
+	 * mapper then returns only the fixture entries whose context mentions that term, the
+	 * way OpenRegister's LIKE on `changed` does. A blanket `willReturn($runs)` here would
+	 * hand every row to an unbounded call and could never fail (phantom green).
+	 *
+	 * @param array<int, AuditTrail>  $runs  Every run entry on the "instance".
+	 * @param \ArrayObject<int, mixed> $calls Receives the arguments of each call.
+	 *
+	 * @return AuditTrailMapper
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
+	 */
+	private function boundedMapper(array $runs, \ArrayObject $calls): AuditTrailMapper {
+		$mapper = $this->createMock(AuditTrailMapper::class);
+		$mapper->method('findAll')->willReturnCallback(
+			function (?int $limit = null, ?int $offset = null, ?array $filters = [], ?array $sort = null, ?string $search = null) use ($runs, $calls): array {
+				$calls->append(['filters' => $filters, 'search' => $search, 'limit' => $limit]);
+				$this->assertSame(expected: 'run,agent-run,manual-run', actual: ($filters['action'] ?? null), message: 'Only run entries may be read.');
+				$this->assertNotSame(expected: '', actual: trim((string) $search), message: 'An audit read without a tenant bound reads every organisation.');
+
+				return array_values(
+					array_filter(
+						$runs,
+						static fn (AuditTrail $run): bool => str_contains((string) json_encode($run->getChanged()), (string) $search)
+					)
+				);
+			}
+		);
+
+		return $mapper;
+	}//end boundedMapper()
+
+	/**
+	 * The audit read is bounded by the caller's own agents, and follows them when they change.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
+	 */
+	public function testTheAuditReadIsBoundedByTheCallersAgents(): void {
+		$runs = [
+			$this->runEntry(objectUuid: 's1', status: 'ok', durationMs: 100, agentId: 'agentA'),
+			$this->runEntry(objectUuid: 's2', status: 'ok', durationMs: 100, agentId: 'agentB'),
+			$this->runEntry(objectUuid: 's3-foreign', status: 'ok', durationMs: 100, agentId: 'agentX'),
+		];
+
+		$this->service(schedules: [$this->schedule(uuid: 's1', agentId: 'agentA')], runs: $runs)->computeAnalytics();
+		$first = array_column($this->mapperCalls->getArrayCopy(), 'search');
+		$this->assertSame(expected: ['agentA'], actual: $first);
+
+		$this->mapperCalls->exchangeArray([]);
+		$both = [$this->schedule(uuid: 's1', agentId: 'agentA'), $this->schedule(uuid: 's2', agentId: 'agentB')];
+		$this->service(schedules: $both, runs: $runs)->computeAnalytics();
+		$second = array_column($this->mapperCalls->getArrayCopy(), 'search');
+		sort(array: $second);
+		$this->assertSame(expected: ['agentA', 'agentB'], actual: $second, message: 'The bound must follow the caller\'s own agents.');
+		$this->assertNotContains(needle: 'agentX', haystack: $second);
+		$this->assertSame(
+			expected: [null, null],
+			actual: array_column($this->mapperCalls->getArrayCopy(), 'limit'),
+			message: 'A limit would turn every metric into a floor.'
+		);
+	}//end testTheAuditReadIsBoundedByTheCallersAgents()
+
+	/**
+	 * A caller without a visible agent issues no audit read at all.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#2-tests-make-the-phantom-green-mock-assert-the-query-shape
+	 */
+	public function testNoVisibleAgentIssuesNoAuditRead(): void {
+		$foreign = $this->runEntry(objectUuid: 's3-foreign', status: 'ok', durationMs: 100, agentId: 'agentX');
+		$this->service(schedules: [], runs: [$foreign])->computeAnalytics();
+		$this->assertCount(expectedCount: 0, haystack: $this->mapperCalls);
+	}//end testNoVisibleAgentIssuesNoAuditRead()
+
+	/**
+	 * A run whose context names two visible agents is counted once.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-analytics-unbounded-audit-scan/tasks.md#1-backend-bound-the-audit-trail-read
+	 */
+	public function testARunMentioningTwoVisibleAgentsIsCountedOnce(): void {
+		$run = $this->runEntry(objectUuid: 's1', status: 'ok', durationMs: 100, agentId: 'agentA');
+		$run->setUuid(uuid: 'run-1');
+		$run->setChanged(changed: ['status' => 'ok', 'durationMs' => 100, 'agentId' => 'agentA', 'delegatedTo' => 'agentB']);
+
+		$both = [$this->schedule(uuid: 's1', agentId: 'agentA'), $this->schedule(uuid: 's2', agentId: 'agentB')];
+		$m    = $this->service(schedules: $both, runs: [$run])->computeAnalytics();
+
+		$this->assertSame(expected: 1, actual: $m['totalRuns']);
+	}//end testARunMentioningTwoVisibleAgentsIsCountedOnce()
 
 	/**
 	 * Aggregation computes success rate, status breakdown, latency and per-agent counts,
@@ -344,6 +460,231 @@ class AnalyticsServiceTest extends TestCase {
 		$this->assertSame('schedule', $byId['run-scheduled']['trigger']);
 
 	}//end testListRunsIncludesFlowTriggeredRunsAndNamesTheChannel()
+
+	/**
+	 * A run by hand hangs on the agent and is listed with trigger `manual`.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-scheduling-overview-and-start-choice/specs/agent-schedule/spec.md#requirement-an-agents-page-offers-one-choice-of-how-it-starts-req-sched-002
+	 */
+	public function testListRunsNamesARunByHandManual(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+
+		$manual = $this->runEntry('agentA', 'ok', 80, 'agentA');
+		$manual->setAction('manual-run');
+		$manual->setUuid('run-by-hand');
+		$manual->setCreated(new \DateTime('2026-09-03 09:00:00'));
+
+		$page = $this->service($schedules, [$manual])->listRuns();
+
+		$this->assertSame(1, $page['total']);
+		$this->assertSame(['run-by-hand', 'manual'], [$page['results'][0]['id'], $page['results'][0]['trigger']]);
+
+	}//end testListRunsNamesARunByHandManual()
+
+	/**
+	 * A run row carries the provider disclosure its record holds, data-use term
+	 * included, as it stood at run time; an older run without one reads empty.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
+	 */
+	public function testARunRowShowsTheDataUseTermInForce(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+
+		$recorded = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$recorded->setUuid('run-with-term');
+		$recorded->setCreated(new \DateTime('2026-08-01 09:00:00'));
+		$recorded->setChanged(
+			[
+				'status' => 'ok',
+				'agentId' => 'agentA',
+				'providerDisclosure' => [
+					'feature' => '',
+					'provider' => 'anthropic',
+					'model' => 'claude-sonnet-5',
+					'residency' => 'eu',
+					'location' => 'Frankfurt',
+					'dataUse' => 'no-training',
+					'termsReference' => 'Anthropic commercial terms, checked 2026-09-01',
+				],
+			]
+		);
+		$older = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$older->setUuid('run-before');
+		$older->setCreated(new \DateTime('2026-07-01 09:00:00'));
+
+		$byId = array_column($this->service($schedules, [$recorded, $older])->listRuns()['results'], null, 'id');
+
+		$this->assertSame('no-training', $byId['run-with-term']['providerDisclosure']['dataUse']);
+		$this->assertSame('Anthropic commercial terms, checked 2026-09-01', $byId['run-with-term']['providerDisclosure']['termsReference']);
+		$this->assertSame([], $byId['run-before']['providerDisclosure']);
+
+	}//end testARunRowShowsTheDataUseTermInForce()
+
+	/**
+	 * A run that fell back shows both attempts in order and every provider that received the prompt.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-every-attempt-is-on-the-run-record-req-mfail-005
+	 */
+	public function testARunRowShowsItsProviderAttempts(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+		$recorded = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$recorded->setUuid('run-fell-back');
+		$recorded->setChanged(
+			[
+				'status' => 'ok',
+				'agentId' => 'agentA',
+				'providerDisclosure' => [
+					'provider' => 'ollama',
+					'model' => 'qwen2.5',
+					'receivedBy' => [['provider' => 'anthropic', 'model' => 'claude-opus-4-8'], ['provider' => 'ollama', 'model' => 'qwen2.5'], 'junk'],
+				],
+				'providerAttempts' => [
+					['provider' => 'anthropic', 'model' => 'claude-opus-4-8', 'outcome' => 'failed', 'reason' => 'rate_limit', 'durationMs' => 120, 'received' => true, 'extra' => ['x']],
+					['provider' => 'ollama', 'model' => 'qwen2.5', 'outcome' => 'answered', 'reason' => '', 'durationMs' => 900, 'received' => true],
+				],
+			]
+		);
+
+		$row = $this->service($schedules, [$recorded])->listRuns()['results'][0];
+
+		$this->assertSame(
+			[
+				['provider' => 'anthropic', 'model' => 'claude-opus-4-8', 'outcome' => 'failed', 'reason' => 'rate_limit', 'durationMs' => 120],
+				['provider' => 'ollama', 'model' => 'qwen2.5', 'outcome' => 'answered', 'reason' => '', 'durationMs' => 900],
+			],
+			$row['providerAttempts']
+		);
+		$this->assertSame([['provider' => 'anthropic', 'model' => 'claude-opus-4-8'], ['provider' => 'ollama', 'model' => 'qwen2.5']], $row['receivedBy']);
+		$this->assertArrayNotHasKey('receivedBy', $row['providerDisclosure']);
+	}//end testARunRowShowsItsProviderAttempts()
+
+	/**
+	 * Tools-browser-and-computer-use REQ-COMPUTER-004: a run row lists the computer
+	 * actions its steps recorded (machine, action, point, approval, screenshot hash
+	 * and size), never anything else of the step; a run without one has no such list.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/computer-use/spec.md#requirement-the-run-records-actions-and-never-stores-screenshots-req-computer-004
+	 */
+	public function testARunRowListsItsComputerActions(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+		$used = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$used->setUuid('run-computer');
+		$used->setCreated(new \DateTime('2026-10-20 10:00:00'));
+		$used->setChanged(
+			[
+				'status' => 'ok',
+				'agentId' => 'agentA',
+				'steps' => [
+					['seq' => 1, 'type' => 'tool', 'name' => 'hermiq.computerScreenshot', 'computer' => ['target' => 'Werkplek 03', 'action' => 'screenshot', 'screenshot' => ['sha256' => 'abc', 'bytes' => 2048, 'image' => 'UE5H']]],
+					['seq' => 2, 'type' => 'llm', 'name' => 'answer'],
+					['seq' => 3, 'type' => 'tool', 'name' => 'hermiq.computerClick', 'arguments' => ['secret' => 'x'], 'computer' => ['target' => 'Werkplek 03', 'action' => 'click', 'x' => 412, 'y' => 230, 'approvalId' => 'ap-1', 'raw' => 'dropped']],
+				],
+			]
+		);
+		$plain = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$plain->setUuid('run-plain');
+		$plain->setCreated(new \DateTime('2026-10-19 10:00:00'));
+
+		$byId = array_column($this->service($schedules, [$used, $plain])->listRuns()['results'], null, 'id');
+
+		$this->assertSame(
+			[
+				['target' => 'Werkplek 03', 'action' => 'screenshot', 'screenshot' => ['sha256' => 'abc', 'bytes' => 2048]],
+				['target' => 'Werkplek 03', 'action' => 'click', 'x' => 412, 'y' => 230, 'approvalId' => 'ap-1'],
+			],
+			$byId['run-computer']['computerActions']
+		);
+		$this->assertArrayNotHasKey('computerActions', $byId['run-plain']);
+
+	}//end testARunRowListsItsComputerActions()
+
+	/**
+	 * Tools-code-sandbox REQ-SANDBOX-005: a run row lists the code runs its steps
+	 * recorded, with the code and the already redacted outputs; a run without one
+	 * has no such list.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005
+	 */
+	public function testARunRowListsItsCodeRuns(): void {
+		$schedules = [$this->schedule(uuid: 's1', agentId: 'agentA')];
+		$used = $this->runEntry(objectUuid: 's1', status: 'ok', durationMs: 100, agentId: 'agentA');
+		$used->setUuid('run-code');
+		$used->setCreated(new \DateTime('2026-10-20 10:00:00'));
+		$used->setChanged(
+			[
+				'status' => 'ok',
+				'agentId' => 'agentA',
+				'steps' => [
+					[
+						'seq' => 1,
+						'type' => 'tool',
+						'name' => 'hermiq.runCode',
+						'arguments' => ['code' => 'x'],
+						'codeRun' => ['language' => 'python', 'code' => 'print(2)', 'exitCode' => 0, 'stdout' => 'mail ***', 'raw' => 'dropped'],
+					],
+				],
+			]
+		);
+		$plain = $this->runEntry(objectUuid: 's1', status: 'ok', durationMs: 100, agentId: 'agentA');
+		$plain->setUuid('run-plain');
+		$plain->setCreated(new \DateTime('2026-10-19 10:00:00'));
+
+		$byId = array_column($this->service(schedules: $schedules, runs: [$used, $plain])->listRuns()['results'], null, 'id');
+
+		$this->assertSame(
+			expected: [['language' => 'python', 'code' => 'print(2)', 'exitCode' => 0, 'stdout' => 'mail ***']],
+			actual: $byId['run-code']['codeRuns']
+		);
+		$this->assertArrayNotHasKey(key: 'codeRuns', array: $byId['run-plain']);
+
+	}//end testARunRowListsItsCodeRuns()
+
+	/**
+	 * A run row carries the run's token counts, cache counts included, and drops
+	 * anything that is not a whole count; a run without usage gets an empty list.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-prompt-and-answer-cache/tasks.md#task-3
+	 */
+	public function testARunRowCarriesTheRecordedTokenCounts(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
+
+		$cached = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$cached->setUuid('run-cached');
+		$cached->setChanged(
+			[
+				'status' => 'ok',
+				'agentId' => 'agentA',
+				'usage' => [
+					'promptTokens' => 2300,
+					'completionTokens' => 120,
+					'cacheReadTokens' => 1840,
+					'cacheWriteTokens' => -1,
+					'llmSeconds' => 1.5,
+					'other' => 'x',
+				],
+			]
+		);
+		$plain = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$plain->setUuid('run-plain');
+
+		$byId = array_column($this->service($schedules, [$cached, $plain])->listRuns()['results'], null, 'id');
+
+		$this->assertSame(['promptTokens' => 2300, 'completionTokens' => 120, 'cacheReadTokens' => 1840], $byId['run-cached']['usage']);
+		$this->assertSame([], $byId['run-plain']['usage']);
+
+	}//end testARunRowCarriesTheRecordedTokenCounts()
 
 	/**
 	 * The status filter narrows the rows, and `total` counts the filtered set.

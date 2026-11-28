@@ -4,7 +4,7 @@
 
 **Feature tier**: V1
 
-**OpenSpec changes:** `agent-memory` — DONE: Memory/UserProfile/agentsession/agentsessionturn schemas; MemoryService char-budget write path (append flags `needsConsolidation` over budget, never truncates) + tenant-scoped OR-search recall; MemoryController endpoints; AgentMemory UI (Playwright-verified). Run-loop consumption (recordTurn/recall/consolidate during an agent turn) is an OpenRegister seam.
+**OpenSpec changes:** `agent-memory` — DONE: Memory/UserProfile/agentsession/agentsessionturn schemas; MemoryService char-budget write path (append flags `needsConsolidation` over budget, never truncates) + tenant-scoped OR-search recall; MemoryController endpoints; AgentMemory UI (Playwright-verified). Run-loop consumption (recordTurn/recall/consolidate during an agent turn) is an OpenRegister seam. `memory-correct-and-forget` (archived 2026-09-29): the owner corrects or forgets one entry from the memory list.
 
 ## Purpose
 
@@ -149,6 +149,88 @@ sufficient to deny an agent any of the three memory tools with zero additional c
   `hermiq.forgetMemory`
 - THEN the call MUST appear as one `tool`-type step in the run's trace timeline, exactly
   as any other tool call does
+
+### Requirement: An owner can correct a remembered fact (REQ-MEMEDIT-001)
+
+The system MUST let the owner of an agent replace the text of one memory entry with `PUT /api/agents/{agentId}/memory/entries/{entryId}`. The old entry MUST be kept with `deletedAt` set, and the new text MUST be stored as a new entry. An empty text MUST be refused with HTTP 400.
+
+#### Scenario: An owner corrects a wrong fact
+- GIVEN the owner of the agent "Permit helper" on its page, whose memory holds "The permit desk closes at 16:00"
+- WHEN they choose "Correct" on that fact, change it to "The permit desk closes at 17:00" and save
+- THEN the memory list shows "The permit desk closes at 17:00" and no longer shows the old time
+
+### Requirement: An owner can make an agent forget a fact (REQ-MEMEDIT-002)
+
+The system MUST let the owner of an agent soft-delete one memory entry with `DELETE /api/agents/{agentId}/memory/entries/{entryId}`. A forgotten entry MUST NOT appear in the memory list or in recall. A user who does not own the agent MUST get HTTP 404 and the memory MUST NOT change.
+
+#### Scenario: An owner removes a fact
+- GIVEN the owner of "Permit helper" on its memory list
+- WHEN they choose "Forget" on a fact and confirm
+- THEN the fact is gone from the list and the agent no longer recalls it
+
+#### Scenario: Someone else tries to remove a fact
+- GIVEN a user who does not own "Permit helper"
+- WHEN they call `DELETE /api/agents/{agentId}/memory/entries/{entryId}`
+- THEN the answer is HTTP 404 and the entry is unchanged
+- @e2e exclude authorization contract on the endpoint, covered by PHPUnit
+
+### Requirement: An owner can have an agent tidy its memory (REQ-SPCOV-008)
+
+When an agent's memory is over its character budget, the Memory page SHALL show a nudge with
+a Consolidate action. Consolidating SHALL let the agent's model merge overlapping facts and
+drop facts that no longer hold, and SHALL leave the memory within its budget. Only the
+agent's owner SHALL be able to start it.
+
+Rows: `me-consolidate`. Board: `hermiq/HmGeheugen`.
+
+#### Scenario: An owner consolidates an over-budget memory
+- **GIVEN** an agent whose memory holds 40 facts and is over its character budget
+- **WHEN** its owner chooses "Consolidate" on the Memory page
+- **THEN** the memory holds fewer facts, is within its budget, and the nudge is gone
+
+#### Scenario: Someone else cannot consolidate
+- **WHEN** a user who does not own the agent calls the consolidate endpoint
+- **THEN** the call is refused and the memory is unchanged
+
+### Requirement: An agent has one shared memory and a memory per project (REQ-PMEM-001)
+
+Hermiq MUST keep for each agent exactly one memory with scope `shared` and at most one memory per project key. Existing memories MUST become the shared memory without moving their entries. A session MAY name a project key when it starts, and MUST keep that key for its life.
+
+#### Scenario: A policy advisor starts a project session
+- GIVEN the agent "Beleidsondersteuner" with the project "Omgevingsvisie 2040"
+- WHEN a policy advisor starts a session on `/chat` and picks the project "Omgevingsvisie 2040"
+- THEN the session header shows "Project: Omgevingsvisie 2040", and the session carries that project key
+- e2e: `tests/e2e/spec-coverage/memory-project-scopes.spec.ts`
+
+### Requirement: Recall in a project reads the project and the shared memory only (REQ-PMEM-002)
+
+In a session with a project key, hermiq MUST search the agent's memory for that project and its shared memory, MUST label each recalled entry with its layer, and MUST NOT read another project's memory. Outside a project, hermiq MUST search the shared memory only.
+
+#### Scenario: Facts from another project stay out
+- GIVEN the agent's project memory `aanbesteding-wagenpark` holds a fact about bestelbussen
+- WHEN the agent recalls "bestelbussen" in a session of the project "Omgevingsvisie 2040"
+- THEN the recall result holds no entry from `aanbesteding-wagenpark`, and entries from the shared memory are labelled `shared`
+- @e2e exclude a tool result, not a page; covered by PHPUnit on `recallEntries()` with three memory objects
+
+### Requirement: Writes go to the project memory unless marked shared (REQ-PMEM-003)
+
+In a session with a project key, hermiq MUST store a fact the agent remembers with scope `agent` in the project memory, and one with scope `shared` in the shared memory. Outside a project, both MUST go to the shared memory. Every write MUST be redacted before it is stored.
+
+#### Scenario: A deadline lands in the project
+- GIVEN a session of the project "Omgevingsvisie 2040"
+- WHEN the agent remembers "De raad behandelt het ontwerp op 14 november 2026." with scope `agent`
+- THEN the entry is in the project memory, and the shared memory is unchanged
+- @e2e exclude the model chooses when to call the tool; covered by PHPUnit on the memory tool dispatch
+
+### Requirement: An owner sees and moves entries between layers (REQ-PMEM-004)
+
+The Memory page MUST show the shared memory and each project memory apart, and MUST let the agent owner move an entry from a project to the shared memory and back. A move MUST pass redaction again.
+
+#### Scenario: A general rule moves to shared
+- GIVEN the entry "Beleidsstukken gebruiken B1-taalniveau." in the project memory of "Omgevingsvisie 2040"
+- WHEN the agent owner chooses "Move to shared" on it on the Memory page
+- THEN the entry shows under "Shared" and no longer under the project
+- e2e: `tests/e2e/spec-coverage/memory-project-scopes.spec.ts`
 
 ## User Stories
 

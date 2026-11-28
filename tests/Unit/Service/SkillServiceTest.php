@@ -31,6 +31,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for SkillService.
@@ -101,7 +102,11 @@ class SkillServiceTest extends TestCase {
 
 		$saved = [];
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = null, mixed $register = null, mixed $schema = null, mixed $uuid = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = ['schema' => $schema, 'uuid' => $uuid, 'data' => $object];
 				$entity = new ObjectEntity();
 				$entity->setUuid((string)$uuid);
@@ -142,7 +147,11 @@ class SkillServiceTest extends TestCase {
 
 		$agentSaveCount = 0;
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = null, mixed $register = null, mixed $schema = null, mixed $uuid = null) use (&$agentSaveCount): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$agentSaveCount): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				if ($schema === 'agent') {
 					$agentSaveCount++;
 				}
@@ -179,7 +188,11 @@ class SkillServiceTest extends TestCase {
 
 		$saved = [];
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = null, mixed $register = null, mixed $schema = null, mixed $uuid = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = ['schema' => $schema, 'data' => $object];
 				$entity = new ObjectEntity();
 				$entity->setUuid((string)$uuid);
@@ -243,7 +256,11 @@ class SkillServiceTest extends TestCase {
 
 		$saved = [];
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = null, mixed $register = null, mixed $schema = null, mixed $uuid = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = ['schema' => $schema, 'uuid' => $uuid, 'data' => $object];
 				$entity = new ObjectEntity();
 				$entity->setUuid((string)$uuid);
@@ -284,7 +301,11 @@ class SkillServiceTest extends TestCase {
 
 		$agentSaveCount = 0;
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = null, mixed $register = null, mixed $schema = null, mixed $uuid = null) use (&$agentSaveCount): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$agentSaveCount): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				if ($schema === 'agent') {
 					$agentSaveCount++;
 				}
@@ -353,7 +374,11 @@ class SkillServiceTest extends TestCase {
 
 		$saved = [];
 		$objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = null, mixed $register = null, mixed $schema = null, mixed $uuid = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved = $object;
 				$entity = new ObjectEntity();
 				$entity->setUuid((string)$uuid);

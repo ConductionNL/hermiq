@@ -16,7 +16,7 @@
 
 ---
 
-Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule — all inside your own Nextcloud. Agents, their memory and skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant.
+Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule — all inside your own Nextcloud. Agents, their memory and skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant. Install it from the [Nextcloud App Store](https://apps.nextcloud.com/apps/hermiq).
 
 > **Manifest-first** — pages, navigation, and dependencies are declared in `src/manifest.json`. The shell (CnAppRoot) reads the manifest at boot and renders index / detail / dashboard / settings pages without per-page Vue files. Reach for a custom Vue component only when the page is `type: "custom"`. See `openspec/architecture/` and hydra ADR-024 for the architectural rationale.
 
@@ -149,6 +149,29 @@ cd hermiq
 npm install && npm run build
 php occ app:enable hermiq
 ```
+
+### Try it with Docker
+
+The repository builds an evaluation image: the official Nextcloud image with hermiq and OpenRegister installed and enabled. It is meant for trying the app out and for test environments. For production, install the app from the Nextcloud App Store.
+
+```bash
+docker compose -f docker-compose.yml up -d --build
+```
+
+Open http://localhost:8080/apps/hermiq/ and sign in as `admin` with password `admin`. The first start takes a minute or two. Set `NEXTCLOUD_ADMIN_PASSWORD` and `APP_PORT` to change the password and the port; `docker-compose.yml` lists every setting. `docker compose -f docker-compose.yml down -v` removes the stack and its data.
+
+Released versions are published as `ghcr.io/conductionnl/hermiq`, so leaving out `--build` uses the published image.
+
+### Run it on Kubernetes
+
+`charts/hermiq` wraps the official [Nextcloud Helm chart](https://github.com/nextcloud/helm) and runs the same image with PostgreSQL:
+
+```bash
+helm dependency build charts/hermiq
+helm install hermiq charts/hermiq --set nextcloud.nextcloud.host=hermiq.example.org
+```
+
+Change the passwords in `charts/hermiq/values.yaml` before you install it anywhere that matters.
 
 ## Development
 
@@ -329,6 +352,12 @@ composer phpmetrics     # HTML metrics report
 npm run lint            # ESLint
 npm run stylelint       # CSS linting
 ```
+
+### Test coverage
+
+<!-- coverage:start -->
+Measured test coverage: 85.3% of statements (PHP 85.8% of 34,209 statements, JavaScript 82.8% of 6,694 statements), at commit `aa27b0d6` on 2026-11-13. The figures come from [`coverage-summary.json`](coverage-summary.json); refresh them with `composer coverage:publish`.
+<!-- coverage:end -->
 
 ### Enable locally
 

@@ -28,7 +28,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-approval-reactions/tasks.md#1-bind-an-approval-to-the-message-that-carries-it
+ * @spec openspec/changes/archive/2026-07-30-talk-approval-reactions/tasks.md#1-bind-an-approval-to-the-message-that-carries-it
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
+ * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
  */
 class TalkApprovalNotifier {
 	/**
@@ -74,43 +74,23 @@ class TalkApprovalNotifier {
 	 *
 	 * @return bool True when the request was posted and bound.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
 	 */
 	public function postRequest(ObjectEntity $approval, string $displayName): bool {
 		try {
-			if ($this->bridge->isAvailable() === false) {
+			$room = $this->approvalRoom(approval: $approval);
+			if ($room === null) {
 				return false;
 			}
 
-			$agentId = (string)($approval->getObject()['agentId'] ?? '');
-			if ($agentId === '') {
-				return false;
-			}
-
-			$roomToken = $this->agentBinding->roomForAgent(agentId: $agentId);
-			if ($roomToken === null) {
-				// No room bound to this agent — the notification and inbox
-				// still carry the request. Not an error.
-				return false;
-			}
-
-			// Under the agent's OWN bot: an approval request asks a person to
-			// judge THIS agent's run, so it must be signed by it. Posting as the
-			// shared bot rendered it as a bare `bot-<hash>-bot` actor id in a
-			// room where the shared bot is not enabled — observed live.
-			$messageId = $this->bridge->postToRoomReturningId(
-				roomToken: $roomToken,
-				message: $this->requestText(displayName: $displayName),
-				agentId: $agentId
-			);
-
+			$messageId = $this->postAsAgent(room: $room, displayName: $displayName);
 			if ($messageId === null) {
 				return false;
 			}
 
 			return $this->approvalBinding->bind(
 				approval: $approval,
-				roomToken: $roomToken,
+				roomToken: $room->roomToken,
 				messageId: $messageId
 			);
 		} catch (Throwable $e) {
@@ -124,6 +104,55 @@ class TalkApprovalNotifier {
 	}//end postRequest()
 
 	/**
+	 * The agent and room an approval request goes to, or null when Talk is absent,
+	 * the approval names no agent, or the agent has no room.
+	 *
+	 * @param ObjectEntity $approval The pending approval.
+	 *
+	 * @return ApprovalRoom|null The agent and room.
+	 */
+	private function approvalRoom(ObjectEntity $approval): ?ApprovalRoom {
+		if ($this->bridge->isAvailable() === false) {
+			return null;
+		}
+
+		$agentId = (string)($approval->getObject()['agentId'] ?? '');
+		if ($agentId === '') {
+			return null;
+		}
+
+		$roomToken = $this->agentBinding->roomForAgent(agentId: $agentId);
+		if ($roomToken === null) {
+			// No room bound to this agent — the notification and inbox
+			// still carry the request. Not an error.
+			return null;
+		}
+
+		return new ApprovalRoom(agentId: $agentId, roomToken: $roomToken);
+	}//end approvalRoom()
+
+	/**
+	 * Post the request text into the room, signed by the agent's own bot.
+	 *
+	 * Under the agent's OWN bot: an approval request asks a person to judge THIS
+	 * agent's run, so it must be signed by it. Posting as the shared bot rendered
+	 * it as a bare `bot-<hash>-bot` actor id in a room where the shared bot is not
+	 * enabled — observed live.
+	 *
+	 * @param ApprovalRoom $room        The agent and room.
+	 * @param string       $displayName What the approval is about.
+	 *
+	 * @return string|null The posted message's id, or null.
+	 */
+	private function postAsAgent(ApprovalRoom $room, string $displayName): ?string {
+		return $this->bridge->postToRoomReturningId(
+			roomToken: $room->roomToken,
+			message: $this->requestText(displayName: $displayName),
+			agentId: $room->agentId
+		);
+	}//end postAsAgent()
+
+	/**
 	 * The request message.
 	 *
 	 * States both emoji explicitly. A reviewer who has to guess which reaction
@@ -133,12 +162,12 @@ class TalkApprovalNotifier {
 	 *
 	 * @return string The message body.
 	 *
-	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
+	 * @spec openspec/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
 	 */
 	private function requestText(string $displayName): string {
 		$body = "React 👍 to approve or 👎 to deny. Only the reviewer's reaction counts, "
 			. 'and a decision cannot be undone.';
 
-		return sprintf("⏸️ **Approval needed** for “%s”.\n\n%s", $displayName, $body);
+		return sprintf("⏸️ **Approval needed** for %s.\n\n%s", (new TalkSafeText())->quoted(name: $displayName, fallback: 'an action'), $body);
 	}//end requestText()
 }//end class

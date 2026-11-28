@@ -1,0 +1,2307 @@
+{
+  "name": "Hydra sequencer",
+  "description": "Pick up the next queued issue anywhere in the organisation, take a slot and a per-issue lock, gate it, advance its label, release. This is what replaces hydra-supervisor.sh's poll loop — see openspec/changes/hydra-flows-first-port tasks 3.1 and 3.2 and builder-write-access-hardening task 0.",
+  "trigger": "schedule",
+  "cron": "*/5 * * * *",
+  "enabled": false,
+  "$bindings": {
+    "find-work.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "describe-repo.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "advance.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "advance-failed.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "run-stage.credentialId": "A DISTINCT credential from the Source uuids above — NOT the same one, which is what this entry used to say. The forge Source uses provider `github`, a host-locked PROXY whose `resolveInjectable()` returns null BY DESIGN so the secret never leaves OpenRegister. `run-stage` cannot use that: the ExApp fetches a tool tree and pushes, and git speaks the smart-HTTP pack protocol, so there is no single request for the broker to make on its behalf. It needs provider `github-push` (`inject_only: true`), whose secret is handed to the sidecar behind GIT_ASKPASS. A proxy credential cannot be injected and an inject-only credential cannot be proxied, so binding both references to one uuid fails whichever credential it names. ⚠️ The push credential MUST be a FINE-GRAINED token scoped to ONE repository with `Contents: Read and write` and NOT `Workflows` — see the requirements on the `github-push` entry in openregister's credential-providers.json, including the workflow-probe that must be refused before the token is stored. It is NOT a placeholder: a credential id is instance-specific, so it cannot be checked in, and it is not derivable from anything the tick carries. Leaving it as `{{forgeCredential}}` is what sent the LITERAL STRING `{{forgeCredential}}` to the broker, which answered `credential not found` — a message that reads as a missing credential rather than an unrendered placeholder (openregister#2245). See hydra#537.",
+    "run-build.pushCredentialId": "The `github-push` (inject_only) credential. Instance-specific. Without it the stage falls back to the proxy credential, which cannot be injected, and the build fails at the push having done all its work.",
+    "run-build.llmCredentialId": "The `anthropic-cli` (inject_only) credential. Instance-specific. Without it the command runs with no model token and `claude` reports \"Not logged in\"."
+  },
+  "$comment": [
+    "🔑 THE FLOW IS THE AUTHORITY ON WHAT RUNS NEXT (task 3.2). No stage chooses its",
+    "own successor and no daemon polls: a scheduled tick reads the queue, decides,",
+    "and moves the label. `hydra-supervisor.sh` is a 3,937-line loop doing this.",
+    "",
+    "The two guarantees it enforces are DIFFERENT and are enforced differently:",
+    "",
+    "  claim-slot  at most N concurrent — a resource cap. Brief overshoot costs CPU",
+    "              and corrupts nothing, so a single-step claim on flow state is",
+    "              enough (openregister#2221), made safe by a scheduled flow never",
+    "              overlapping itself (openregister#2218).",
+    "  lock-issue  ONE run per issue — this must be EXACT. Two stages on one issue",
+    "              duplicate commits and drive the label state machine from two",
+    "              places. Enforced by IDENTITY: an object write with",
+    "              `onConflict: fail`, where the DATABASE arbitrates.",
+    "",
+    "The lock was re-measured through the node on 2026-07-31 rather than trusted:",
+    "twelve simultaneous runs claiming one identifier gave 1 completed / 11 stopped,",
+    "each loser told `already exists`, and exactly one row. `tasks.md` recorded",
+    "per-issue locking as having 'no node equivalent' — that was true when written",
+    "and stopped being true at openregister#2215.",
+    "",
+    "🔑 THIS FLOW IS NOW SCHEDULE-SAFE (builder-write-access-hardening task 0.4).",
+    "  The previous revision said, correctly, that it was not: `{{repo}}`,",
+    "  `{{queueLabel}}`, `{{runLabel}}`, `{{failLabel}}`, `{{lockId}}`, `{{branch}}`",
+    "  and `{{forgeCredential}}` were all caller-supplied and a schedule tick",
+    "  supplies NONE of them. The reaper's fix (task 0) asked one question of each",
+    "  of its own placeholders — is this genuinely input, or can the flow derive",
+    "  it? — and the same question, asked here, has three different answers:",
+    "",
+    "    DERIVED FROM THE WORK   `repo`, `issueNumber`, the lock id (as `repoSlug`",
+    "      plus `issueNumber`) and the stage ref. The sequencer searches the whole",
+    "      organisation, so the repository arrives WITH the issue rather than",
+    "      before it, and everything about the issue follows from the issue.",
+    "    CONSTANT                the three labels and the lock marker. These are",
+    "      hydra conventions, not per-run values, and both halves of every one of",
+    "      them live in this repository — so they are hardcoded at both ends the",
+    "      way the reaper's `name` marker is, not left for an importer. A reader",
+    "      pointed at a different string from the writer is indistinguishable from",
+    "      a reader that found nothing to do.",
+    "    BOUND                   the Source uuid and the forge credential uuid.",
+    "      These are the only two values that are genuinely neither derivable nor",
+    "      constant: they identify objects on a particular instance. `$bindings`",
+    "      already existed for exactly this and now covers both.",
+    "",
+    "  What is left is a graph in which every value is a literal, a computation over",
+    "  inputs the engine always has, or something read off a forge response — and",
+    "  the only remaining placeholder a CALLER may fill, `branch`, is an override",
+    "  applied through `coalesce`, which always yields a value. A manual or",
+    "  event-triggered run may still seed `org` or `branch`; neither is required,",
+    "  and that path is deliberately preserved rather than closed.",
+    "",
+    "⚠️ STILL `enabled: false`, AND THE REASON HAS CHANGED — read this before",
+    "  flipping it. The old reason was technical and is gone: the flow could not",
+    "  fire, and now it can (proved by firing it from `FlowScheduleWorker` with no",
+    "  caller input). The remaining reason is operational. Unlike the reaper, which",
+    "  only deletes hydra's own stale locks, an enabled sequencer MUTATES REAL",
+    "  REPOSITORIES every five minutes: it applies `build:pass` / `build:fail` to",
+    "  live issues and dispatches gate runs that take up to 25 minutes each. That",
+    "  is a deployment decision with a blast radius, not a bug fix, so it is left",
+    "  to whoever operates the instance rather than switched on inside the change",
+    "  that made it possible.",
+    "",
+    "⚠️ The lock is taken and never released by this graph. Releasing it belongs",
+    "  with stage completion, which is not built yet. Reaping an ABANDONED one is",
+    "  `hydra-lock-reaper.flow.json`, and as of builder-write-access-hardening",
+    "  task 0 that reaper is enabled and demonstrably fires on its own schedule.",
+    "  Its filter is the constant `name` this flow writes plus `@self.created`, so",
+    "  the two halves agree by a literal rather than by intention — change the",
+    "  literal in one place and `test-flow-definitions.sh` fails.",
+    "",
+    "⚠️ CONSEQUENTLY A SECOND TICK ON THE SAME ISSUE IS REFUSED, not skipped. The",
+    "  flow does not mark the issue `build:running` before gating, so five minutes",
+    "  later the search still returns it. `lock-issue` is what stops the duplicate:",
+    "  the second run stops at `already exists` and never reaches the forge. That",
+    "  is the designed behaviour and it was measured rather than assumed — but it",
+    "  means a wedged lock stalls that issue until the reaper's cutoff, which is",
+    "  precisely why the reaper had to work first."
+  ],
+  "nodes": [
+    {
+      "id": "start",
+      "type": "openregister.trigger-schedule",
+      "config": {},
+      "position": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "scope",
+      "type": "openregister.set-fields",
+      "config": {
+        "compute": {
+          "searchQuery": {
+            "cat": [
+              "org:",
+              {
+                "coalesce": [
+                  {
+                    "var": "json.org"
+                  },
+                  "ConductionNL"
+                ]
+              },
+              " is:issue is:open label:\"build:queued\""
+            ]
+          }
+        },
+        "$comment": "The search the tick is about to run, ASSEMBLED rather than received. A schedule tick's payload is only `{flowId, scheduledAt}`, so every value this flow needs has to be a constant, a computation, or something derived from what it finds — never something a caller happens to pass. The organisation is the one genuine piece of configuration in the whole graph and it is applied through `coalesce`, which always yields a value: an operator running a fork can seed `org`, and a tick that seeds nothing still gets `ConductionNL`. The queue label is a CONSTANT, written here exactly once, for the same reason the lock marker is a constant — see the note on `advance`."
+      }
+    },
+    {
+      "id": "find-work",
+      "type": "openconnector.source-call",
+      "config": {
+        "query": {
+          "q": "{{searchQuery}}",
+          "per_page": "1"
+        },
+        "method": "GET",
+        "output": "queue",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "$comment": "🔑 THE SEQUENCER POLLS THE ORGANISATION, NOT A REPOSITORY. This used to be `GET /repos/{{repo}}/issues`, and `repo` is exactly the value a schedule tick cannot supply — it rendered empty, the call went to `/repos//issues`, and GitHub answered `404 Not Found`. Threading a repository in from somewhere would have been the wrong fix twice over. First, a repository is not an input to 'what should the pipeline do next' — it is a PROPERTY OF THE WORK, and `derive` below reads it back off the issue that was found. Second, there is no list to thread: `_forgejo_work_list_repos` was deleted with `hydra-supervisor.sh` (#466) and nothing replaced it. The supervisor had already learned this lesson the expensive way — it moved from per-repo enumeration to ONE org-wide search because 41 repos x 5 label queries = 205 calls per tick got the runner's IP flagged as abusive by Codeberg's WAF. `/search/issues` is GitHub's equivalent of the `/repos/issues/search` endpoint it settled on. Measured on 2026-08-02: `org:ConductionNL is:issue is:open label:\"build:queued\"` returns 4 open issues across several repositories in a single call. NOTE that the endpoint now carries NO placeholder at all. That is the property worth keeping — `FlowConfigGuard::assertEndpointContained()` re-checks the RENDERED endpoint, but only for escape (absolute URL, traversal); `/repos//issues` is relative and traversal-free, so the guard passed it and GitHub was the thing that said no.",
+        "endpoint": "/search/issues"
+      }
+    },
+    {
+      "id": "work-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "derive",
+            "condition": {
+              ">": [
+                {
+                  "length": [
+                    {
+                      "var": "json.queue.body.items"
+                    }
+                  ]
+                },
+                0
+              ]
+            }
+          }
+        ],
+        "default": "stop-idle",
+        "$comment": "`/search/issues` wraps its results in `items` alongside `total_count`, where `/repos/{repo}/issues` returned a bare array. So the emptiness test is on `queue.body.items`, not on `queue.body`. Getting this wrong fails in the worst direction: `length` of a non-array is its STRING length, so testing the wrapper object would be non-empty on every tick and the work branch would be taken with nothing in hand."
+      }
+    },
+    {
+      "id": "derive",
+      "type": "openregister.set-fields",
+      "config": {
+        "compute": {
+          "repo": {
+            "replace": [
+              {
+                "var": "json.queue.body.items.0.repository_url"
+              },
+              "https://api.github.com/repos/",
+              ""
+            ]
+          },
+          "repoSlug": {
+            "replace": [
+              {
+                "replace": [
+                  {
+                    "var": "json.queue.body.items.0.repository_url"
+                  },
+                  "https://api.github.com/repos/",
+                  ""
+                ]
+              },
+              "/",
+              "-"
+            ]
+          },
+          "repoParts": {
+            "split": [
+              {
+                "var": "json.repo"
+              },
+              "/"
+            ]
+          },
+          "repoName": {
+            "var": "json.repoParts.1"
+          },
+          "issueNumber": {
+            "var": "json.queue.body.items.0.number"
+          },
+          "changeParts": {
+            "split": [
+              {
+                "var": "json.queue.body.items.0.body"
+              },
+              "openspec/changes/"
+            ]
+          },
+          "changeRest": {
+            "var": "json.changeParts.1"
+          },
+          "changeBits": {
+            "split": [
+              {
+                "var": "json.changeRest"
+              },
+              "/"
+            ]
+          },
+          "changeCut1Parts": {
+            "split": [
+              {
+                "var": "json.changeBits.0"
+              },
+              "`"
+            ]
+          },
+          "changeCut1": {
+            "var": "json.changeCut1Parts.0"
+          },
+          "changeCut2Parts": {
+            "split": [
+              {
+                "var": "json.changeCut1"
+              },
+              "\n"
+            ]
+          },
+          "changeCut2": {
+            "var": "json.changeCut2Parts.0"
+          },
+          "changeCut3Parts": {
+            "split": [
+              {
+                "var": "json.changeCut2"
+              },
+              " "
+            ]
+          },
+          "changeCut3": {
+            "var": "json.changeCut3Parts.0"
+          },
+          "changeCut4Parts": {
+            "split": [
+              {
+                "var": "json.changeCut3"
+              },
+              ")"
+            ]
+          },
+          "changeCut4": {
+            "var": "json.changeCut4Parts.0"
+          },
+          "changeCut5Parts": {
+            "split": [
+              {
+                "var": "json.changeCut4"
+              },
+              ","
+            ]
+          },
+          "changeCut5": {
+            "var": "json.changeCut5Parts.0"
+          },
+          "changeCut6Parts": {
+            "split": [
+              {
+                "var": "json.changeCut5"
+              },
+              "\""
+            ]
+          },
+          "changeCut6": {
+            "var": "json.changeCut6Parts.0"
+          },
+          "change": {
+            "var": "json.changeCut6"
+          },
+          "recordPath": {
+            "cat": [
+              "openspec/changes/",
+              {
+                "var": "json.change"
+              },
+              "/hydra.json"
+            ]
+          },
+          "issueUrl": {
+            "var": "json.queue.body.items.0.html_url"
+          }
+        },
+        "$comment": "🔑 THE REPOSITORY IS READ BACK OFF THE WORK, which is what lets the search be org-wide. A search result carries `repository_url` — an absolute API URL like `https://api.github.com/repos/ConductionNL/openregister` — and NOT a `repository` object and NOT a `full_name`, so the owner/name pair has to be recovered by stripping the prefix. Verified against the live API rather than assumed: the item keys are `repository_url`, `number`, `labels`, … with no `repository` member. 🔑 `lockId` IS DERIVED, NOT SUPPLIED, and that is a CORRECTNESS requirement rather than a schedule-tick convenience. The lock's entire job is that two runs which pick the same issue collide on it — `onConflict: fail` makes the DATABASE arbitrate. A caller-supplied identifier defeats that by construction: two ticks passing two different ids both succeed, the mutual exclusion the lock exists for is gone, and every run still reports success. So the id is a pure function of the thing being locked. `repoSlug` exists only because the id must survive being an identifier: `ConductionNL/openregister` carries a slash.  🔑 THE SPEC IS CARRIED, NOT REDISCOVERED. hydra is spec-driven: an issue is always about an OpenSpec change, that change is a folder in the target repo, and `hydra.json` sits beside it as the record. The change slug is in the issue body — `openspec/changes/<slug>/` — and nothing used to read it, so a stage ran without knowing which spec it was implementing and the recorder had no path to write to. Derived by SPLIT because the expression language has no regex: the operators are upper/lower/trim/split/join/replace/now. `compute` keys chain (applyCompute assigns per key, in order), so each line reads the one above. Verified against all four issues queued at the time of writing: validate-self-folder-access, milestone-tracking, method-decomposition, document-zaakdossier — 4 of 4.  The three `change*` scratch keys stay on the item deliberately: `set-fields` applies remove → rename → set → compute, so a key computed here cannot be removed here, and a second node purely to tidy them would cost a transition for cosmetics. Verified end-to-end against the LIVE engine rather than reasoned about — a probe flow returned change=`validate-self-folder-access` and recordPath=`openspec/changes/validate-self-folder-access/hydra.json`, which is what proves `split`, `var` array-indexing and per-key chaining all behave as written. \n🔑 THE SLUG IS TERMINATED EXPLICITLY, AND THE `/` SPLIT IS NOT ENOUGH.\n`changeBits` splits on `/` and takes element 0, which is right only when\nthe slug is followed by another path segment. It usually is not — an issue\nbody writes `openspec/changes/p2-meeting-management` and then keeps\ntalking, so with no `/` to stop at, element 0 is the slug PLUS everything\nafter it. Measured on planix#248, `change` came out as:\n\n    p2-meeting-management`  <newline> <newline> Queued for Hydra build (placement\n\nwhich reached `read-change` as an endpoint containing a CONTROL CHARACTER.\n`FlowConfigGuard::assertEndpointContained()` refused it before any request,\nand the run died there.\n\n⚠️ `onError: continue` DID NOT COVER IT, and that distinction is worth\nkeeping: the refusal happened while the endpoint was being RENDERED, not\nas an HTTP failure, so the error policy never applied. An error policy\nprotects the CALL; it does not protect the ARGUMENTS.\n\nThe expression language has `split`, `join`, `replace`, `trim` and NO\nregex, so termination is a chain of splits — one per character that can\nlegitimately follow a slug in prose. Each step takes element 0, so a slug\nalready terminated by an earlier separator passes through the rest\nuntouched.\n\n⚠️ THE KEY ORDER IS LOAD-BEARING. `applyCompute()` assigns per key in\nsequence, so every `…Parts` must be written before the `…Cut` that reads\nit. Written in the other order the whole chain silently yields empty, and\nan empty slug builds the endpoint `/contents/openspec/changes/` — which is\na real directory, answers 200, and would send every unspecced issue\nstraight through the gate this feeds."
+      }
+    },
+    {
+      "id": "spec-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "describe-repo",
+            "condition": {
+              "!!": {
+                "var": "json.change"
+              }
+            }
+          }
+        ],
+        "default": "flag-nospec",
+        "$comment": "An issue with no OpenSpec change is REFUSED rather than built. hydra is spec-driven — the change is what the work is about, and `hydra.json` beside it is where the result is recorded — so a stage with no spec has nowhere to write and nothing to be judged against. Same shape as `refuse-unattributed` in hydra-record-stage: refuse loudly rather than proceed with a hole. This rejects none of the queue it was written against (4 of 4 carry a change folder); it exists so the FIFTH one that does not is visible instead of silent.\n\n🔴 THIS DEFAULT NAMED `refuse-unspecced` — THE END NODE — AND THAT MADE THE\nREFUSAL A LOOP. When the refusal path grew a body (`flag-unspecced` →\n`dequeue-unspecced` → `refuse-unspecced`), `spec-exists-gate`'s default was\nmoved to the new head and this one was not. The EDGE was added here; only\nthe route target was missed, so the graph looked wired and the router still\njumped straight to the terminal.\n\nAn issue naming no change therefore ended the run WITHOUT being labelled and\nWITHOUT leaving the queue — and `find-work` searches on `build:queued`, so\nthe next tick five minutes later selected the same issue and refused it\nagain, forever. `dequeue-unspecced`'s own comment describes exactly this\n('it is not a refusal — it is a loop') for the sibling path.\n\n⚠️ IT IS INVISIBLE FROM THE RUN LOG, which is why it survived. Every tick\nreports `completed`, and `flag-unspecced` logs `in 0 out 0` — a heartbeat,\nindistinguishable from the normal case where the issue DID name a change and\nsimply took the other exit. Nothing anywhere prints 'this issue has now been\nrefused eleven times'.\n\n🔴🔥 AND POINTING IT AT `flag-unspecced` — THE OBVIOUS FIX — DID NOT WORK.\nMeasured with an issue that names no change (openregister#2469):\n\n    spec-gate         in 1 out 1   item tagged `flag-unspecced`\n    spec-exists-gate  in 0 out 0   heartbeat\n    flag-unspecced    in 0 out 0   nothing arrived\n\nSame loss as `build-blocked`: `advanceItems()` ASSIGNS to a firing node's\noutput places whether or not it produced items, so `spec-exists-gate`'s empty\nfiring overwrote the place `spec-gate` had just filled. The issue kept\n`build:queued`, and the run reported `completed`. The loop was still a loop —\nthe fix had simply moved where it was invisible.\n\n🔑 SO THIS DEFAULT GETS ITS OWN CHAIN: `flag-nospec` → `dequeue-nospec` →\n`refuse-unspecced`. Two nodes duplicated rather than one place shared. The\nend node is shared safely because an END consumes no items."
+      },
+      "position": {
+        "x": 520,
+        "y": 220
+      }
+    },
+    {
+      "id": "read-change",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "GET",
+        "output": "changeDir",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "$comment": "🔑 A MENTION IS NOT AN EXISTENCE PROOF. `spec-gate` above only asks\nwhether the issue BODY contains `openspec/changes/`, which `derive` then\nsplits a slug out of. That says the author typed a path; it says nothing\nabout whether the path is there.\n\nMeasured across the queue this pipeline actually serves:\n\n    planix/openspec/changes/        404 — the directory is absent ENTIRELY\n    procest/openspec/changes/       only `archive`\n    openregister .../register-resolver-service   404 on main AND development\n\nSo the gate passed issue after issue whose spec was never committed, took\na slot and a lock for each, cloned the repository, spent twenty minutes of\nmodel time, and handed the agent an empty proposal — which it then\ncorrectly declined to build. Every one of those runs was decided before\nthe first byte was cloned; this is where that decision belongs.\n\n🔴 IT NOW ASKS ABOUT `stageRef`, AND THE COMMENT THAT USED TO SIT HERE WAS\nRIGHT WHEN IT WAS WRITTEN AND WRONG BY THE TIME IT MATTERED. It argued that\nomitting `?ref=` was deliberate, because the contents endpoint defaults to\nthe repository's DEFAULT branch and that is 'exactly what `resolve-ref` will\npick for `stageRef` further down'.\n\nThat premise was removed by hydra#561. `resolve-ref` now prefers\n`development` over the declared default, because this fleet develops there\nand `main` is whatever was last released. So the two diverged: this node\nasked `main` while the build targeted `development`.\n\n⚠️ AND THE FAILURE IS A SILENT, CORRECT-LOOKING REFUSAL. A change committed\non `development` but not on `main` answers 404 here, `spec-exists-gate`\nroutes it to `flag-unspecced`, and the issue is labelled `build:blocked` and\ndequeued — 'this issue names a change that is not in the repository', which\nis a sentence about a change that IS in the repository. openregister's\ndefault branch is `main`, so it is squarely exposed. Nothing errors; the run\nreports `completed`.\n\n🔑 SO `describe-repo` / `read-dev-ref` / `resolve-ref` MOVED IN FRONT OF\nTHIS NODE. They are three read-only lookups that need no slot and no lock,\nso running them earlier costs nothing and gives this check the branch the\nbuild will actually use. The original ordering existed to keep the refusal\ncheap; it still is — the refusal happens before `claim-slot`, exactly as\nbefore.\n\n⚠️ `onError: continue`, because a 404 IS THE ANSWER this node exists to\nget. Stopping on it would turn the refusal into a crashed run, and a\ncrashed run leaves the issue queued for the next tick to crash on again.",
+        "endpoint": "/repos/{{repo}}/contents/openspec/changes/{{change}}?ref={{stageRef}}"
+      }
+    },
+    {
+      "id": "spec-exists-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "claim-slot",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.changeDir.status"
+                },
+                200
+              ]
+            }
+          }
+        ],
+        "default": "flag-unspecced",
+        "$comment": "Routes on the STATUS, and requires it to be exactly 200.\n\n⚠️ MEASURED, because the shape is not what it looks like. Under\n`onError: continue` a 404 does NOT arrive as `{status: 404}` — the node\nemits an `__error` record and `changeDir.status` is absent entirely. So\nthis condition succeeds on a present spec (`http=200`, body/headers/\ncallLog) and falls through on an absent one because the path resolves to\nnull, not because it resolves to 404.\n\nThat is why the test is `=== 200` and not `!== 404`: the second would\nread a MISSING status as a pass and admit every issue whose spec lookup\nfailed for any reason at all — a rate limit, a network blip, a renamed\nrepository — which is the failure this gate exists to stop, arriving\nthrough the one door left open.\n\nBoth directions proven against the live forge:\n  planix/p2-meeting-management   absent  -> flag-unspecced, claim-slot got 0 items\n  openregister/file-actions      http=200 -> claim-slot\n\n🔑 The second half of that is the half worth running. A gate that refuses\nEVERYTHING passes the refusal test perfectly."
+      }
+    },
+    {
+      "id": "flag-unspecced",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "build:blocked"
+          ]
+        },
+        "method": "POST",
+        "output": "blocked",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "$comment": "The issue is refused, and SAYS SO ON ITSELF. Both refusals arrive here —\nan issue naming no change at all, and one naming a change that is not in\nthe repository — because from a reader's point of view they are the same\nproblem: there is nothing to build against.\n\n⚠️ `build:blocked` is new vocabulary, like `build:no-change`, and\n`scripts/create-labels.sh` creates neither. GitHub auto-creates a label on\nfirst use, which is how this fleet already carries a grey undescribed\n`build:fail` beside a curated `build:failed`.",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels"
+      }
+    },
+    {
+      "id": "dequeue-unspecced",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "DELETE",
+        "output": "dequeuedBlocked",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "$comment": "🔑 THE REFUSAL PATH MUST LEAVE THE QUEUE TOO, OR IT IS NOT A REFUSAL — it\nis a loop. `refuse-unspecced` ended the run and left `build:queued` in\nplace, and `find-work` searches on exactly that label with `per_page: 1`.\nSo the first unbuildable issue in the organisation became the permanent\nhead of the queue: every tick re-found it, refused it again, and dispatched\nnothing else, forever.\n\nThat is the same defect #542 removed from the verdict path, in a second\nplace, and it was latent only because the three issues queued at the time\nhappened to name a change. It is hydra#543.\n\n⚠️ Nothing is released here because nothing was taken: this path runs\nBEFORE `claim-slot` and `lock-issue`. That ordering is the point — a\nrefusal that had already spent a slot and a lock would need to unwind\nthem, and an unwind is one more thing to get wrong.",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels/build:queued"
+      }
+    },
+    {
+      "id": "flag-nospec",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "build:blocked"
+          ]
+        },
+        "method": "POST",
+        "output": "blocked",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "$comment": "`flag-unspecced` for the OTHER refusal: an issue that names no OpenSpec\nchange at all, as opposed to one that names a change the repository does not\nhave. Same label, same meaning to a reader — hydra will not build this, go\nand look at the issue.\n\n🔴 IT IS A SEPARATE NODE BECAUSE SHARING ONE COST THE FIX ENTIRELY.\n`spec-gate`'s default pointed at `flag-unspecced`, the edge was there, the\nrouting was correct — and the item never arrived, because\n`FlowItemPlacement::advanceItems()` assigns to a firing node's output places\neven when that firing produced nothing, and `spec-exists-gate` fires as a\nheartbeat between `spec-gate` and the consumer. Measured on\nopenregister#2469: `spec-gate in 1 out 1`, `flag-unspecced in 0 out 0`, issue\nstill `build:queued`, run `completed`.\n\n🔑 THE SAME SHAPE AS `build-blocked` / `verdict-blocked`. The rule that keeps\ncoming out of this engine: two branches of one pass must not write the same\nplace. Duplicating a four-line source-call is the cheap side of that trade.",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels"
+      }
+    },
+    {
+      "id": "dequeue-nospec",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "DELETE",
+        "output": "dequeuedBlocked",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "$comment": "`dequeue-unspecced` for the no-change-named branch, and it exists for the\nsame reason `flag-nospec` does: the branch needs a chain nobody else writes\nto. Sharing `dequeue-unspecced` would put the identical wipe one node\nfurther along.\n\n🔑 WITHOUT THIS THE REFUSAL IS A LOOP, which is the whole point of the\nsibling path: `find-work` searches on `build:queued` with `per_page: 1`, so\nan issue that is refused but never dequeued becomes the permanent head of\nthe queue and starves every other issue in the organisation.\n\n⚠️ Nothing is released here because nothing was taken — this runs BEFORE\n`claim-slot` and `lock-issue`.",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels/build:queued"
+      }
+    },
+    {
+      "id": "claim-slot",
+      "type": "openregister.flow-state",
+      "config": {
+        "slots": "slots",
+        "holder": "repo",
+        "record": [
+          "repo"
+        ],
+        "$comment": "`holder` and `record` name `repo`, which `derive` has just computed. They were reaching for a caller-supplied value before, so on a tick the pool was keyed on the empty string and every repository contended for one holder's worth of slots. \n🔑 THE LEASE IS WHAT STOPS A LOST SLOT BEING A PERMANENT ONE. Every node\nbetween here and `release` can end the run — `lock-issue` carries\n`onError: stop`, and a build or a fix can outlive its deadline. Each of\nthose leaves a slot held by a run that no longer exists, and nothing\nreaps slots. Measured: one such run held a slot for four hours while the\nother two sat free; three of them and this repository could never be\nbuilt again.\n\n⚠️ AND IT WOULD NOT LOOK BROKEN. A full pool routes to `stop-full`, which\nis a normal outcome — the flow reports `completed` every five minutes\nwhile dispatching nothing.\n\n5400 seconds is 90 minutes: comfortably longer than the worst honest run\nthis graph can have (a 25-minute build, a 25-minute fix, two gate passes)\nand short enough that a leak clears within the hour. Too SHORT is the\ndangerous direction — it would displace a live builder and put two runs\non one issue — which is why it is set from the timeouts above it rather\nthan guessed.",
+        "capacity": 3,
+        "operation": "claim",
+        "leaseSeconds": 5400
+      }
+    },
+    {
+      "id": "slot-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "lock-issue",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.claimed"
+                },
+                true
+              ]
+            }
+          }
+        ],
+        "default": "stop-full"
+      }
+    },
+    {
+      "id": "lock-issue",
+      "type": "openregister.object-write",
+      "config": {
+        "fields": {
+          "id": "zz-lock-{{repoName}}-{{issueNumber}}",
+          "name": "ZZ issue-lock",
+          "enabled": false,
+          "trigger": "manual",
+          "description": "{{repo}} #{{issueNumber}}"
+        },
+        "output": "lock",
+        "schema": "agentflow",
+        "onError": "stop",
+        "$comment": "🔑 `name` IS A CONSTANT, and that is the reaper's whole contract. `hydra-lock-reaper` runs on a schedule, and a schedule tick's payload is only `{flowId, scheduledAt}` — so a name carrying `{{repo}}` gave the reaper a filter it could never render, which is how the reaper spent weeks matching nothing and reporting `completed`. The marker that says 'this row is a lock' therefore has to be identical for every writer and free of interpolation; which issue it belongs to is DESCRIPTION, which nothing filters on. ⚠️ A previous revision also stamped an epoch into `notes` and the lockId into `description`, because `@self.created` range filters returned zero rows and a delete could not match on `uuid`. openregister#2269 and #2270 fixed both, and both hacks are gone: the age is `_created` again and the reaper's delete names the row by uuid. Do not reintroduce them — `notes` is the field the flow SEEDER writes provenance prose into, and a lexicographic range over it would compare epochs against English.",
+        "register": "hermiq",
+        "operation": "create",
+        "onConflict": "fail"
+      }
+    },
+    {
+      "id": "describe-repo",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "GET",
+        "output": "repoInfo",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "$comment": "🔑 THE REF IS ASKED FOR, NOT GUESSED. `run-stage` needs a ref and `{{branch}}` was caller-supplied, so on a tick it rendered empty — and `HermiqWorkloadNode::assertConfigured()` cannot catch that, because it validates the AUTHORED config (`\"{{branch}}\"`, which is not empty) rather than the rendered value. A hardcoded default was the obvious alternative and it is measurably wrong: on 2026-08-02 `ConductionNL/hydra` and `ConductionNL/openregister` default to `main` while `ConductionNL/hermiq` defaults to `development`, so any single literal is wrong for a large part of the fleet — and wrong in the direction of gating a branch nobody develops on. The forge already knows the answer per repository, so this asks it. One extra call per tick, on the work branch only, is affordable in a way the 205-call fan-out this flow's search deliberately avoids is not.",
+        "endpoint": "/repos/{{repo}}"
+      }
+    },
+    {
+      "id": "read-dev-ref",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "GET",
+        "output": "devRef",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "$comment": "🔑 THE DEFAULT BRANCH IS THE WRONG BRANCH FOR THIS FLEET, and building on\nit wasted an entire run before anyone noticed.\n\n`resolve-ref` used to take `repoInfo.body.default_branch`, which GitHub\nreports as `main`. Every app here develops on `development`, and `main`\nis whatever was last released — on openregister, measured today:\n\n    development is 5309 commits ahead of main\n\nSo a build ran against a tree 5,309 commits stale. The agent read the\nspec from it, wrote code against neighbours that had since changed, and\nthe gates judged the result using that tree's CONFIGURATION — which is\nwhy gate-65 reported fourteen coding-standard deviations that were fixed\non `development` weeks ago:\n\n    main         .php-cs-fixer.dist.php absent · .editorconfig absent\n                 conduction/coding-standard ABSENT\n    development  both present · conduction/coding-standard ^1.0\n\n⚠️ EVERY LAYER OF THAT LOOKED FINE. The clone succeeded, the spec was\nthere (`file-actions` exists on both branches), the agent produced real\ncode, the gates ran and returned a real number. Nothing failed — the\nwhole run was simply about the wrong tree, and the only visible symptom\nwas a gate complaining about debt that no longer exists.\n\nSo this asks whether `development` exists rather than assuming it. A repo\nwithout one keeps its default branch, which is what `resolve-ref`'s\n`coalesce` falls back to — nothing is forced.",
+        "endpoint": "/repos/{{repo}}/git/ref/heads/development"
+      }
+    },
+    {
+      "id": "resolve-ref",
+      "type": "openregister.set-fields",
+      "config": {
+        "compute": {
+          "devBranch": {
+            "if": [
+              {
+                "===": [
+                  {
+                    "var": "json.devRef.status"
+                  },
+                  200
+                ]
+              },
+              "development",
+              null
+            ]
+          },
+          "stageRef": {
+            "coalesce": [
+              {
+                "var": "json.branch"
+              },
+              {
+                "var": "json.devBranch"
+              },
+              {
+                "var": "json.repoInfo.body.default_branch"
+              }
+            ]
+          }
+        },
+        "$comment": "The branch everything downstream stands on: the agent builds from it, the\ngates diff against it, and the pull request targets it.\n\n🔑 THE ORDER IS THE POINT. A caller-supplied `branch` wins, because a\nmanual run may be aiming somewhere specific. Otherwise `development` when\nthe repository has one — this fleet's apps all develop there and `main` is\nwhatever was last released. Only then the repository's declared default,\nfor a repo that genuinely has no `development`.\n\n⚠️ `devBranch` is computed from a STATUS, not from a truthy body. Under\n`onError: continue` a 404 leaves `devRef.status` absent entirely, so\n`=== 200` is the only test that distinguishes 'the branch is there' from\n'the lookup did not answer' — and the second must fall through to the\ndefault rather than build on a branch nobody confirmed exists.\n\n⚠️ `devBranch` IS ASSIGNED BEFORE `stageRef`, AND THAT ORDER IS THE FIX.\n`applyCompute()` walks the map in key order, so a `stageRef` still sitting\nin its original position — written before `devBranch` existed — coalesced\npast a null and resolved to `main` while `devBranch` held 'development' one\nline later. Measured exactly that on the first attempt:\n\n    devRef.status=200   devBranch='development'   ->   stageRef='main'\n\n🔑 The same trap as the change-slug chain in `derive`, and it looked just as\ncorrect: every value present, every value right, and the one that mattered\nread a moment too early."
+      }
+    },
+    {
+      "id": "run-build",
+      "type": "hermiq.workload-step",
+      "onError": "continue",
+      "config": {
+        "ref": "{{stageRef}}",
+        "repo": "https://github.com/{{repo}}",
+        "output": "build",
+        "command": [
+          "claude",
+          "-p",
+          "Implement the OpenSpec change `{{change}}` in this repository, as asked for by issue #{{issueNumber}}: {{issueTitle}}\n\nThe change's own documents are in `openspec/changes/{{change}}/` — read `proposal.md`, `tasks.md`, `design.md` and anything under `specs/` before you write a line. You are in a real checkout of `{{repo}}` at branch `{{stageRef}}`, so read whatever else you need.\n\nWrite real, working code that matches the code around it — same naming, same comment density, same idiom, and the project's SPDX header where its neighbours carry one.\n\nDo NOT run git. Do not commit, do not branch, do not push. Edit the working tree and stop; the pipeline commits what you changed, behind fences you cannot reach from here.\n\nIf the change is larger than you can do correctly in one pass, do a COHERENT SMALLER PIECE and say exactly what you did and did not do. A correct first increment that names its own boundary is worth more than a complete-looking shell. If you cannot make a correct start at all, change NOTHING and explain why — an empty diff is a real answer and the pipeline handles it. Never leave a TODO, a stub, or a test that asserts nothing in place of work you did not do.",
+          "--permission-mode",
+          "acceptEdits",
+          "--allowedTools",
+          "Read Edit Write Glob Grep"
+        ],
+        "toolRef": "development",
+        "toolRepo": "https://github.com/ConductionNL/hydra",
+        "timeoutMs": 1500000,
+        "credentialId": "35327e7a-52f2-4a21-8ffe-6195d52f9579",
+        "llmCredentialId": "16f12a19-24be-4ed5-a53b-19b48f24e1e5",
+        "push": {
+          "branch": "feature/{{issueNumber}}/hydra-build",
+          "issue": "{{issueNumber}}",
+          "scope": [
+            "lib",
+            "src",
+            "tests",
+            "openspec",
+            "appinfo",
+            "openapi.json",
+            "CHANGELOG.md",
+            "README.md"
+          ],
+          "allowedRepo": "https://github.com/{{repo}}",
+          "message": "feat({{change}}): implement {{change}}"
+        },
+        "$comment": "THE STAGE THAT WRITES CODE. Everything before this node finds work and locks it; everything after judges what came out. This is the only step that authors anything.\n\nIt runs `claude` IN THE CLONE, which is the whole difference from the agent-step transport: `hermiq.agent-step` has no shell, no filesystem and no checkout, so it can only be handed excerpts in a prompt and asked to return content — and a tree entry replaces a path wholesale, so a file it never saw is a file it deletes. Here it reads and edits the real thing.\n\n🔑 `llmCredentialId` IS A THIRD CREDENTIAL and not a reuse of `credentialId`. That one is a host-locked PROXY entry spent server-side fetching the tool tree, and `resolveInjectable()` refuses that shape by design, so it cannot put anything in this container. The model token must be inject-only, and the runner hands it only to a command its own per-command allowlist names — a gates run in the same image receives nothing.\n\n⚠️ THE AGENT IS TOLD NOT TO RUN GIT, and that instruction is a courtesy rather than the control. The runner withholds the forge credential from the command child precisely BECAUSE `push` is declared here, and performs the push itself afterwards behind `pushGuard`: the branch must match `feature/<issueNumber>/<slug>`, the remote must be the one declared, dependency manifests and forbidden prefixes are refused outright, and every changed path must fall inside `scope`. An agent that ignored the instruction would find no credential and no route.\n\n🔑 `scope` IS A FENCE, NOT A HINT. An empty list would leave only the forbidden-prefix rules standing, so the paths a build may touch are named here: an implementation lives in `lib`, `src`, `tests`, `openspec` and `appinfo`, and a change that needs to move outside them is a change that needs a human.\n\n⚠️ Gated on hermiq#209 — until that ships, `/stage` carries no credential channel and `claude` is not on the runner's command allowlist, so this node fails closed rather than running an unauthenticated CLI.\n\n🔑 THREE CREDENTIALS, AND EACH ONE IS A DIFFERENT SHAPE THAT THE OTHER\nTWO CANNOT SUBSTITUTE FOR. This node needs all three at once, which is\nwhy they are three fields and not one:\n\n  credentialId      `github`, a host-locked PROXY. Spent SERVER-SIDE by\n                    the broker fetching the tool tarball.\n                    `resolveInjectable()` returns null for it by\n                    design, so it can put nothing in the container.\n  pushCredentialId  `github-push`, `inject_only`. git speaks the\n                    smart-HTTP pack protocol, so there is no single\n                    request for the broker to make on its behalf — the\n                    token has to be IN the container, behind GIT_ASKPASS.\n  llmCredentialId   `anthropic-cli`, `inject_only`. A different VENDOR\n                    entirely: the two above reach the forge, this one\n                    lets the command answer.\n\n⚠️ WITHOUT `pushCredentialId` THIS NODE FAILS AT THE PUSH AND NOWHERE\nEARLIER. `StageDispatchService` falls back to `credentialId` when it is\nabsent — deliberately, so every read-only stage that predates the\nparameter keeps working — and that fallback resolves to the PROXY, for\nwhich `resolveInjectable()` correctly returns null. The stage then runs\nthe whole build, edits the tree, and finds no credential at the moment\nit tries to push. Everything up to that point looks perfect.\n\n⚠️ A CREDENTIAL ID IS INSTANCE-SPECIFIC AND CANNOT BE GUESSED. Both\nuuids here were wrong on first writing: `llmCredentialId` was recorded\nfrom memory as `16f12a19-0000-0000-0000-000000000000` when the real\nvalue is `16f12a19-24be-4ed5-a53b-19b48f24e1e5` — the same first eight\ncharacters, which is exactly the shape that reads as correct. The broker\nanswers `credential not found`, which is indistinguishable from a\ncredential that was never created (openregister#2245). Read them off\n`GET /api/credentials`; never from memory.\n\n🔴🔥 `onError` IS ON THE NODE, NOT IN `config`, AND THE DIFFERENCE IS THE\nWHOLE FIX. `FlowEngine::outcomeForFailedStep()` reads `$step['onError']`,\nand `FlowTokenRouter::stepFor()` returns the NODE — so the engine looks at\n`node.onError` and never at `node.config.onError`. openconnector's\n`SourceCallNode` reads `config.onError` ITSELF, which is why `read-dev-ref`\nworks with it there and why the wrong placement looks correct by example.\nhermiq's workload node does not: it throws, and the engine's policy is the\nonly thing that decides.\n\n⚠️ MEASURED, because it was written in `config` first and looked right.\nA positive control pointed `ref` at a branch that does not exist:\n\n    run-build  failed  repo checkout of \"zz-no-such-ref…\" failed (exit 128)\n    (run stopped — dequeue, unlock and release never fired)\n\nIdentical to the behaviour the fix was supposed to remove. A `continue` in\nthe wrong half of the node is not a weaker policy, it is NO policy — and it\nreads as one on the canvas, in the diff, and in review.\n\n🔴 `onError` IS `continue` BECAUSE A REFUSAL HERE USED TO STRAND THE RUN.\nMeasured: the agent implemented the change and also edited `openapi.json`,\n`pushGuard` correctly refused the push, and the refusal — which arrives as a\nTHROW, deliberately, so it can never be mistaken for a 200 carrying\n`pushed: false` — killed the run at this node. The token stops here, so\n`dequeue`, `unlock` and `release` never fire: the issue keeps `build:queued`,\nthe lock row survives, and the slot stays held. NOTHING IS RETRIED AND\nNOTHING COMPLAINS.\n\n⚠️ AND DO NOT COUNT ON THE LEASE TO CLEAN UP AFTER THIS. `claim-slot` sets\n`leaseSeconds: 5400`, but the lease is a feature of `FlowStateNode` that\narrived with openregister#2486 — merged to `development`, and NOT\nnecessarily running. Checked on this instance while writing this: zero\noccurrences of `leaseSeconds` in the deployed\n`lib/Service/Flow/Nodes/FlowStateNode.php`, because the shared checkout sits\non a feature branch older than the merge. Where the lease is not deployed\nthe config key is inert and a stranded slot is held INDEFINITELY — the\noriginal four-hour measurement, not a bounded ninety minutes. A recovery\nmechanism that is merged is not a recovery mechanism that is running.\n\n⚠️ EVERY node between `claim-slot` and `dequeue` has this exposure, and this\none is simply the one that fires — it runs a model for up to 25 minutes\nagainst a network, so it is where a failure actually lands.\n\n🔑 THE ABSENCE OF `build` IS THE DISCRIMINATOR, and it is the reason no\nchange to hermiq was needed. A run that SUCCEEDS always writes `build`, even\nwhen the agent honestly changed nothing (`push.pushed: false`). A run that\nTHROWS — refused push, dead container, timeout — writes nothing at all,\nbecause the engine leaves `$items` untouched when a `continue` step fails. So\n`built-gate` can tell 'ran, nothing to do' from 'could not run' without\nreading an error message, which is the distinction stage.js's push phase is\nwritten to preserve.\n\n🔑 `CHANGELOG.md` IS IN SCOPE FOR THE SAME REASON, AND THE FLEET ALREADY\nASKS FOR IT. Measured: **43 `tasks.md` files across the organisation name\n`CHANGELOG.md` in their `**files**` list** — it is a routine co-change, not\nan edge case. Leaving it out means an agent that does exactly what its own\ntasks.md told it to do gets its push refused at the very end, after the full\nmodel run, and the whole build is spent to produce a `build:blocked`.\n\n⚠️ Like `openapi.json` it stays a NAMED file rather than a loosened rule.\nDependency manifests, workflow definitions and shared config remain refused\nby `pushGuard` regardless of what any spec asks for.\n\n🔑 `openapi.json` IS IN SCOPE BECAUSE IT IS COUPLED TO `appinfo/routes.php`.\nA change that adds endpoints and does not describe them leaves the API\ndescription lying about the API. This is not speculative widening: the\nfile-actions change's own history carries `5e6db44f1 file-actions: document\nfile endpoints in openapi.json`, so the fleet already treats it as part of\nthe work. It stays a NAMED file rather than a loosened rule — dependency\nmanifests, workflow definitions and shared config remain refused.",
+        "pushCredentialId": "55003b23-6262-495e-b0ab-2e221ba5e17c"
+      }
+    },
+    {
+      "id": "built-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "run-stage",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.build.push.pushed"
+                },
+                true
+              ]
+            }
+          },
+          {
+            "output": "nothing-built",
+            "condition": {
+              "!!": {
+                "var": "json.build"
+              }
+            }
+          }
+        ],
+        "default": "build-blocked",
+        "$comment": "🔑 A BUILD THAT CHANGED NOTHING IS AN OUTCOME, AND WITHOUT THIS ROUTE IT\nIS A CRASH. The agent's prompt says in as many words that changing\nnothing is a real answer, and the runner agrees: an empty change set\nreturns `{pushed: false, commit: '', files: []}` and is explicitly not a\nfailure — 'a builder that found the work already done is a legitimate\noutcome'.\n\nBut `run-stage` checks out `feature/<issue>/hydra-build`, and on that path\nthe branch was never created. So the honest answer arrived as a checkout\nfailure naming a ref, which reads as a broken push rather than as an agent\nthat had nothing to do — the pipeline would have punished exactly the\nbehaviour it asks for.\n\n⚠️ The condition tests `pushed` and NOT the file count. They can disagree:\n`pushGuard` refuses a push for reasons that have nothing to do with the\ndiff being empty (a branch outside the allowlist, a dependency manifest, a\npath outside `scope`), and a refusal THROWS rather than returning false.\n`pushed: false` therefore means one thing only.\n\n🔴 THREE OUTCOMES, AND THE THIRD IS THE ABSENCE OF THE FIRST TWO. Because\n`run-build` is now `onError: continue`, a refusal no longer kills the run —\nit arrives HERE, and it must not be filed as `build:no-change`. The two are\nopposite operational signals: 'the agent found the work already done' needs\nnobody, while 'the agent did the work and the fence refused it' needs a\nhuman to widen `scope` or re-scope the issue. Labelling both `no-change`\nwould bury the second in the first, silently, forever.\n\n🔑 THE TEST IS FOR `json.build` ITSELF, not for an error field, and that is\nwhat makes it reliable. The engine does not decorate the item when a\n`continue` step fails — it leaves `$items` exactly as the step received\nthem — so there IS no `__error` to read at a workload node. What there is,\nis a hole: `build` is written on every successful run and on no failed one.\nAn existence check is therefore the strongest available discriminator AND\nthe cheapest, and it covers refusals, timeouts and dead containers alike\nwithout enumerating them.\n\n⚠️ ORDER MATTERS. `pushed === true` must be tried first: `===` against an\nabsent var yields false rather than throwing, so a failed run would\notherwise fall into whichever rule ran first. Rule two then absorbs every\nsurviving success, and the default is reached ONLY by a run that produced\nno output at all."
+      }
+    },
+    {
+      "id": "run-stage",
+      "type": "hermiq.workload-step",
+      "onError": "continue",
+      "config": {
+        "ref": "feature/{{issueNumber}}/hydra-build",
+        "repo": "https://github.com/{{repo}}",
+        "output": "stage",
+        "command": [
+          "scripts/run-hydra-gates.sh",
+          "--scope-to-diff",
+          "--base",
+          "origin/{{stageRef}}"
+        ],
+        "toolRef": "development",
+        "$comment": "🔑 THE GATES JUDGE THE BRANCH THE BUILD PUSHED, NOT THE BRANCH IT STARTED FROM.\n\nThis node asked for `--scope-to-diff` and did not get it, for the whole of the\npipeline's life. It checked out `{{stageRef}}` — the repository's DEFAULT\nbranch — so the diff base resolved to HEAD, there was no push event to take a\nprevious tip from, and the runner fell back to a FULL-TREE AUDIT. Measured on\n2026-08-13: `SCOPE-FILE-COUNT: 95`, `Scope: diff vs 4b825dc6…` — git's EMPTY\nTREE. Three different planix issues about three different OpenSpec changes each\nreturned the identical nine gates, because all three audited the same 95 files.\nThe verdict was a property of the REPOSITORY and had nothing to do with the\nissue it was stamped on (#544).\n\n`run-build` now produces a branch with a commit on it, so there is finally a\nreal diff to scope to: this checks out that branch and names the base\nexplicitly. `--base` is passed rather than left to inference because inference\nis exactly what failed before — the runner has four ways to guess a base and\neach one degrades to the full tree, LOUDLY but non-fatally, which is how the\nmis-scoping survived so long.\n\n⚠️ `origin/` IS LOAD-BEARING. The stage clones and checks out the feature\nbranch, so the base branch exists only as a REMOTE-TRACKING ref in that clone.\nA bare `{{stageRef}}` would not resolve, and the runner's fallback would send\nit straight back to a full-tree audit — a green-looking run measuring the wrong\nthing, which is the failure this change exists to end.\n\n⚠️ The branch name is duplicated from `run-build`'s `push.branch` rather than\nread from the stage result: the runner returns `push.branch`, but a template\nthat reads it would silently gate the DEFAULT branch if the push were ever\nskipped, which is the same class of silent mis-scoping. Both halves are the\nsame literal, and `feature/{{issueNumber}}/hydra-build` is a pure function of\nthe issue — so if one is changed and the other is not, the checkout fails\noutright instead of quietly auditing everything.\n\n🔴 `onError` IS `continue` SO THAT A DEAD GATE RUN UNWINDS INSTEAD OF\nSTRANDING. On `stop` the token dies here holding the lock and the slot, and\nthe issue keeps `build:queued` with a branch already pushed — the worst of\nthe three states, because the code EXISTS and nothing points at it.\nDownstream, `verdict-gate` reads the absence of `stage` and routes to\n`build-blocked`, which is honest: the build is real, the verdict is not.",
+        "toolRepo": "https://github.com/ConductionNL/hydra",
+        "timeoutMs": 1500000,
+        "credentialId": "35327e7a-52f2-4a21-8ffe-6195d52f9579"
+      }
+    },
+    {
+      "id": "verdict-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "advance",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.stage.exitCode"
+                },
+                0
+              ]
+            }
+          },
+          {
+            "output": "run-fix",
+            "condition": {
+              "!!": {
+                "var": "json.stage"
+              }
+            }
+          }
+        ],
+        "default": "verdict-blocked",
+        "$comment": "hydra's gate runner uses its exit code as a failure COUNT, so zero is the only pass. Routing on the number rather than on a verdict field is deliberate — nothing between the runner and here gets to reinterpret it. ⚠️ `===`, NOT `==`. FlowExpression is jwadhams/json-logic-php, whose `==` is PHP's loose `==`; this read `==` until 2026-08-02 and an ABSENT `exitCode` therefore evaluated `null == 0` → TRUE → `passed`. Measured live on the deployed instance. That is the entire defect this change exists to close, sitting in the router that actually gates every build: a stage whose output carried no exit code at all — a workload that never produced one — was routed as a clean gate run. `===` answers false for an absent key, for `\"0\"`, and for `false`.\n\n🔴 AND THAT SAME ABSENT `exitCode` MUST NOT NOW BECOME A FIXER RUN. `===`\ncorrectly answers false for it, but the old default sent everything that was\nnot a pass to `run-fix` — so once `run-stage` became `onError: continue`, a\ngate run that DIED would have dispatched the fixer to repair findings nobody\nmeasured. Twenty-five minutes of model time spent against an empty finding\nlist, ending in a PR labelled `build:fail` on the strength of no evidence.\n\n🔑 SO THE PASS AND THE FAIL BOTH REQUIRE `stage` TO EXIST, and the default is\nnow the one case where it does not. Rule two is the honest fail — a real\nverdict with a non-zero count, which is what the fixer is for. The default is\n`verdict-blocked`: the branch is pushed and real, and the only thing missing\nis an opinion about it.\n\n🔴🔥 IT IS A SEPARATE NODE FROM `build-blocked`, AND THAT IS NOT DUPLICATION\n— IT IS THE FIX FOR A SILENT ITEM LOSS. Both gates pointed at ONE\n`build-blocked` node first, and the run measured this:\n\n    built-gate     in 1 out 1   tagged the item `build-blocked`\n    verdict-gate   in 0 out 0   fired as a heartbeat\n    …\n    build-blocked  in 0 out 0   THE ITEM WAS GONE\n\n`FlowItemPlacement::advanceItems()` writes `placeItems[$to] =\nitemsForOutput(...)` for every one of a firing node's outputs — an\nASSIGNMENT, not an append, and it runs whether the node produced items or\nnot. Every node in the graph fires on every pass, most of them with nothing,\nso `verdict-gate`'s empty firing overwrote the place `built-gate` had just\nfilled. The consumer's turn came last and found an empty list.\n\n🔑 THE RULE THAT FOLLOWS: two nodes may not write the same place when the\nconsumer fires between them. Convergence itself is fine — `dequeue` takes\nthree incoming edges and works, because the engine visits it immediately\nafter each predecessor. What is not fine is a place written by a node in\nANOTHER branch of the same pass.\n\n⚠️ AND EVERY LAYER OF IT READ AS SUCCESS. The run reported `completed`. The\nrouting was perfect — the emitted item carried `output: \"build-blocked\"` and\nno `build` key, exactly as designed. `build-blocked` fired and logged\n`completed`. The only trace of the loss anywhere was the `in 0`."
+      }
+    },
+    {
+      "id": "run-fix",
+      "type": "hermiq.workload-step",
+      "onError": "continue",
+      "config": {
+        "ref": "feature/{{issueNumber}}/hydra-build",
+        "repo": "https://github.com/{{repo}}",
+        "output": "fix",
+        "command": [
+          "claude",
+          "-p",
+          "The quality gates ran over the change you just made on this branch and found problems in it. Fix them.\n\nYou are in a checkout of `{{repo}}` at `feature/{{issueNumber}}/hydra-build` — the branch carrying your own commit, not the base. The findings below are about the files in that commit.\n\n=== GATE OUTPUT ===\n{{stage.output}}\n\nFix what the findings name, and nothing else. Do not refactor, do not rename, do not improve code the gates did not mention — a fixing pass that rewrites more than it was asked to makes the diff unreviewable and buries the original change.\n\nSome findings may not be about your code. A gate that judges the repository's own configuration (a shared coding standard, a test matrix, a dependency policy) reports pre-existing debt that your commit did not introduce and cannot properly fix. Leave those alone and say which ones you left.\n\nDo NOT run git. Edit the working tree and stop; the pipeline commits what you changed.\n\nIf a finding is wrong, or fixing it correctly would need a change outside this branch's scope, change nothing for that finding and say so. A gate count that stays non-zero for a stated reason is a better answer than a plausible edit that silences it.",
+          "--permission-mode",
+          "acceptEdits",
+          "--allowedTools",
+          "Read Edit Write Glob Grep"
+        ],
+        "toolRef": "development",
+        "toolRepo": "https://github.com/ConductionNL/hydra",
+        "timeoutMs": 1500000,
+        "credentialId": "35327e7a-52f2-4a21-8ffe-6195d52f9579",
+        "pushCredentialId": "55003b23-6262-495e-b0ab-2e221ba5e17c",
+        "llmCredentialId": "16f12a19-24be-4ed5-a53b-19b48f24e1e5",
+        "push": {
+          "branch": "feature/{{issueNumber}}/hydra-build",
+          "issue": "{{issueNumber}}",
+          "scope": [
+            "lib",
+            "src",
+            "tests",
+            "openspec",
+            "appinfo",
+            "openapi.json",
+            "CHANGELOG.md",
+            "README.md"
+          ],
+          "allowedRepo": "https://github.com/{{repo}}",
+          "message": "fix({{change}}): address the gate findings"
+        },
+        "$comment": "🔑 THE STEP THAT MAKES A BUILD CONVERGE. Everything before this produces\none attempt and a number; this reads the number back and acts on it. A\npipeline that only ever reports `exit=6` has told a person what to do —\nit has not done it.\n\nIt clones the BRANCH, not the base. That is the difference from\n`run-build`: the findings are about the commit that already exists, so\nthe agent has to be standing on it. Pushing back to the same branch is\nthen a fast-forward, and `pushGuard` accepts it under the same\n`feature/<issue>/<slug>` rule as the first push.\n\n🔑 ONE PASS, NOT A LOOP, and that is a deliberate bound rather than a\nmissing feature. A loop needs a counter, a cap, and somewhere to keep\nthem, and every one of those is a way to spend model time without\nconverging — the failure mode is not a crash, it is a bill. One pass\nfixes the findings that are mechanically fixable (a missing @copyright,\na missing @spec, an absent auth attribute) which is most of what the\ngates report, and anything still failing after it is exactly what a\nperson should be looking at.\n\n⚠️ The prompt tells the agent to fix what the findings name AND NOTHING\nELSE. Without that a fixing pass rewrites more than it was asked to and\nburies the original change in an unreviewable diff — the pull request\nstops being about the issue.\n\n⚠️ It is also told that some findings are not about its code. gate-65\njudges the repository's own coding-standard adoption and fires on a\nclean diff; asking an agent to 'fix' that invites it to edit shared\nconfiguration to silence a gate, which is the worst possible response to\na finding."
+      }
+    },
+    {
+      "id": "fix-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "run-regate",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.fix.push.pushed"
+                },
+                true
+              ]
+            }
+          }
+        ],
+        "default": "advance-failed",
+        "$comment": "A fixing pass that changed nothing goes straight to the verdict with the\nFIRST gate result standing. Re-running the gates over a tree that did not\nmove would spend minutes to reproduce a number already held, and — worse —\nwould make an unchanged run look like a second opinion.\n\nTests `pushed` for the same reason `built-gate` does: `pushGuard` REFUSES\nby throwing, so `false` here means one thing only — the agent decided\nthere was nothing it could correctly change."
+      }
+    },
+    {
+      "id": "run-regate",
+      "type": "hermiq.workload-step",
+      "onError": "continue",
+      "config": {
+        "ref": "feature/{{issueNumber}}/hydra-build",
+        "repo": "https://github.com/{{repo}}",
+        "output": "stage",
+        "command": [
+          "scripts/run-hydra-gates.sh",
+          "--scope-to-diff",
+          "--base",
+          "origin/{{stageRef}}"
+        ],
+        "toolRef": "development",
+        "toolRepo": "https://github.com/ConductionNL/hydra",
+        "timeoutMs": 1500000,
+        "credentialId": "35327e7a-52f2-4a21-8ffe-6195d52f9579",
+        "$comment": "The same gates, the same scope, over the fixed tree.\n\n🔑 `output: \"stage\"` OVERWRITES the first result ON PURPOSE. Everything\ndownstream — `verdict-gate`, the label, the pull-request body — reads\n`stage`, and what they should report is the state the branch is actually\nin, not the state it was in before the fixing pass. Writing to a second\nkey would leave the verdict quietly describing a tree that no longer\nexists.\n\n⚠️ AND THE OVERWRITE IS WHY THIS NODE ALONE DOES NOT NEED A BLOCKED ROUTE.\nUnder `onError: continue` a failed re-gate writes nothing, so `stage` keeps\nthe PRE-FIX verdict — present, and non-zero, because a zero would never have\nreached the fixer. `verdict-gate-2` therefore routes to `advance-failed`,\nwhich opens the pull request and labels it `build:fail`.\n\n🔑 THAT IS THE RIGHT FAILURE DIRECTION, and it is worth being explicit that\nit is a stale number rather than a measured one. The alternative — routing a\ndead re-gate to `build-blocked` — would throw away a branch that already\nexists and already has fixes on it, because the SECOND opinion could not be\ntaken. Reporting the first opinion is conservative: it can only overstate the\nremaining findings, never understate them, since the fixing pass runs between\nthe two."
+      }
+    },
+    {
+      "id": "verdict-gate-2",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "advance",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.stage.exitCode"
+                },
+                0
+              ]
+            }
+          }
+        ],
+        "default": "advance-failed",
+        "$comment": "The verdict after the fixing pass, and it reads the SAME `stage` key the\nfirst one did — `run-regate` overwrote it. A build whose findings the\nfixer cleared reaches `advance` and is labelled `build:pass`; one that\nstill has findings reaches `advance-failed`, with the pull request\ncarrying the SECOND gate output rather than the first."
+      }
+    },
+    {
+      "id": "advance",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "build:pass"
+          ]
+        },
+        "method": "POST",
+        "output": "advanced",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "$comment": "🔑 THE LABEL IS THE LITERAL `build:pass`, RESOLVING AN AMBIGUITY THE PLACEHOLDER HID. This was `{{runLabel}}` — a name that says 'running' on an edge reachable only from the `passed` branch. hydra's state machine (scripts/create-labels.sh, CLAUDE.md) reads `build:queued -> build:running -> build:pass`, and the label that means 'gates passed' is `build:pass`; `build:running` is applied when a stage STARTS, which is not what this edge does. The graph's shape was right and the placeholder's name was wrong, and while it stayed unbound nothing forced anyone to notice. Labels are hydra CONVENTIONS rather than per-run values, so they are hardcoded at both ends of the machine — `scripts/create-labels.sh` creates exactly these strings and this flow uses exactly these strings. ⚠️ KNOWN GAP, stated rather than papered over: `scripts/lib/labels.sh` supports a `HYDRA_LABEL_PREFIX` (`wilco-build:queued`) applied by `_apply_prefix`, and a flow has no equivalent. An instance running prefixed labels must seed this flow with the prefixed literals. Making the label a placeholder is exactly the shape that made this flow dormant, so the gap is documented instead of reintroduced.",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels"
+      }
+    },
+    {
+      "id": "advance-failed",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "build:fail"
+          ]
+        },
+        "method": "POST",
+        "output": "advanced",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "$comment": "The FAIL label, and the slot is still released afterwards: a failed gate run is a completed tick, not a stuck one. Holding the slot would starve the pool over something that finished.",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels"
+      }
+    },
+    {
+      "id": "dequeue",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "DELETE",
+        "output": "dequeued",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "$comment": "🔑 THE VERDICT IS NOT WHAT TAKES THE ISSUE OUT OF THE QUEUE — THIS IS. `advance` and `advance-failed` only ADD `build:pass` / `build:fail`; neither REMOVES `build:queued`, and `find-work` searches on exactly that label with `per_page: 1`. So without this node the next tick re-finds the same issue, and the one after that, forever: the queue has a head and no way to consume it. Measured on 2026-08-12 — run 56911 handled planix#248 to completion, and runs 56912 and 56913, the two ticks that followed, both died at `lock-issue` with `An object with identifier \"zz-lock-planix-248\" already exists.` The pipeline was not idle and was not broken; it was re-picking one issue it had already finished. NOTE that a verdict label and the queue label are different facts and both are wanted on the issue afterwards: `build:fail` says what happened, and the ABSENCE of `build:queued` says it is no longer waiting. ⚠️ `onError: continue`, not `stop`, and the asymmetry is deliberate. GitHub answers 404 when the label is not on the issue, which is the state this node is trying to reach — failing the run over an already-correct issue would strand the lock that `unlock` below is about to release. A label that cannot be removed for a real reason still shows up: the issue keeps `build:queued` and the next tick re-finds it, which is the same signal as before, unmissable.",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels/build:queued"
+      }
+    },
+    {
+      "id": "unlock",
+      "type": "openregister.object-write",
+      "config": {
+        "match": {
+          "@self.uuid": "zz-lock-{{repoName}}-{{issueNumber}}"
+        },
+        "output": "unlocked",
+        "schema": "agentflow",
+        "onNoMatch": "skip",
+        "register": "hermiq",
+        "operation": "delete",
+        "$comment": "The lock is RELEASED BY THE RUN THAT TOOK IT, rather than left for `hydra-lock-reaper` to age out. The reaper is a backstop for a run that died holding one, not the ordinary path: until it fires, an issue that has been built cannot be built again, and a retry arriving inside that window fails at `lock-issue` looking exactly like a genuine concurrent claim. `release` below frees the concurrency SLOT and is a different fact — the slot is about how many repositories may be in flight, the lock is about this one issue. ⚠️ `onNoMatch: \"skip\"`, because the reaper may legitimately have got there first; a lock that is already gone is the state this node wants and not an error. 🔑 `permanent: true`, AND THE DEFAULT WOULD BE WRONG HERE. A soft delete\nleaves the row in place with `_deleted` set, and the magic table's `_uuid`\nunique index carries NO `WHERE _deleted IS NULL` predicate — while its\nsibling `..._live_owner_idx` does, which is what makes the omission visible\nrather than a guess. So the tombstone goes on holding the identifier, and\nthe create path disagrees with it: `findAndValidateExistingObject()` looks\nfor a conflict with `includeDeleted: false`, finds nothing, and proceeds,\nonly for the write underneath to be refused.\n\nThat is survivable for a record, which is archived and never re-created\nunder the same identifier. It is fatal for a CLAIM. This lock's id is\ndeliberately a pure function of (repo, issue) — that is what makes two\nconcurrent ticks collide on it — so it cannot be varied per attempt without\ngiving up the mutual exclusion it exists for. A claim that cannot destroy\nits own row can therefore be taken exactly ONCE, ever, and every retry of\nthat issue afterwards dies at `lock-issue` with `already exists` about a row\nevery read reports as absent.\n\nMeasured before the fix: `zz-lock-openregister-1561` was soft-deleted at\n22:54 and still refused a fresh claim at 07:10 the next morning.\n\n⚠️ Permanence is the RIGHT default for this node and the WRONG one for the\nengine, which is why `openregister.object-write` still tombstones unless\nasked. A lock is not a record: there is nothing to archive, nothing to\nrestore, and no audit question its corpse answers that the run log does not.\nopenregister#2467 added the flag behind the same guards as every other\ndelete — an explicit match, exactly one row, `confirmDelete`, and `permanent`\nitself boolean-only.",
+        "confirmDelete": true,
+        "permanent": true
+      }
+    },
+    {
+      "id": "release",
+      "type": "openregister.flow-state",
+      "config": {
+        "slot": "slot",
+        "slots": "slots",
+        "holder": "repo",
+        "operation": "release"
+      },
+      "exit": true
+    },
+    {
+      "id": "stop-idle",
+      "type": "openregister.end",
+      "config": {
+        "error": false,
+        "message": "Nothing queued. The tick ends; the next one looks again."
+      }
+    },
+    {
+      "id": "stop-full",
+      "type": "openregister.end",
+      "config": {
+        "error": false,
+        "message": "All slots occupied. The tick ends without dispatching."
+      }
+    },
+    {
+      "id": "refuse-unspecced",
+      "type": "openregister.end",
+      "config": {
+        "error": true,
+        "message": "Refused before a slot or a lock was taken: this issue either names no OpenSpec change, or names one that is not in the repository. It has been labelled build:blocked and taken off the queue, so the next tick moves on to real work rather than refusing this one again."
+      },
+      "position": {
+        "x": 780,
+        "y": 320
+      }
+    },
+    {
+      "id": "nothing-built",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "build:no-change"
+          ]
+        },
+        "method": "POST",
+        "output": "advanced",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "$comment": "🔑 A THIRD VERDICT, BECAUSE THERE ARE THREE OUTCOMES. `build:pass` and\n`build:fail` are both claims about CODE THAT EXISTS. An agent that read\nthe spec, found the work already done or found it could not start, and\nchanged nothing has produced neither — and labelling that `build:fail`\nwould say the gates rejected work that was never written.\n\nThat distinction is not cosmetic: it is what a person deciding what to do\nnext needs. `build:fail` means read the diff; `build:no-change` means read\nthe issue, because either the spec is already satisfied or it does not say\nenough to act on.\n\n⚠️ NEW VOCABULARY. `scripts/create-labels.sh` does not create this one, and\nGitHub auto-creates a label on first use — which is how the fleet ended up\nwith a grey undescribed `build:fail` beside a curated `build:failed`. Add\nit to that script rather than leaving it to the API's default.",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels"
+      }
+    },
+    {
+      "id": "build-blocked",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "build:blocked"
+          ]
+        },
+        "method": "POST",
+        "output": "advanced",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "$comment": "🔴 A FOURTH VERDICT, AND IT EXISTS BECAUSE A RUN THAT COULD NOT FINISH USED\nTO LEAVE NO TRACE AT ALL. Measured on 2026-08-14: the agent implemented\nopenregister#1549 correctly and also edited `openapi.json`, which was\noutside the declared `scope`. `pushGuard` refused — correctly — and the\nrefusal ended the run at `run-build`. The issue kept `build:queued`, the\nlock row survived, the slot stayed held, and the only record anywhere was\none line in a flow-run log. (`claim-slot` asks for a 5400-second lease, but\nthat is openregister#2486 and it is merged, not necessarily DEPLOYED —\nchecked here and absent — so do not assume the slot comes back on its own.)\n\n🔑 THIS IS NOT `build:fail` AND IT IS NOT `build:no-change`. All three say\n'no pull request', which is exactly why they get confused, and they ask a\nperson for three different things:\n\n  build:fail       code exists, gates judged it, findings remain\n                   → read the diff\n  build:no-change  the agent ran and honestly changed nothing\n                   → read the issue; the spec is satisfied or too thin\n  build:blocked    the agent could not complete, or a fence stopped it\n                   → read the RUN; hydra itself is what needs changing\n\nOnly the third is a statement about the PIPELINE rather than about the\nwork, and collapsing it into either of the others hides the one class of\nfailure that nobody else will find.\n\n⚠️ THE REASON IS NOT ON THE ISSUE, and that is a real limitation rather\nthan an oversight. A step that fails under `onError: continue` contributes\nnothing to the item — the engine leaves `$items` untouched — so the refusal\nmessage exists only in the run log. The label says WHERE to look; it cannot\nsay what happened. Carrying the reason would mean hermiq returning a\nrefusal as data, which `stage.js` deliberately refuses to do so that a\nrefused push can never be read as a 200.\n\n⚠️ Like `build:no-change`, this leans on GitHub auto-creating an unknown\nlabel on first use. `scripts/create-labels.sh` defines the curated version\nwith a colour and a description; without it the fleet accumulates grey\nundescribed duplicates.\n\n🔑 `verdict-blocked` IS THE SAME NODE FOR THE OTHER GATE, and the two are\nnot merged into one on purpose. See the note on `verdict-gate`: a place\nwritten by two nodes in different branches of the same pass loses its items\nto whichever writes last, because `advanceItems()` ASSIGNS rather than\nappends and every node fires each pass whether it has work or not. Sharing\nthis node cost exactly one run, silently, with `completed` on the tin.",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels"
+      }
+    },
+    {
+      "id": "verdict-blocked",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "build:blocked"
+          ]
+        },
+        "method": "POST",
+        "output": "advanced",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "$comment": "The same verdict as `build-blocked` — `build:blocked`, meaning hydra could\nnot finish and the RUN is what needs reading — reached from the other gate.\n\n🔴 IT IS A SECOND NODE BECAUSE ONE SHARED NODE SILENTLY ATE THE ITEM. Both\ngates named `build-blocked` at first, and the measured run went:\n\n    built-gate     in 1 out 1   item tagged `build-blocked`\n    verdict-gate   in 0 out 0   heartbeat, in another branch\n    build-blocked  in 0 out 0   nothing arrived\n\n`FlowItemPlacement::advanceItems()` sets `placeItems[$to]` for each of a\nfiring node's outputs. It is an assignment, and it happens on every firing\nincluding the empty ones — so a node that shares an output place with a\nbranch that fires later, but before the consumer, has its items replaced\nwith an empty list. The run still reported `completed`.\n\n🔑 CONVERGENCE IS NOT THE PROBLEM; ORDER IS. `dequeue` has three incoming\nedges and works, because the engine visits it directly after each\npredecessor. The rule to keep is narrower than 'avoid shared targets': do\nnot let two branches of the same pass write one place with the consumer\nscheduled between them. When in doubt, give the branch its own node — a\nduplicated four-line source-call is cheap, and losing an item is not.\n\n✅ THE ENGINE DEFECT ITSELF IS FIXED (openregister#2489): a firing that\nproduced no items now places nothing and destroys nothing, so a shared place\nsurvives a heartbeat. Verified on the running instance by deliberately\nrestoring the shared node — `built-gate in 1`, `verdict-gate in 0`,\n`build-blocked in 1`.\n\n⚠️ THE SPLIT STAYS ANYWAY, and it is not superstition. A flow definition is\nportable and an engine version is not: this same JSON is seeded onto\ninstances whose OpenRegister predates the fix, where the shared place still\nloses the item — silently, with `completed` on the run. Keeping one writer\nper place costs four lines and is correct on every engine. Do not collapse\nthese two nodes back together as a tidy-up.",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels"
+      }
+    },
+    {
+      "id": "open-pr",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "base": "{{stageRef}}",
+          "head": "feature/{{issueNumber}}/hydra-build",
+          "title": "{{change}}: built by hydra for #{{issueNumber}}",
+          "body": "Closes #{{issueNumber}}.\n\nBuilt by hydra from `openspec/changes/{{change}}/`, by an agent running in a checkout of this repository — it read the spec and the surrounding code and edited the working tree. The commit was made by the pipeline, not by the agent: the agent never held a forge credential.\n\n## The gates\n\n`scripts/run-hydra-gates.sh --scope-to-diff --base origin/{{stageRef}}` exited **{{stage.exitCode}}** — the exit code IS the failure count, and it is scoped to this branch's own diff rather than to the repository's backlog.\n\n```\n{{stage.output}}\n```\n\n---\n\n⚠️ **Read the diff, not the label.** A non-zero gate count is information about this change, not a verdict on whether it should be merged, and a zero one is not a review. Nothing here has been read by a person yet."
+        },
+        "method": "POST",
+        "output": "pr",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "$comment": "🔑 WITHOUT THIS NODE THE PIPELINE PRODUCES BRANCHES NOBODY SEES. Run 57228\nbuilt openregister#1549 end to end — 11 files, +981/-106, gates scoped to\nits own diff — and left `feature/1549/hydra-build` sitting on the remote\nwith no pull request and no notification. The work was real and invisible,\nwhich is nearly the same as not doing it.\n\n🔑 OPENED ON BOTH VERDICTS, PASS AND FAIL. A build whose gates found six\nthings is precisely what a person should be looking at; withholding the\npull request until the gates are clean would hide every change that most\nneeds review, and would make the pipeline look idle while it was working.\nThe verdict travels IN the body instead.\n\n⚠️ `onError: continue`, because a second run over the same issue answers\n422 (a pull request for that head already exists) and that is a state this\nnode is trying to reach, not a failure. The run must go on to dequeue and\nunlock — dying here would strand the lock and leave the issue queued, which\nis the wedge #542 removed.\n\n⚠️ NOT MERGED, and that is a choice rather than a missing step. The broker\ndoes grant `PUT /repos/*/pulls/*/merge`. An agent that authors, reviews and\nmerges its own work has no independent step anywhere in it.",
+        "endpoint": "/repos/{{repo}}/pulls"
+      }
+    },
+    {
+      "id": "record-inputs",
+      "type": "openregister.set-fields",
+      "config": {
+        "set": {
+          "app": "{{repoName}}",
+          "branch": "feature/{{issueNumber}}/hydra-build",
+          "stageName": "build"
+        },
+        "$comment": "The handful of keys `hydra-record-stage` reads that the sequencer does not\nalready carry under those names. Everything else it needs is on the item\nalready: `stage` (the gate run, carrying `owner` / `credential_owner` /\n`credential_name` from the workload node), `repo`, `recordPath`,\n`issueNumber` and `change`.\n\n🔑 `branch` IS THE FEATURE BRANCH, NOT `stageRef`. The record is written\nto the tree the build produced, so it travels with the pull request and is\nreviewed alongside the code it describes. Writing it to `development`\nwould put a claim about unreviewed work onto the mainline, and would need\nwrite access there that nothing else in this flow uses.\n\n⚠️ `stageName` is `build` because that is what this pipeline's one stage\nIS from the record's point of view — the agent wrote code and the gates\njudged it. `hydra.json`'s vocabulary also has `code-review`,\n`security-review` and `applier`, which are the container personas this\nflow does not run."
+      }
+    },
+    {
+      "id": "record-stage",
+      "type": "openregister.sub-flow",
+      "onError": "continue",
+      "config": {
+        "flow": "e1af32f8-eabc-418d-b29f-b2619f82f6e3",
+        "wait": true,
+        "$comment": "🔑 THE REPO IS THE RECORD — AND UNTIL THIS EDGE EXISTED, IT WAS NOT.\n`derive` has computed `recordPath` (`openspec/changes/<slug>/hydra.json`)\nsince the first version of this flow, `hydra-record-stage` has been\n`enabled: true` the whole time, and NOTHING CALLED IT. Every build's\nverdict lived only in a flow-run row with a retention policy, while the\nfleet's 398 existing `hydra.json` records were all written by the shell\nhydra this flow replaced.\n\nThat is the gap this closes: the record flow composes the cycle entry,\nreads the existing record, numbers the new cycle from it, and commits\nthrough `hydra-commit-by-api` — none of which is reachable without a\ncaller.\n\n⚠️ AFTER `open-pr`, DELIBERATELY. The pull request is the artefact a\nperson acts on; the record is documentation of how it got there. If the\nrecord write fails, a reviewable PR still exists. The other order would\nlet a bookkeeping failure cost the work.\n\n🔑 `onError: continue` ON THE NODE, not in `config` — the engine reads\n`node.onError` and openregister/hermiq nodes never see `config.onError`.\nA failed record must not strand the lock and the slot: `dequeue`,\n`unlock` and `release` still have to run. That is the same defect the\nworkload nodes carry the policy for.\n\n⚠️ `wait: true` because the record must land before the run reports\nfinished — a fire-and-forget write would race the run's own completion\nand there would be nothing left to observe the failure.\n\n⚠️ This is its OWN link in the chain rather than a second writer to\n`dequeue`. Two branches of one pass writing a shared place is how the\nitem gets erased (openregister#2488), and the fix there was one writer\nper place. `open-pr → record-stage → dequeue` keeps that property.\n\n🔴🔥 IT SITS AFTER `release`, NOT BEFORE `dequeue`, BECAUSE\n`openregister.sub-flow` CONSUMES THE ITEM AND EMITS NOTHING.\n\nMeasured on opencatalogi#878, with this node wired between `open-pr` and\n`dequeue`:\n\n    open-pr        in 1 out 1\n    record-inputs  in 1 out 1\n    record-stage   in 1 out 0     <- the chain ends here\n\n`dequeue`, `unlock` and `release` never fired. The issue kept\n`build:queued` alongside `build:pass`, the lock row survived and slot 1\nstayed held — the exact stranding that #563 exists to prevent,\nreintroduced by putting a swallowing node in front of the unwind.\n\n🔑 IT IS THE NODE'S NATURE, NOT A BUG IN THIS FLOW. The child's own\n`write-record` — also an `openregister.sub-flow` — logged `in 1 out 0` in\nthe same run. A sub-flow returns what the CHILD produced, and a child\nending on an end node produces nothing.\n\nSo the record is written last, when the state it describes is already\nunwound: pull request opened, issue dequeued, lock deleted, slot freed.\nNothing downstream needs the item, and `stop-idle` is an END node that\nconsumes none."
+      }
+    },
+    {
+      "id": "scope-applier",
+      "type": "openregister.set-fields",
+      "config": {
+        "compute": {
+          "searchQuery": {
+            "cat": [
+              "org:",
+              {
+                "coalesce": [
+                  {
+                    "var": "json.org"
+                  },
+                  "ConductionNL"
+                ]
+              },
+              " is:issue is:open label:\"applier:queued\""
+            ]
+          }
+        },
+        "$comment": "Priority 1 of 4: Applier.\n\n🔑 THE ORDER IS THE WHOLE POINT, and it is the order the retired\nsupervisor used (`find_next_applier` → `find_next_review` →\n`find_next_build`, priority 1/2/3 in its own words). Work that is\nnearly finished is dispatched BEFORE work that has not started, so a\nqueue drains instead of accumulating half-built pull requests: every\nbuild that starts adds three more stages behind it, and a pool that\nalways prefers new builds never reaches them.\n\n⚠️ Each tier falls through to the next only when it finds NOTHING.\nThe first hit wins and nothing below it runs in this tick — one slot,\none stage, and the next tick re-asks from the top."
+      }
+    },
+    {
+      "id": "find-applier",
+      "type": "openconnector.source-call",
+      "config": {
+        "query": {
+          "q": "{{searchQuery}}",
+          "per_page": "1"
+        },
+        "method": "GET",
+        "output": "queue",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/search/issues",
+        "$comment": "`per_page: 1` — this tick fills ONE slot. The pool is filled by concurrent RUNS, each holding a slot while SUSPENDED on its stage, not by one run dispatching several."
+      }
+    },
+    {
+      "id": "gate-applier",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "stage-applier",
+            "condition": {
+              ">": [
+                {
+                  "length": [
+                    {
+                      "var": "json.queue.body.items"
+                    }
+                  ]
+                },
+                0
+              ]
+            }
+          }
+        ],
+        "default": "scope-security",
+        "$comment": "Found Applier work? Take it. Otherwise fall through to the next priority — NOT to idle, or a lower tier would never be reached."
+      }
+    },
+    {
+      "id": "stage-applier",
+      "type": "openregister.set-fields",
+      "config": {
+        "set": {
+          "stageName": "applier",
+          "persona": "axel-plier",
+          "labelRunning": "applier:running",
+          "labelQueued": "applier:queued",
+          "nextQueued": ""
+        },
+        "$comment": "What this tick's agent IS. Applier, run by `axel-plier`.\n\n🔑 NO PERSONA CONTAINER. The prompt tells the agent to read its own\nbrief out of the hydra tool tree — `agents/axel-plier/` and the\nmatching `images/*/CLAUDE.md` — which is already cloned beside the\ntarget as `toolRepo`. So every stage runs in the SAME generic ExApp\nrunner and the persona is data, not an image: adding a stage stops\nbeing a Dockerfile and a CI job.\n\n`nextQueued` is EMPTY because this is the last stage: the applier is what finishes the work, so there is nothing after it to queue."
+      }
+    },
+    {
+      "id": "scope-security",
+      "type": "openregister.set-fields",
+      "config": {
+        "compute": {
+          "searchQuery": {
+            "cat": [
+              "org:",
+              {
+                "coalesce": [
+                  {
+                    "var": "json.org"
+                  },
+                  "ConductionNL"
+                ]
+              },
+              " is:issue is:open label:\"security-review:queued\""
+            ]
+          }
+        },
+        "$comment": "Priority 2 of 4: Security review.\n\n🔑 THE ORDER IS THE WHOLE POINT, and it is the order the retired\nsupervisor used (`find_next_applier` → `find_next_review` →\n`find_next_build`, priority 1/2/3 in its own words). Work that is\nnearly finished is dispatched BEFORE work that has not started, so a\nqueue drains instead of accumulating half-built pull requests: every\nbuild that starts adds three more stages behind it, and a pool that\nalways prefers new builds never reaches them.\n\n⚠️ Each tier falls through to the next only when it finds NOTHING.\nThe first hit wins and nothing below it runs in this tick — one slot,\none stage, and the next tick re-asks from the top."
+      }
+    },
+    {
+      "id": "find-security",
+      "type": "openconnector.source-call",
+      "config": {
+        "query": {
+          "q": "{{searchQuery}}",
+          "per_page": "1"
+        },
+        "method": "GET",
+        "output": "queue",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/search/issues",
+        "$comment": "`per_page: 1` — this tick fills ONE slot. The pool is filled by concurrent RUNS, each holding a slot while SUSPENDED on its stage, not by one run dispatching several."
+      }
+    },
+    {
+      "id": "gate-security",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "stage-security",
+            "condition": {
+              ">": [
+                {
+                  "length": [
+                    {
+                      "var": "json.queue.body.items"
+                    }
+                  ]
+                },
+                0
+              ]
+            }
+          }
+        ],
+        "default": "scope-review",
+        "$comment": "Found Security review work? Take it. Otherwise fall through to the next priority — NOT to idle, or a lower tier would never be reached."
+      }
+    },
+    {
+      "id": "stage-security",
+      "type": "openregister.set-fields",
+      "config": {
+        "set": {
+          "stageName": "security-review",
+          "persona": "clyde-barcode",
+          "labelRunning": "security-review:running",
+          "labelQueued": "security-review:queued",
+          "nextQueued": "applier:queued"
+        },
+        "$comment": "What this tick's agent IS. Security review, run by `clyde-barcode`.\n\n🔑 NO PERSONA CONTAINER. The prompt tells the agent to read its own\nbrief out of the hydra tool tree — `agents/clyde-barcode/` and the\nmatching `images/*/CLAUDE.md` — which is already cloned beside the\ntarget as `toolRepo`. So every stage runs in the SAME generic ExApp\nrunner and the persona is data, not an image: adding a stage stops\nbeing a Dockerfile and a CI job.\n\n`nextQueued` is THE HANDOFF. A stage that passes must queue the stage after it, or the machine records a pass and stops — which is what it did: `code-review:pass` went on the issue and no tier ever looked at it again. Empty here means terminal.\n\n🔴 `stageName` MUST EQUAL THE LABEL PREFIX. It was `security` while every\nlabel said `security-review`, and the two are not independent: `review-verdict`\nwrites `{{stageName}}:pass` and `resume-derive` rebuilds `labelQueued` as\n`{{stageName}}:queued`. So a passing security review wrote `security:pass`,\ndeleted a `security:queued` that never existed, and left\n`security-review:queued` on the issue — which the security tier then selected\nagain. Observed live on larpingapp#327 the first time the sequencer ran\nunattended."
+      }
+    },
+    {
+      "id": "scope-review",
+      "type": "openregister.set-fields",
+      "config": {
+        "compute": {
+          "searchQuery": {
+            "cat": [
+              "org:",
+              {
+                "coalesce": [
+                  {
+                    "var": "json.org"
+                  },
+                  "ConductionNL"
+                ]
+              },
+              " is:issue is:open label:\"code-review:queued\""
+            ]
+          }
+        },
+        "$comment": "Priority 3 of 4: Code review.\n\n🔑 THE ORDER IS THE WHOLE POINT, and it is the order the retired\nsupervisor used (`find_next_applier` → `find_next_review` →\n`find_next_build`, priority 1/2/3 in its own words). Work that is\nnearly finished is dispatched BEFORE work that has not started, so a\nqueue drains instead of accumulating half-built pull requests: every\nbuild that starts adds three more stages behind it, and a pool that\nalways prefers new builds never reaches them.\n\n⚠️ Each tier falls through to the next only when it finds NOTHING.\nThe first hit wins and nothing below it runs in this tick — one slot,\none stage, and the next tick re-asks from the top."
+      }
+    },
+    {
+      "id": "find-review",
+      "type": "openconnector.source-call",
+      "config": {
+        "query": {
+          "q": "{{searchQuery}}",
+          "per_page": "1"
+        },
+        "method": "GET",
+        "output": "queue",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/search/issues",
+        "$comment": "`per_page: 1` — this tick fills ONE slot. The pool is filled by concurrent RUNS, each holding a slot while SUSPENDED on its stage, not by one run dispatching several."
+      }
+    },
+    {
+      "id": "gate-review",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "stage-review",
+            "condition": {
+              ">": [
+                {
+                  "length": [
+                    {
+                      "var": "json.queue.body.items"
+                    }
+                  ]
+                },
+                0
+              ]
+            }
+          }
+        ],
+        "default": "scope",
+        "$comment": "Found Code review work? Take it. Otherwise fall through to the next priority — NOT to idle, or a lower tier would never be reached."
+      }
+    },
+    {
+      "id": "stage-review",
+      "type": "openregister.set-fields",
+      "config": {
+        "set": {
+          "stageName": "code-review",
+          "persona": "juan-claude-van-damme",
+          "labelRunning": "code-review:running",
+          "labelQueued": "code-review:queued",
+          "nextQueued": "security-review:queued"
+        },
+        "$comment": "What this tick's agent IS. Code review, run by `juan-claude-van-damme`.\n\n🔑 NO PERSONA CONTAINER. The prompt tells the agent to read its own\nbrief out of the hydra tool tree — `agents/juan-claude-van-damme/` and the\nmatching `images/*/CLAUDE.md` — which is already cloned beside the\ntarget as `toolRepo`. So every stage runs in the SAME generic ExApp\nrunner and the persona is data, not an image: adding a stage stops\nbeing a Dockerfile and a CI job.\n\n`nextQueued` is THE HANDOFF. A stage that passes must queue the stage after it, or the machine records a pass and stops — which is what it did: `code-review:pass` went on the issue and no tier ever looked at it again. Empty here means terminal."
+      }
+    },
+    {
+      "id": "review-derive",
+      "type": "openregister.set-fields",
+      "config": {
+        "compute": {
+          "repo": {
+            "replace": [
+              {
+                "var": "json.queue.body.items.0.repository_url"
+              },
+              "https://api.github.com/repos/",
+              ""
+            ]
+          },
+          "repoParts": {
+            "split": [
+              {
+                "var": "json.repo"
+              },
+              "/"
+            ]
+          },
+          "repoName": {
+            "var": "json.repoParts.1"
+          },
+          "issueNumber": {
+            "var": "json.queue.body.items.0.number"
+          },
+          "issueTitle": {
+            "var": "json.queue.body.items.0.title"
+          },
+          "jobKey": {
+            "cat": [
+              {
+                "var": "json.repoName"
+              },
+              "-",
+              {
+                "var": "json.issueNumber"
+              },
+              "-",
+              {
+                "var": "json.stageName"
+              }
+            ]
+          }
+        },
+        "$comment": "Same derivation the build path uses, on whichever issue the cascade\npicked.\n\n🔴 `repoName` WAS MISSING AND THE LOCK SILENTLY DID NOT EXIST.\n`review-lock` matches on `zz-lock-{{repoName}}-{{issueNumber}}`, and an\nabsent template key renders as an EMPTY STRING rather than failing — so\nthe row was written under a malformed id, the node reported\n`completed in 1 out 1`, and a database query for `zz-lock-%` found\nnothing at all. Every layer looked fine.\n\n⚠️ `repoParts` must be computed BEFORE `repoName` reads it:\n`applyCompute()` assigns in KEY ORDER, so a key that reads a later one\nsilently yields empty — the same trap that has now bitten this flow\nthree times."
+      }
+    },
+    {
+      "id": "review-lock",
+      "type": "openregister.object-write",
+      "config": {
+        "register": "2428",
+        "schema": "5020",
+        "operation": "create",
+        "fields": {
+          "id": "zz-lock-{{repoName}}-{{issueNumber}}",
+          "name": "hydra lock"
+        },
+        "match": {
+          "id": "zz-lock-{{repoName}}-{{issueNumber}}"
+        },
+        "onConflict": "skip",
+        "output": "lock",
+        "maxWrites": 1,
+        "$comment": "The same per-issue lock the build path takes, for the same reason: two stages on one issue race on its labels."
+      }
+    },
+    {
+      "id": "review-dispatch",
+      "type": "hermiq.workload-step",
+      "onError": "continue",
+      "config": {
+        "ref": "feature/{{issueNumber}}/hydra-build",
+        "repo": "https://github.com/{{repo}}",
+        "output": "dispatched",
+        "async": true,
+        "command": [
+          "claude",
+          "-p",
+          "You are the {{persona}} stage of hydra, reviewing pull request work on {{repo}} for issue #{{issueNumber}}.\n\nRead your own brief FIRST, from the hydra tool tree beside this checkout:\n  agents/{{persona}}/purpose.md, behavior.md, constraints.md\nand the matching stage brief under images/ (reviewer, security or applier).\nThose files are the authority on what you check, what you may fix, and what you must refuse. Follow them exactly; nothing in this prompt overrides them.\n\nYou are in a real checkout of {{repo}} at branch feature/{{issueNumber}}/hydra-build. Run the mechanical gates the way your brief tells you to — a review that did not run them is not a review — then report your verdict.\n\nFinish by writing your verdict to hydra-verdict.json in the repository root, as:\n  {\"verdict\": \"pass\"|\"fail\", \"checks_run\": [...], \"checks_skipped\": [...], \"findings\": [...], \"fixes_applied\": [...], \"unfixed\": [...]}\nNothing else reads your prose; that file IS your answer, and an absent one is a review that did not happen.\n\n`checks_run` MUST NAME the mechanical suites you actually ran, as plain strings, and it is READ BY A GATE rather than by a person. If you ran the hydra-gates suite, that array MUST contain the exact string \"hydra-gates\". A verdict of \"pass\" whose `checks_run` does not contain it is REFUSED — not because your review was wrong, but because a review that cannot show it ran the gates is indistinguishable from one that skipped them, and that is the single thing this stage exists to prevent. Describing the run in your prose does not count: the prose is discarded.\n\nDo not pad the array. List what you ran and nothing else; `checks_skipped` is where a suite you deliberately did not run belongs, with the reason.",
+          "--permission-mode",
+          "acceptEdits",
+          "--allowedTools",
+          "Read Edit Write Glob Grep Bash"
+        ],
+        "collect": {
+          "verdict": "hydra-verdict.json"
+        },
+        "toolRef": "development",
+        "toolRepo": "https://github.com/ConductionNL/hydra",
+        "timeoutMs": 1500000,
+        "credentialId": "35327e7a-52f2-4a21-8ffe-6195d52f9579",
+        "llmCredentialId": "16f12a19-24be-4ed5-a53b-19b48f24e1e5",
+        "$comment": "THE GENERIC STAGE AGENT. One node serves code review, security review\nand the applier — the difference is `persona`, set by the cascade, and\nthe brief the agent reads out of the tool tree.\n\n🔑 `async: true` IS WHAT MAKES A SLOT MEAN SOMETHING. The stage is\nSTARTED and a handle comes back; the run then suspends on `review-wait`,\nwhich releases the queue worker. `FlowRunWorker` advances runs serially\nin one process, so a synchronous stage would hold the only worker for\nthe whole review and the pool could never exceed one agent however many\nslots it declared.\n\n⚠️ NO `push`. A reviewer's bounded fixes are committed by its own brief\nthrough the forge API, not by `pushGuard` — this stage is not a builder\nand must not be handed a writing posture it was not designed for.\n\n🔑 `collect` NAMES THE VERDICT FILE because the stage's filesystem is\ndeleted moments after it ends. A review whose answer lived only in the\nclone is a review nobody can act on — the same gap `create_finding_issues`\nhit before the runner could return files.",
+        "jobKey": "{{jobKey}}"
+      }
+    },
+    {
+      "id": "review-wait",
+      "type": "openregister.wait",
+      "config": {
+        "for": "60 seconds",
+        "$comment": "SUSPENDS the run. The engine stores the marking and the items, frees\nthe worker, and wakes this run when `resumeAt` is due — which is the\nentire mechanism by which four slots become four agents rather than a\nqueue of one.\n\n⚠️ The node runs a SECOND time on the way back in and lets the items\nstraight through, because the marking is not advanced while suspended.\nThat is what makes it correct rather than a one-shot."
+      }
+    },
+    {
+      "id": "review-collect",
+      "type": "hermiq.workload-collect",
+      "onError": "continue",
+      "config": {
+        "job": "{{dispatched.job.id}}",
+        "output": "collected",
+        "stageOutput": "stage",
+        "$comment": "Asks what became of the handle. A `done` result is published as `stage`, in the SAME shape a synchronous step produces, so the verdict gate cannot tell which transport delivered it."
+      }
+    },
+    {
+      "id": "collect-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "still-running",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.collected.status"
+                },
+                "running"
+              ]
+            }
+          },
+          {
+            "output": "review-verdict",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.collected.status"
+                },
+                "done"
+              ]
+            }
+          }
+        ],
+        "default": "review-blocked",
+        "$comment": "🔴🔥 THE 'STILL RUNNING' EXIT PARKS THE RUN — IT DOES NOT LOOP BACK.\n\nIt looped back to `review-wait` first, and the engine stopped it:\n\n    Flow did not settle within 1000 transitions; it may contain an\n    unbounded loop.\n\n`WaitNode` suspends on its FIRST pass and, on the way back in, sees\n`context.resuming` and lets the items straight through — which is what\nmakes resume correct, and what makes it useless as a loop body. The\nsecond arrival did not suspend, so wait → collect → wait spun at full\nspeed until the ceiling caught it. The ceiling did its job; the loop was\nthe mistake, and its own node comment had described the pass-through\nbehaviour it then depended on NOT happening.\n\n🔑 SO THE RUN ENDS AND A LATER TICK COLLECTS — which is the same rule\nthe rest of this flow already follows: nothing is handed forward, the\nnext tick re-reads state and picks up whatever is there. The handle is\nparked on the lock object so a later tick can find it.\n\n  running  park the handle, end the run, free the slot's worker\n  done     the stage RAN; a non-zero exit is a verdict\n  default  failed / unknown — both TERMINAL"
+      }
+    },
+    {
+      "id": "review-verdict",
+      "type": "openregister.set-fields",
+      "config": {
+        "compute": {
+          "verdictRaw": {
+            "var": "json.stage.files.verdict"
+          },
+          "verdict": {
+            "coalesce": [
+              {
+                "var": "json.verdictRaw.verdict"
+              },
+              "missing"
+            ]
+          },
+          "checksRun": {
+            "coalesce": [
+              {
+                "var": "json.verdictRaw.checks_run"
+              },
+              []
+            ]
+          },
+          "ranGates": {
+            "in": [
+              "hydra-gates",
+              {
+                "coalesce": [
+                  {
+                    "var": "json.verdictRaw.checks_run"
+                  },
+                  []
+                ]
+              }
+            ]
+          }
+        },
+        "$comment": "THE VERDICT IS THE FILE, NOT THE EXIT CODE.\n\nA reviewer that crashed, ran out of turns, or answered in prose exits\n0 just as readily as one that reviewed. `hydra-verdict.json` is the\nonly artefact that distinguishes them, which is why the dispatch\n`collect`s it by name and why an absent file resolves to `missing`\nrather than to a pass.\n\n🔑 `ranGates` IS `_verify_reviewer_ran_mandatory_gates`, PORTED. The\norchestrator audit lists it as one of two capabilities that must not\nbe dropped silently, precisely because it guards a GREEN-BUT-DEAD\nreview: an agent that skips the mechanical gates and reports `pass`\nis indistinguishable from one that ran them, unless something asks.\nThis asks, on the reviewer's own declaration of what it ran.\n\n🔴 THE ALIAS, NOT THE FILENAME. This read `stage.files.hydra-verdict.json`,\nand a flow addresses data with a DOTTED path — so that key splits at every\ndot and resolves to nothing, whatever the runner returned. The runner's own\ncollect code carries the warning: an array keys each file by its own path,\nand `collect: {verdict: \"hydra-verdict.json\"}` is the form a flow can walk.\n\nThe file never arrived either: the flow declared `collect`, the node dropped\nit, and `buildParams()` never put it on the wire. So EVERY review hydra has\nrun read `missing` and was blocked — a correct refusal for a reason that was\nnever true.\n\n🔴🔥 `fromJson` DESTROYED THE VERDICT, and did it silently.\n\nThe runner PARSES a collected `.json` file before returning it — deliberately,\nbecause a flow cannot address into a string. So `stage.files.verdict` arrives\nas an OBJECT, and `fromJson` on an object returns NULL. Measured directly\nagainst the engine: fromJson(object) -> null, fromJson(string) -> the object,\nvar(object) -> the object.\n\nEvery review therefore read `verdict: missing`, `ranGates: false`, and was\nblocked — while the reviewer had written a perfect verdict file declaring\n`checks_run: [\"hydra-gates\", ...]`. THREE layers were blamed before the\nexpression: the agent (which had run the gates and said so), the prompt (which\nnamed the file but not the array), and the brief (which was already emphatic).\nNone of them was wrong.\n\n⚠️ The false trail was my own probe. Grepping the run log for\n`\"verdict\":\"pass\"` matched the string INSIDE the collected file, not the\ncomputed field — so the compute looked like it had worked."
+      }
+    },
+    {
+      "id": "gates-guard",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "verdict-route",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.ranGates"
+                },
+                true
+              ]
+            }
+          }
+        ],
+        "default": "review-blocked",
+        "$comment": "A review that did not run the gates is NOT a review, whatever it\nconcluded. It is refused here rather than recorded as a verdict —\nthe whole point of the guard is that a skipped check must not be able\nto produce a pass.\n\n⚠️ This refuses on the reviewer's OWN `checks_run` list. That is a\ndeclaration, not proof, and a determined agent could lie — which is\nwhy `scripts/verify-reviewer-gates.py` parses the JSONL transcript\ninstead. This is the cheap half; the transcript check is the honest\none and is still to be wired."
+      }
+    },
+    {
+      "id": "verdict-route",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "label-pass",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.verdict"
+                },
+                "pass"
+              ]
+            }
+          },
+          {
+            "output": "label-fail",
+            "condition": {
+              "===": [
+                {
+                  "var": "json.verdict"
+                },
+                "fail"
+              ]
+            }
+          }
+        ],
+        "default": "review-blocked",
+        "$comment": "`missing` and anything else fall to blocked — an unreadable verdict is not a fail, it is a stage nobody can act on, and it needs a person rather than a label that looks like a judgement."
+      }
+    },
+    {
+      "id": "label-pass",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "{{stageName}}:pass"
+          ]
+        },
+        "method": "POST",
+        "output": "labelled",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels",
+        "$comment": "The verdict, on the issue. The NEXT tick reads it and dispatches whatever is now highest-priority — nothing is handed forward."
+      }
+    },
+    {
+      "id": "label-fail",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "{{stageName}}:fail"
+          ]
+        },
+        "method": "POST",
+        "output": "labelled",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels",
+        "$comment": "A failing review still advances the pipeline — the next stage is queued by the label machine, and a human reads the findings on the PR. Only `needs-input` stops."
+      }
+    },
+    {
+      "id": "clear-contradiction",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "DELETE",
+        "output": "cleared",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels/{{stageName}}:{{oppositeVerdict}}",
+        "$comment": "`_analyze_verdicts`, PORTED — the other capability the orchestrator\naudit says must not be dropped.\n\nAn issue carrying BOTH `<stage>:pass` and `<stage>:fail` is a\nreviewer-dispatch race, and it is not a cosmetic mess: every later\ngate that reads 'did this pass' gets a different answer depending on\nwhich label it looks at first. The audit's rule is FAIL TAKES\nPRECEDENCE, so whichever verdict this run wrote, the opposite one is\nremoved immediately after.\n\n⚠️ `onError: continue` — deleting a label that is not there answers\n404, and that is the ordinary case rather than a problem."
+      }
+    },
+    {
+      "id": "review-dequeue",
+      "type": "openconnector.source-call",
+      "config": {
+        "method": "DELETE",
+        "output": "dequeued",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels/{{labelQueued}}",
+        "$comment": "Off the queue, or `find-*` selects the same issue on the next tick and the tier never drains — the same wedge the build path had."
+      }
+    },
+    {
+      "id": "review-blocked",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "needs-input"
+          ]
+        },
+        "method": "POST",
+        "output": "escalated",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "continue",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels",
+        "$comment": "The stage could not be carried out, or answered something nobody can act on. `needs-input` is the one terminal state in this machine — it means a person, not a retry. It continues to `review-dequeue`: a blocked stage that kept its `:queued` label was selected again on the next tick, a full review run every five minutes until a person removed the label (hydra#724)."
+      }
+    },
+    {
+      "id": "review-claim",
+      "type": "openregister.flow-state",
+      "config": {
+        "slots": "slots",
+        "holder": "repo",
+        "record": [
+          "repo"
+        ],
+        "capacity": 3,
+        "operation": "claim",
+        "leaseSeconds": 5400,
+        "$comment": "The review chain claims from the SAME pool as the build path — that is\nwhat makes it a pool rather than two independent caps.\n\n🔑 CLAIMED AFTER `review-derive`, because the holder is the repository and\nnothing knows which repository this is until the cascade has picked an\nissue. Claiming earlier would record a slot against an unknown holder,\nwhich is a slot nobody can attribute when it needs reaping.\n\n⚠️ Unlike the build path this claims AFTER the work is chosen rather than\nbefore, and that is safe here for a reason that does not hold there: a\nreview tier has nothing to refuse. The build path claims late precisely\nso an issue with no OpenSpec change can be turned away without ever\ntaking a slot."
+      }
+    },
+    {
+      "id": "review-slot-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "review-lock",
+            "condition": {
+              "!==": [
+                {
+                  "var": "json.slot"
+                },
+                null
+              ]
+            }
+          }
+        ],
+        "default": "stop-full",
+        "$comment": "A full pool is a NORMAL outcome, not an error — the next tick tries again. It is also why `stop-full` must stay distinguishable from `stop-idle`: 'everyone is busy' and 'there is nothing to do' look identical from a run that simply ended."
+      }
+    },
+    {
+      "id": "find-inflight",
+      "type": "openregister.object-read",
+      "config": {
+        "register": "2428",
+        "schema": "5020",
+        "filters": {
+          "notes": "hydra-inflight"
+        },
+        "limit": 1,
+        "output": "inflight",
+        "$comment": "PRIORITY 0, ahead of every queue: a stage that is ALREADY RUNNING.\n\n🔑 COLLECTING BEATS DISPATCHING, for the same reason applier beats build —\nwork in flight is the most nearly finished work there is, and a tick that\npreferred new work would start agents it then had no capacity to collect.\nThe slot stays held until the collect resolves, so ignoring in-flight work\nwould also mean the pool never frees.\n\n⚠️ REGISTER AND SCHEMA BY NUMERIC ID, not by slug. The slug form resolved\nto something — the node reported `completed in 1 out 1` — and matched\nnothing, which is indistinguishable from an empty queue: the tick fell\nstraight through to the review tier and dispatched a SECOND agent for an\nissue that already had one running. The numeric form was verified through\nthe node's own code path (runAs + setRegister + setSchema + findAll) and\nreturns the marker row."
+      }
+    },
+    {
+      "id": "gate-inflight",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "resume-derive",
+            "condition": {
+              ">": [
+                {
+                  "length": [
+                    {
+                      "var": "json.inflight"
+                    }
+                  ]
+                },
+                0
+              ]
+            }
+          }
+        ],
+        "default": "scope-applier",
+        "$comment": "Something in flight? Collect it. Otherwise fall through to the queues — a tick always does exactly one thing."
+      }
+    },
+    {
+      "id": "mark-inflight",
+      "type": "openregister.object-write",
+      "onError": "continue",
+      "config": {
+        "register": "hermiq",
+        "schema": "agentflow",
+        "operation": "update",
+        "match": {
+          "@self.uuid": "zz-lock-{{repoName}}-{{issueNumber}}"
+        },
+        "fields": {
+          "notes": "hydra-inflight",
+          "description": "{{repo}} #{{issueNumber}} {{stageName}}"
+        },
+        "onNoMatch": "skip",
+        "output": "marked",
+        "maxWrites": 1,
+        "$comment": "Marks the per-issue lock as CARRYING A RUNNING STAGE, after the dispatch\nthat succeeded and never before it — a lock taken but not dispatched (the\nslot gate refused) must not advertise work that does not exist.\n\n🔑 THE LOCK IS THE RIGHT HOME because its lifetime is ALREADY the stage's\nlifetime: created before dispatch, deleted by `unlock` when the stage ends.\nA marker cannot outlive what it refers to, so nothing here needs reaping.\n\n⚠️ `description` carries repo, issue and stage because the collecting tick\nstarts from THIS ROW, not from a search result — it has no queue item to\nderive them from. `notes` is the exact-match discriminator: a filter has to\nmatch a literal, and every real agentflow in this register would match a\nlooser one.\n\n⚠️ Register and schema by SLUG, matching `unlock` and `lock-issue`. The\nnumeric form with `match: {id: ...}` was refused outright — `id` is neither\na property of this schema nor a metadata field."
+      }
+    },
+    {
+      "id": "resume-derive",
+      "type": "openregister.set-fields",
+      "config": {
+        "compute": {
+          "marker": {
+            "var": "json.inflight.0.description"
+          },
+          "markerParts": {
+            "split": [
+              {
+                "var": "json.marker"
+              },
+              " "
+            ]
+          },
+          "repo": {
+            "var": "json.markerParts.0"
+          },
+          "repoParts": {
+            "split": [
+              {
+                "var": "json.repo"
+              },
+              "/"
+            ]
+          },
+          "repoName": {
+            "var": "json.repoParts.1"
+          },
+          "issueNumber": {
+            "replace": [
+              {
+                "var": "json.markerParts.1"
+              },
+              "#",
+              ""
+            ]
+          },
+          "stageName": {
+            "var": "json.markerParts.2"
+          },
+          "nextQueued": {
+            "if": [
+              {
+                "===": [
+                  {
+                    "var": "json.stageName"
+                  },
+                  "code-review"
+                ]
+              },
+              "security-review:queued",
+              {
+                "===": [
+                  {
+                    "var": "json.stageName"
+                  },
+                  "security-review"
+                ]
+              },
+              "applier:queued",
+              ""
+            ]
+          },
+          "labelQueued": {
+            "cat": [
+              {
+                "var": "json.stageName"
+              },
+              ":queued"
+            ]
+          },
+          "jobKey": {
+            "cat": [
+              {
+                "var": "json.repoName"
+              },
+              "-",
+              {
+                "var": "json.issueNumber"
+              },
+              "-",
+              {
+                "var": "json.stageName"
+              }
+            ]
+          }
+        },
+        "$comment": "Rebuilds the tick's world from the marker row, because a collecting tick\nhas NO queue item — it started from the lock, not from a search.\n\n🔴 KEY ORDER IS LOAD-BEARING and has bitten this flow THREE times:\n`applyCompute()` assigns in the order the keys appear, so a key that reads\na later one silently yields an EMPTY STRING rather than failing. `repo`\nbefore `repoParts` before `repoName` before `jobKey`, always.\n\n🔑 THE HANDLE IS REBUILT, NOT PARKED. `<repo>-<issue>-<stage>` is what the\ndispatching tick told the runner to key the job on, so this tick derives\nthe same string from the same three facts. Nothing was stored, so nothing\ncan be stale — and the handle survives even a marker write that failed.\n\nSplitting on a SPACE is safe: a repo full name contains a slash and never\na space, and the issue number is fenced by its `#`.\n\n🔴 `nextQueued` MUST BE REBUILT HERE TOO. A resumed tick never passes through\na `stage-*` node — it starts from the lock row — so every value those nodes\nset has to be derived again. It was missing, `next-gate` read an empty string,\nand a review that PASSED wrote `code-review:pass` and queued nothing: the\nexact stall this handoff exists to fix, reintroduced one node downstream.\n\nSame trap as `repoName`, third time in this flow: an absent template key\nrenders as EMPTY rather than failing, so every node reports success."
+      }
+    },
+    {
+      "id": "resume-collect",
+      "type": "hermiq.workload-collect",
+      "onError": "continue",
+      "config": {
+        "job": "{{jobKey}}",
+        "output": "collected",
+        "stageOutput": "stage",
+        "$comment": "The same collect the dispatching run does, on a handle rebuilt rather than\nremembered. A `done` publishes `stage` in the shape a SYNCHRONOUS step\nwould, so the verdict gate downstream cannot tell which tick — or which\ntransport — delivered it."
+      }
+    },
+    {
+      "id": "still-running",
+      "type": "openregister.end",
+      "config": {
+        "$comment": "Still going. The run ENDS and the marker STAYS, so the next tick finds it\nagain at priority 0 and asks once more.\n\n🔴🔥 IT MUST NOT LOOP BACK TO THE WAIT. It did once, and the engine stopped\nit: `Flow did not settle within 1000 transitions`. `WaitNode` suspends on\nits FIRST pass and, on the way back in, sees `context.resuming` and lets\nitems straight through — which is what makes resume correct and what makes\nit useless as a loop body. Waiting again is the next tick's job, not this\nrun's."
+      }
+    },
+    {
+      "id": "next-gate",
+      "type": "openregister.route",
+      "config": {
+        "rules": [
+          {
+            "output": "queue-next",
+            "condition": {
+              "!=": [
+                {
+                  "var": "json.nextQueued"
+                },
+                ""
+              ]
+            }
+          }
+        ],
+        "default": "clear-contradiction",
+        "$comment": "Is there a stage after this one? A terminal stage (the applier) queues nothing, and posting an empty label name is a 422 rather than a no-op."
+      }
+    },
+    {
+      "id": "queue-next",
+      "type": "openconnector.source-call",
+      "config": {
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "endpoint": "/repos/{{repo}}/issues/{{issueNumber}}/labels",
+        "method": "POST",
+        "body": {
+          "labels": [
+            "{{nextQueued}}"
+          ]
+        },
+        "output": "queued",
+        "$comment": "THE HANDOFF, and it was missing. `label-pass` recorded `<stage>:pass` and nothing queued the stage after it, so a passed review sat with a pass label that no tier searched for — the cascade ran all four tiers and found nothing, on an issue that had just passed review.\n\n🔑 The next tick picks this up by ITS OWN priority, which is the whole point: nothing is handed forward in-process, the label IS the queue.",
+        "onError": "continue"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "scope-find-work",
+      "from": "scope",
+      "to": "find-work",
+      "title": "scoped"
+    },
+    {
+      "id": "find-work-work-gate",
+      "from": "find-work",
+      "to": "work-gate",
+      "title": "listed"
+    },
+    {
+      "id": "work-gate-derive",
+      "from": "work-gate",
+      "to": "derive",
+      "title": "work"
+    },
+    {
+      "id": "work-gate-stop-idle",
+      "from": "work-gate",
+      "to": "stop-idle",
+      "title": "idle"
+    },
+    {
+      "id": "derive-spec-gate",
+      "from": "derive",
+      "to": "spec-gate",
+      "title": "picked"
+    },
+    {
+      "id": "claim-slot-slot-gate",
+      "from": "claim-slot",
+      "to": "slot-gate",
+      "title": "claimed"
+    },
+    {
+      "id": "slot-gate-stop-full",
+      "from": "slot-gate",
+      "to": "stop-full",
+      "title": "at-capacity"
+    },
+    {
+      "id": "run-build-built-gate",
+      "from": "run-build",
+      "to": "built-gate",
+      "title": "built"
+    },
+    {
+      "id": "advance-open-pr",
+      "from": "advance",
+      "to": "open-pr",
+      "title": "verdict written"
+    },
+    {
+      "id": "advance-failed-open-pr",
+      "from": "advance-failed",
+      "to": "open-pr",
+      "title": "verdict written"
+    },
+    {
+      "id": "dequeue-unlock",
+      "from": "dequeue",
+      "to": "unlock",
+      "title": "off the queue"
+    },
+    {
+      "id": "unlock-release",
+      "from": "unlock",
+      "to": "release",
+      "title": "lock released"
+    },
+    {
+      "id": "run-stage-verdict-gate",
+      "from": "run-stage",
+      "to": "verdict-gate",
+      "title": "Stage finished"
+    },
+    {
+      "id": "verdict-gate-advance",
+      "from": "verdict-gate",
+      "to": "advance",
+      "title": "Gates passed"
+    },
+    {
+      "id": "verdict-gate-run-fix",
+      "from": "verdict-gate",
+      "to": "run-fix",
+      "title": "gates found something"
+    },
+    {
+      "id": "spec-gate-flag-nospec",
+      "from": "spec-gate",
+      "to": "flag-nospec",
+      "title": "names none"
+    },
+    {
+      "id": "built-gate-run-stage",
+      "from": "built-gate",
+      "to": "run-stage",
+      "title": "there is a branch"
+    },
+    {
+      "id": "built-gate-nothing-built",
+      "from": "built-gate",
+      "to": "nothing-built",
+      "title": "nothing to build"
+    },
+    {
+      "id": "nothing-built-dequeue",
+      "from": "nothing-built",
+      "to": "dequeue",
+      "title": "recorded"
+    },
+    {
+      "id": "built-gate-build-blocked",
+      "from": "built-gate",
+      "to": "build-blocked",
+      "title": "could not build"
+    },
+    {
+      "id": "verdict-gate-verdict-blocked",
+      "from": "verdict-gate",
+      "to": "verdict-blocked",
+      "title": "no verdict"
+    },
+    {
+      "id": "build-blocked-dequeue",
+      "from": "build-blocked",
+      "to": "dequeue",
+      "title": "recorded"
+    },
+    {
+      "id": "verdict-blocked-dequeue",
+      "from": "verdict-blocked",
+      "to": "dequeue",
+      "title": "recorded"
+    },
+    {
+      "id": "read-change-spec-exists-gate",
+      "from": "read-change",
+      "to": "spec-exists-gate",
+      "title": "looked"
+    },
+    {
+      "id": "spec-exists-gate-claim-slot",
+      "from": "spec-exists-gate",
+      "to": "claim-slot",
+      "title": "the spec is there"
+    },
+    {
+      "id": "spec-exists-gate-flag-unspecced",
+      "from": "spec-exists-gate",
+      "to": "flag-unspecced",
+      "title": "no such change"
+    },
+    {
+      "id": "flag-unspecced-dequeue-unspecced",
+      "from": "flag-unspecced",
+      "to": "dequeue-unspecced",
+      "title": "marked"
+    },
+    {
+      "id": "flag-nospec-dequeue-nospec",
+      "from": "flag-nospec",
+      "to": "dequeue-nospec",
+      "title": "flagged"
+    },
+    {
+      "id": "dequeue-nospec-refuse-unspecced",
+      "from": "dequeue-nospec",
+      "to": "refuse-unspecced",
+      "title": "off the queue"
+    },
+    {
+      "id": "dequeue-unspecced-refuse-unspecced",
+      "from": "dequeue-unspecced",
+      "to": "refuse-unspecced",
+      "title": "off the queue"
+    },
+    {
+      "id": "run-fix-fix-gate",
+      "from": "run-fix",
+      "to": "fix-gate",
+      "title": "fixed"
+    },
+    {
+      "id": "fix-gate-run-regate",
+      "from": "fix-gate",
+      "to": "run-regate",
+      "title": "something changed"
+    },
+    {
+      "id": "fix-gate-advance-failed",
+      "from": "fix-gate",
+      "to": "advance-failed",
+      "title": "nothing changed"
+    },
+    {
+      "id": "run-regate-verdict-gate-2",
+      "from": "run-regate",
+      "to": "verdict-gate-2",
+      "title": "re-gated"
+    },
+    {
+      "id": "verdict-gate-2-advance",
+      "from": "verdict-gate-2",
+      "to": "advance",
+      "title": "clean now"
+    },
+    {
+      "id": "verdict-gate-2-advance-failed",
+      "from": "verdict-gate-2",
+      "to": "advance-failed",
+      "title": "still failing"
+    },
+    {
+      "id": "describe-repo-read-dev-ref",
+      "from": "describe-repo",
+      "to": "read-dev-ref",
+      "title": "repo described"
+    },
+    {
+      "id": "read-dev-ref-resolve-ref",
+      "from": "read-dev-ref",
+      "to": "resolve-ref",
+      "title": "looked for development"
+    },
+    {
+      "id": "spec-gate-describe-repo",
+      "from": "spec-gate",
+      "to": "describe-repo",
+      "title": "names a change"
+    },
+    {
+      "id": "resolve-ref-read-change",
+      "from": "resolve-ref",
+      "to": "read-change",
+      "title": "branch resolved"
+    },
+    {
+      "id": "lock-issue-run-build",
+      "from": "lock-issue",
+      "to": "run-build",
+      "title": "locked"
+    },
+    {
+      "id": "record-inputs-record-stage",
+      "from": "record-inputs",
+      "to": "record-stage",
+      "title": "record inputs set"
+    },
+    {
+      "id": "open-pr-dequeue",
+      "from": "open-pr",
+      "to": "dequeue",
+      "title": "pull request opened"
+    },
+    {
+      "id": "release-record-inputs",
+      "from": "release",
+      "to": "record-inputs",
+      "title": "slot released"
+    },
+    {
+      "id": "record-stage-stop-idle",
+      "from": "record-stage",
+      "to": "stop-idle",
+      "title": "recorded"
+    },
+    {
+      "id": "scope-applier-find-applier",
+      "from": "scope-applier",
+      "to": "find-applier",
+      "title": "scoped"
+    },
+    {
+      "id": "find-applier-gate-applier",
+      "from": "find-applier",
+      "to": "gate-applier",
+      "title": "searched"
+    },
+    {
+      "id": "gate-applier-stage-applier",
+      "from": "gate-applier",
+      "to": "stage-applier",
+      "title": "applier work"
+    },
+    {
+      "id": "gate-applier-scope-security",
+      "from": "gate-applier",
+      "to": "scope-security",
+      "title": "nothing here"
+    },
+    {
+      "id": "scope-security-find-security",
+      "from": "scope-security",
+      "to": "find-security",
+      "title": "scoped"
+    },
+    {
+      "id": "find-security-gate-security",
+      "from": "find-security",
+      "to": "gate-security",
+      "title": "searched"
+    },
+    {
+      "id": "gate-security-stage-security",
+      "from": "gate-security",
+      "to": "stage-security",
+      "title": "security review work"
+    },
+    {
+      "id": "gate-security-scope-review",
+      "from": "gate-security",
+      "to": "scope-review",
+      "title": "nothing here"
+    },
+    {
+      "id": "scope-review-find-review",
+      "from": "scope-review",
+      "to": "find-review",
+      "title": "scoped"
+    },
+    {
+      "id": "find-review-gate-review",
+      "from": "find-review",
+      "to": "gate-review",
+      "title": "searched"
+    },
+    {
+      "id": "gate-review-stage-review",
+      "from": "gate-review",
+      "to": "stage-review",
+      "title": "code review work"
+    },
+    {
+      "id": "gate-review-scope",
+      "from": "gate-review",
+      "to": "scope",
+      "title": "nothing here"
+    },
+    {
+      "id": "review-lock-review-dispatch",
+      "from": "review-lock",
+      "to": "review-dispatch",
+      "title": "locked"
+    },
+    {
+      "id": "review-wait-review-collect",
+      "from": "review-wait",
+      "to": "review-collect",
+      "title": "woke"
+    },
+    {
+      "id": "review-collect-collect-gate",
+      "from": "review-collect",
+      "to": "collect-gate",
+      "title": "collected"
+    },
+    {
+      "id": "collect-gate-review-verdict",
+      "from": "collect-gate",
+      "to": "review-verdict",
+      "title": "finished"
+    },
+    {
+      "id": "collect-gate-review-blocked",
+      "from": "collect-gate",
+      "to": "review-blocked",
+      "title": "could not run"
+    },
+    {
+      "id": "review-verdict-gates-guard",
+      "from": "review-verdict",
+      "to": "gates-guard",
+      "title": "read"
+    },
+    {
+      "id": "gates-guard-verdict-route",
+      "from": "gates-guard",
+      "to": "verdict-route",
+      "title": "gates were run"
+    },
+    {
+      "id": "gates-guard-review-blocked",
+      "from": "gates-guard",
+      "to": "review-blocked",
+      "title": "gates skipped"
+    },
+    {
+      "id": "verdict-route-label-pass",
+      "from": "verdict-route",
+      "to": "label-pass",
+      "title": "pass"
+    },
+    {
+      "id": "verdict-route-label-fail",
+      "from": "verdict-route",
+      "to": "label-fail",
+      "title": "fail"
+    },
+    {
+      "id": "verdict-route-review-blocked",
+      "from": "verdict-route",
+      "to": "review-blocked",
+      "title": "unreadable"
+    },
+    {
+      "id": "label-fail-clear-contradiction",
+      "from": "label-fail",
+      "to": "clear-contradiction",
+      "title": "recorded"
+    },
+    {
+      "id": "clear-contradiction-review-dequeue",
+      "from": "clear-contradiction",
+      "to": "review-dequeue",
+      "title": "resolved"
+    },
+    {
+      "id": "stage-applier-review-derive",
+      "from": "stage-applier",
+      "to": "review-derive",
+      "title": "stage chosen"
+    },
+    {
+      "id": "stage-security-review-derive",
+      "from": "stage-security",
+      "to": "review-derive",
+      "title": "stage chosen"
+    },
+    {
+      "id": "stage-review-review-derive",
+      "from": "stage-review",
+      "to": "review-derive",
+      "title": "stage chosen"
+    },
+    {
+      "id": "review-dequeue-unlock",
+      "from": "review-dequeue",
+      "to": "unlock",
+      "title": "dequeued"
+    },
+    {
+      "id": "review-blocked-dequeue",
+      "from": "review-blocked",
+      "to": "review-dequeue",
+      "title": "escalated"
+    },
+    {
+      "id": "slot-gate-lock-issue",
+      "from": "slot-gate",
+      "to": "lock-issue",
+      "title": "slot claimed"
+    },
+    {
+      "id": "review-derive-review-claim",
+      "from": "review-derive",
+      "to": "review-claim",
+      "title": "derived"
+    },
+    {
+      "id": "review-claim-review-slot-gate",
+      "from": "review-claim",
+      "to": "review-slot-gate",
+      "title": "claim attempted"
+    },
+    {
+      "id": "review-slot-gate-review-lock",
+      "from": "review-slot-gate",
+      "to": "review-lock",
+      "title": "slot claimed"
+    },
+    {
+      "id": "review-slot-gate-stop-full",
+      "from": "review-slot-gate",
+      "to": "stop-full",
+      "title": "pool full"
+    },
+    {
+      "id": "start-find-inflight",
+      "from": "start",
+      "to": "find-inflight",
+      "title": "tick"
+    },
+    {
+      "id": "find-inflight-gate-inflight",
+      "from": "find-inflight",
+      "to": "gate-inflight",
+      "title": "looked"
+    },
+    {
+      "id": "gate-inflight-resume-derive",
+      "from": "gate-inflight",
+      "to": "resume-derive",
+      "title": "a stage is running"
+    },
+    {
+      "id": "gate-inflight-scope-applier",
+      "from": "gate-inflight",
+      "to": "scope-applier",
+      "title": "nothing in flight"
+    },
+    {
+      "from": "review-dispatch",
+      "to": "mark-inflight"
+    },
+    {
+      "from": "mark-inflight",
+      "to": "review-wait"
+    },
+    {
+      "from": "resume-derive",
+      "to": "resume-collect"
+    },
+    {
+      "from": "resume-collect",
+      "to": "collect-gate"
+    },
+    {
+      "from": "collect-gate",
+      "to": "still-running",
+      "output": "still-running"
+    },
+    {
+      "from": "label-pass",
+      "to": "next-gate"
+    },
+    {
+      "from": "next-gate",
+      "to": "queue-next",
+      "output": "queue-next"
+    },
+    {
+      "from": "next-gate",
+      "to": "clear-contradiction",
+      "output": "clear-contradiction"
+    },
+    {
+      "from": "queue-next",
+      "to": "clear-contradiction"
+    }
+  ]
+}

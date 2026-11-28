@@ -1,0 +1,94 @@
+{
+  "name": "Hydra label transition",
+  "description": "Move an issue from one pipeline state to the next: remove the label it is leaving, add the one it is entering, and read the result back. This is hydra's state machine as a flow — see openspec/changes/hydra-flows-first-port task 2.3. Both writes are brokered: the credential never reaches this app.",
+  "trigger": "manual",
+  "enabled": false,
+  "$bindings": {
+    "remove.source": "The uuid of the Source seeded from flows/hydra-forge.source.json on the target instance. Instance-specific; an importer resolves it by name.",
+    "add.source": "Same Source as remove.source.",
+    "verify.source": "Same Source as remove.source."
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "openregister.trigger-manual",
+      "config": {},
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "done",
+      "type": "openregister.end",
+      "config": { "message": "The flow completed." },
+      "position": { "x": 0, "y": 0 }
+    },
+    {
+      "id": "remove",
+      "type": "openconnector.source-call",
+      "config": {
+        "$why": "404 is accepted: the issue may already have left that state, and a transition that is already half-applied must be idempotent rather than fatal. Every other status still fails the step.",
+        "method": "DELETE",
+        "output": "removed",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/issues/{{issue}}/labels/{{fromLabel}}",
+        "acceptStatuses": [
+          200,
+          404
+        ]
+      }
+    },
+    {
+      "id": "add",
+      "type": "openconnector.source-call",
+      "config": {
+        "body": {
+          "labels": [
+            "{{toLabel}}"
+          ]
+        },
+        "method": "POST",
+        "output": "added",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/issues/{{issue}}/labels"
+      }
+    },
+    {
+      "id": "verify",
+      "type": "openconnector.source-call",
+      "config": {
+        "$why": "The read-back is not decoration. A label write that 200s and a label that is actually set are different claims, and the supervisor's whole state machine is driven off the second one. Reading it back is how a caller can assert on the state rather than on the response.",
+        "method": "GET",
+        "output": "labels",
+        "source": "5c5c1ca6-c0f8-4158-a542-3dd072279c68",
+        "onError": "stop",
+        "endpoint": "/repos/{{repo}}/issues/{{issue}}/labels"
+      },
+      "exit": true
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-remove",
+      "from": "start",
+      "to": "remove"
+    },
+    {
+      "id": "verify-done",
+      "from": "verify",
+      "to": "done"
+    },
+    {
+      "id": "remove-add",
+      "from": "remove",
+      "to": "add",
+      "title": "cleared"
+    },
+    {
+      "id": "add-verify",
+      "from": "add",
+      "to": "verify",
+      "title": "labelled"
+    }
+  ]
+}

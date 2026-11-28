@@ -2,15 +2,15 @@
 <!-- Copyright (C) 2026 Conduction B.V. -->
 
 <!--
-  LlmProviderModal — admin picks which chat provider Hermiq's background/
-  non-interactive LLM work runs on (SPECTR-NEXTCLOUD-PLAN.md §8 move 1).
+  LlmProviderModal: admin picks which chat provider Hermiq runs on. Nextcloud AI
+  is the default (use-nextcloud-ai-settings); a direct provider is the exception.
 
   Own file per the modal-isolation gate. Reads GET /api/settings/llm (credentials
   arrive masked as *Set booleans), lets the admin pick a provider from an NcSelect
   (inputLabel set per the nc-input-labels a11y gate) plus that provider's
   model/url/key fields, and PATCHes the change. The `nextcloud` option carries no
-  credential fields — it is backed by whatever TaskProcessing provider the instance
-  already has installed, and is background-only (no SSE chat / no embeddings).
+  credential fields: it runs chat, agent turns and summaries as TaskProcessing tasks
+  on the provider set up under Administration settings > Artificial intelligence.
 -->
 <template>
 	<NcModal
@@ -26,7 +26,7 @@
 				{{
 					t(
 						'hermiq',
-						'Choose which language-model provider Hermiq uses for background work such as conversation titles and summaries. Configure OpenAI, Ollama, or Fireworks with credentials, or select Nextcloud Assistant to reuse whatever AI provider is installed instance-wide.',
+						'Choose the language model Hermiq uses. Nextcloud AI is the default: it uses the provider set up for the whole instance.',
 					)
 				}}
 			</p>
@@ -67,6 +67,83 @@
 					<p class="llm-provider-modal__hint">
 						{{ credentialHint('openai') }}
 					</p>
+					<NcTextField
+						v-model="form.openaiConfig.baseUrl"
+						:label="t('hermiq', 'Base URL (optional)')"
+						placeholder="https://api.openai.com/v1"
+						data-testid="llm-openai-base-url" />
+					<p class="llm-provider-modal__hint">
+						{{
+							t(
+								'hermiq',
+								'Leave empty to use api.openai.com. A base URL without a credential is called directly; with a credential the broker sends the call.',
+							)
+						}}
+					</p>
+					<NcCheckboxRadioSwitch
+						v-if="form.openaiConfig.baseUrl"
+						v-model="form.openaiConfig.ownNetwork"
+						type="checkbox">
+						{{ t('hermiq', 'This is a server on our own network') }}
+					</NcCheckboxRadioSwitch>
+					<NcSelect
+						:modelValue="apiModeOption(form.openaiConfig.apiMode)"
+						:options="apiModeOptions"
+						:inputLabel="t('hermiq', 'API mode')"
+						:clearable="false"
+						label="label"
+						trackBy="value"
+						data-testid="llm-openai-api-mode"
+						@update:modelValue="(option) => (form.openaiConfig.apiMode = option.value)" />
+				</template>
+
+				<!-- OpenAI-compatible endpoint (models-provider-connections) -->
+				<template v-else-if="providerValue === 'openai-compatible'">
+					<NcTextField
+						v-model="form.openaiCompatibleConfig.label"
+						:label="t('hermiq', 'Name')"
+						placeholder="vLLM Rekencentrum"
+						data-testid="llm-compatible-label" />
+					<NcTextField
+						v-model="form.openaiCompatibleConfig.baseUrl"
+						:label="t('hermiq', 'Base URL')"
+						placeholder="https://llm.example.nl/v1"
+						data-testid="llm-compatible-base-url" />
+					<NcTextField
+						v-model="form.openaiCompatibleConfig.chatModel"
+						:label="t('hermiq', 'Model')"
+						placeholder="mistral-small-3.2" />
+					<NcSelect
+						v-model="compatibleCredential"
+						:options="credentialsFor('openai-compatible')"
+						:inputLabel="t('hermiq', 'API credential (optional)')"
+						:loading="loadingCredentials"
+						:disabled="!compatibleKeyAvailable"
+						:placeholder="t('hermiq', 'No key: call the base URL directly')"
+						label="label"
+						data-testid="llm-compatible-credential" />
+					<p class="llm-provider-modal__hint" data-testid="llm-compatible-credential-hint">
+						{{
+							compatibleKeyAvailable
+								? credentialHint('openai-compatible')
+								: t('hermiq', 'A key needs OpenRegister\'s OpenAI-compatible credential type.')
+						}}
+					</p>
+					<NcCheckboxRadioSwitch
+						v-if="!compatibleCredential"
+						v-model="form.openaiCompatibleConfig.ownNetwork"
+						type="checkbox">
+						{{ t('hermiq', 'This is a server on our own network') }}
+					</NcCheckboxRadioSwitch>
+					<NcSelect
+						:modelValue="apiModeOption(form.openaiCompatibleConfig.apiMode)"
+						:options="apiModeOptions"
+						:inputLabel="t('hermiq', 'API mode')"
+						:clearable="false"
+						label="label"
+						trackBy="value"
+						data-testid="llm-compatible-api-mode"
+						@update:modelValue="(option) => (form.openaiCompatibleConfig.apiMode = option.value)" />
 				</template>
 
 				<!-- Ollama -->
@@ -84,9 +161,16 @@
 				<!-- Fireworks -->
 				<template v-else-if="providerValue === 'fireworks'">
 					<NcTextField
+						:modelValue="fireworksHost"
+						:label="t('hermiq', 'Host')"
+						:helperText="t('hermiq', 'Calls go to the host locked to the credential.')"
+						readonly
+						data-testid="llm-fireworks-host" />
+					<NcTextField
 						v-model="form.fireworksConfig.baseUrl"
-						:label="t('hermiq', 'Base URL')"
-						placeholder="https://api.fireworks.ai/inference/v1" />
+						:label="t('hermiq', 'API path')"
+						placeholder="/inference/v1"
+						data-testid="llm-fireworks-path" />
 					<NcTextField
 						v-model="form.fireworksConfig.chatModel"
 						:label="t('hermiq', 'Model')"
@@ -126,7 +210,7 @@
 						trackBy="value" />
 					<NcSelect
 						v-model="anthropicCredential"
-						:options="credentialsFor(anthropicCredentialProviderId)"
+						:options="credentialsFor(anthropicCredentialProviderIds)"
 						:inputLabel="
 							anthropicAuthModeValue === 'oauth'
 								? t(
@@ -139,7 +223,21 @@
 						:placeholder="t('hermiq', 'Select a credential')"
 						label="label" />
 					<p class="llm-provider-modal__hint">
-						{{ credentialHint(anthropicCredentialProviderId) }}
+						{{ credentialHint(anthropicCredentialProviderIds) }}
+					</p>
+					<NcCheckboxRadioSwitch
+						v-model="form.anthropicConfig.promptCaching"
+						type="switch"
+						data-testid="llm-anthropic-prompt-caching">
+						{{ t('hermiq', 'Use the provider’s prompt cache') }}
+					</NcCheckboxRadioSwitch>
+					<p class="llm-provider-modal__hint">
+						{{
+							t(
+								'hermiq',
+								'Anthropic reads the unchanged start of each request from its cache, which makes repeat turns cheaper and faster. The answer stays the same.',
+							)
+						}}
 					</p>
 					<NcNoteCard
 						v-if="anthropicAuthModeValue === 'oauth'"
@@ -159,23 +257,76 @@
 					</NcNoteCard>
 				</template>
 
-				<!-- Nextcloud Assistant (TaskProcessing) -->
+				<!-- Nextcloud AI (TaskProcessing) -->
 				<template v-else-if="providerValue === 'nextcloud'">
 					<NcNoteCard type="info">
 						{{
 							t(
 								'hermiq',
-								'Hermiq will run background text through Nextcloud’s own AI (TaskProcessing). No credentials are needed here, but a TaskProcessing provider (e.g. integration_openai, llm2, or the Assistant) must be installed on this instance. Streaming chat and embeddings are not routed through this provider.',
+								'Hermiq sends its work to the AI provider set up under Administration settings > Artificial intelligence. You need no credential here.',
 							)
 						}}
 					</NcNoteCard>
 				</template>
 
+				<!-- chat-attachments-and-images: what the configured model reads natively,
+					declared by the admin, never guessed from its name. -->
+				<fieldset
+					v-if="providerValue && providerValue !== 'nextcloud'"
+					class="llm-provider__capabilities"
+					data-testid="llm-model-capabilities">
+					<legend>
+						{{ t('hermiq', 'What this model reads directly') }}
+					</legend>
+					<template v-if="currentModel">
+						<NcCheckboxRadioSwitch
+							v-model="readsImages"
+							type="checkbox"
+							data-testid="llm-reads-images">
+							{{ t('hermiq', 'Reads images') }}
+						</NcCheckboxRadioSwitch>
+						<NcCheckboxRadioSwitch
+							v-model="readsPdfs"
+							type="checkbox"
+							data-testid="llm-reads-pdfs">
+							{{ t('hermiq', 'Reads PDFs') }}
+						</NcCheckboxRadioSwitch>
+						<p class="llm-provider-modal__hint">
+							{{
+								t(
+									'hermiq',
+									'Tick only what the model supports. Attachments it cannot read are sent as text, or left out with a notice.',
+								)
+							}}
+						</p>
+					</template>
+					<p v-else class="llm-provider-modal__hint">
+						{{ t('hermiq', 'Enter a model first.') }}
+					</p>
+					<!-- chat-how-an-answer-came-about D4: the model's context window, for the
+					     context readout under the message box. Blank means not known. -->
+					<NcTextField
+						v-if="currentModel"
+						v-model="contextWindow"
+						data-testid="llm-context-window"
+						type="number"
+						min="1"
+						:label="t('hermiq', 'Context window (tokens)')"
+						:helperText="t('hermiq', 'How many tokens the model can read at once. Leave empty when you do not know; the chat then shows the tokens used only.')" />
+				</fieldset>
+
+				<!-- models-no-training-guarantee: where the provider runs and what it
+					does with the data it is sent, stated by the admin who configures it. -->
+				<ProviderDeclarations
+					v-if="providerValue"
+					ref="declarations"
+					:provider="providerValue" />
+
 				<div class="llm-provider__actions">
 					<NcButton @click="$emit('close')">
 						{{ t('hermiq', 'Cancel') }}
 					</NcButton>
-					<NcButton type="primary" :disabled="saving" @click="save">
+					<NcButton variant="primary" :disabled="saving" @click="save">
 						<template v-if="saving" #icon>
 							<NcLoadingIcon :size="20" />
 						</template>
@@ -192,41 +343,37 @@
 </template>
 
 <script>
-import axios from '@nextcloud/axios'
-import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
+	NcCheckboxRadioSwitch,
 	NcLoadingIcon,
 	NcModal,
 	NcNoteCard,
 	NcSelect,
 	NcTextField,
 } from '@nextcloud/vue'
+import ProviderDeclarations from '../components/ProviderDeclarations.vue'
 import { getLlmSettings, patchLlmSettings } from '../api/llm.js'
+import { apiPathOf, applyStoredConfig, configKeyOf, optionWithValue } from './llmProviderForm.js'
 
+/** The host the broker locks Fireworks credentials to. */
+const FIREWORKS_HOST = 'api.fireworks.ai'
+import { brokerCredentials, reloadOnOpen } from './settingsModalMixins.js'
 export default {
 	name: 'LlmProviderModal',
 
 	components: {
 		NcButton,
+		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
 		NcModal,
 		NcNoteCard,
 		NcSelect,
 		NcTextField,
+		ProviderDeclarations,
 	},
 
-	props: {
-		/**
-		 * Whether the modal is visible.
-		 *
-		 * @spec exclude Trivial visibility prop; no behavioural spec.
-		 */
-		show: {
-			type: Boolean,
-			default: false,
-		},
-	},
+	mixins: [reloadOnOpen, brokerCredentials],
 
 	emits: ['close', 'saved'],
 
@@ -244,6 +391,7 @@ export default {
 			loadingCredentials: false,
 			openaiCredential: null,
 			fireworksCredential: null,
+			compatibleCredential: null,
 			anthropicCredential: null,
 			anthropicAuthMode: { value: 'api_key', label: 'API key' },
 			authModeOptions: [
@@ -251,25 +399,36 @@ export default {
 				{ value: 'oauth', label: 'Claude Max subscription (OAuth)' },
 			],
 
+			// models-provider-connections D4: which OpenAI API a turn is sent to.
+			apiModeOptions: [
+				{ value: 'chat_completions', label: this.t('hermiq', 'Chat completions') },
+				{ value: 'responses', label: this.t('hermiq', 'Responses API') },
+			],
+
 			providerOptions: [
 				{ value: 'openai', label: 'OpenAI' },
 				{ value: 'anthropic', label: 'Anthropic (Claude)' },
 				{ value: 'ollama', label: 'Ollama (local)' },
 				{ value: 'fireworks', label: 'Fireworks AI' },
-				{
-					value: 'nextcloud',
-					label: 'Nextcloud Assistant (TaskProcessing)',
-				},
+				{ value: 'openai-compatible', label: 'OpenAI-compatible endpoint' },
+				{ value: 'nextcloud', label: 'Nextcloud AI (default)' },
 			],
 
+			// Declared native inputs per `provider/model` (hermiq.modelCapabilities).
+			modelCapabilities: {},
+			// Declared context window per `provider/model` (hermiq.modelContextWindows).
+			modelContextWindows: {},
+
 			form: {
-				openaiConfig: { chatModel: '', credentialId: '' },
+				openaiConfig: { chatModel: '', credentialId: '', baseUrl: '', ownNetwork: false, apiMode: 'chat_completions' },
+				openaiCompatibleConfig: { label: '', baseUrl: '', chatModel: '', credentialId: '', ownNetwork: false, apiMode: 'chat_completions' },
 				ollamaConfig: { url: '', chatModel: '' },
 				fireworksConfig: { baseUrl: '', chatModel: '', credentialId: '' },
 				anthropicConfig: {
 					chatModel: '',
 					credentialId: '',
 					authMode: 'api_key',
+					promptCaching: true,
 				},
 			},
 		}
@@ -313,6 +472,32 @@ export default {
 		},
 
 		/**
+		 * Whether a key can be chosen for an OpenAI-compatible endpoint.
+		 *
+		 * A credential of that provider exists only where OpenRegister ships the
+		 * OpenAI-compatible credential type (models-provider-connections D3). Until
+		 * one is listed the field is disabled and the keyless transport is offered.
+		 *
+		 * @return {boolean} True when such a credential is listed.
+		 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-chosen-host-is-reached-without-hermiq-holding-a-key-req-pconn-002
+		 */
+		compatibleKeyAvailable() {
+			return this.credentialsFor('openai-compatible').length > 0
+		},
+
+		/**
+		 * The host Fireworks calls go to: the broker sends every call to the host
+		 * locked to the credential, so it is shown, not edited.
+		 *
+		 * @return {string} The host.
+		 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-chosen-host-is-reached-without-hermiq-holding-a-key-req-pconn-002
+		 */
+		fireworksHost() {
+			const credential = this.credentials.find((c) => c.id === this.fireworksCredential?.value)
+			return credential?.host || FIREWORKS_HOST
+		},
+
+		/**
 		 * The bare authMode string of the currently-selected Anthropic auth option.
 		 *
 		 * @return {string} `api_key` or `oauth`.
@@ -324,55 +509,175 @@ export default {
 		},
 
 		/**
-		 * The credential-broker provider id whose credentials the Anthropic
-		 * credential picker should list, keyed off the selected auth mode.
+		 * The credential-broker provider ids whose credentials the Anthropic
+		 * credential picker lists, keyed off the selected auth mode.
 		 *
-		 * A Claude Max/Pro OAuth token is stored under the `anthropic-oauth`
-		 * broker provider (injected as `Authorization: Bearer`); an API key
-		 * under `anthropic` (injected as `x-api-key`). The picker must show the
-		 * matching set — otherwise an OAuth credential is invisible when the
-		 * user selects OAuth auth, and vice versa.
+		 * An API key lives under `anthropic` (injected as `x-api-key`). A Claude
+		 * Max or Pro subscription token lives under one of two providers, and
+		 * which one depends on the transport, not on the auth mode: `anthropic-oauth`
+		 * for `executionMode: http`, `anthropic-cli` for `executionMode: cli`.
 		 *
-		 * @return {string} The broker provider id.
+		 * Both are listed under OAuth auth. `executionMode` is API-only configuration
+		 * and this dialog cannot read it, so listing one provider hid the other:
+		 * a subscription credential stored for the CLI transport, which is the
+		 * only transport Anthropic permits for a subscription, could not be
+		 * selected here at all.
+		 *
+		 * @return {Array<string>} The broker provider ids to list.
 		 * @spec exclude Trivial computed display helper; no behavioural spec.
 		 */
-		anthropicCredentialProviderId() {
+		anthropicCredentialProviderIds() {
 			return this.anthropicAuthModeValue === 'oauth'
-				? 'anthropic-oauth'
-				: 'anthropic'
+				? ['anthropic-oauth', 'anthropic-cli']
+				: ['anthropic']
 		},
-	},
 
-	watch: {
 		/**
-		 * Reload the config each time the modal is opened.
+		 * The model id typed for the selected provider, trimmed.
 		 *
-		 * @param {boolean} visible Whether the modal became visible.
-		 * @return {void}
-		 *
-		 * @spec exclude Trivial watch handler delegating to load(); no behavioural spec.
+		 * @return {string} The model id, or '' when none is set.
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
 		 */
-		show(visible) {
-			if (visible) {
-				this.load()
-			}
+		currentModel() {
+			const block = this.form[configKeyOf(this.providerValue)]
+			return block ? String(block.chatModel || '').trim() : ''
 		},
-	},
 
-	/**
-	 * Load the config when the modal mounts already open.
-	 *
-	 * @return {void}
-	 *
-	 * @spec exclude Trivial lifecycle hook delegating to load(); no behavioural spec.
-	 */
-	mounted() {
-		if (this.show) {
-			this.load()
-		}
+		/**
+		 * The `provider/model` key the capabilities are stored under.
+		 *
+		 * @return {string} The key, or '' when no model is set.
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		capabilityKey() {
+			return this.currentModel
+				? `${this.providerValue}/${this.currentModel}`
+				: ''
+		},
+
+		/**
+		 * "Reads images" for the current model.
+		 *
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		readsImages: {
+			/**
+			 * Whether the current model is declared to read images.
+			 *
+			 * @return {boolean} True when declared.
+			 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+			 */
+			get() {
+				return this.hasCapability('image')
+			},
+
+			/**
+			 * Declare or withdraw reading images for the current model.
+			 *
+			 * @param {boolean} value Ticked or not.
+			 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+			 */
+			set(value) {
+				this.setCapability('image', value)
+			},
+		},
+
+		/**
+		 * The declared context window of the current model, as the field shows it.
+		 *
+		 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+		 */
+		contextWindow: {
+			/**
+			 * The window, or '' when none is declared.
+			 *
+			 * @return {number|string} The window.
+			 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+			 */
+			get() {
+				return this.modelContextWindows[this.capabilityKey] ?? ''
+			},
+
+			/**
+			 * Declare the window for the current model; anything but a positive whole number clears it.
+			 *
+			 * @param {number|string} value The field's value.
+			 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+			 */
+			set(value) {
+				if (this.capabilityKey === '') {
+					return
+				}
+				const tokens = Number(value)
+				this.modelContextWindows = {
+					...this.modelContextWindows,
+					[this.capabilityKey]: Number.isInteger(tokens) && tokens > 0 ? tokens : null,
+				}
+			},
+		},
+
+		/**
+		 * "Reads PDFs" for the current model.
+		 *
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		readsPdfs: {
+			/**
+			 * Whether the current model is declared to read PDFs.
+			 *
+			 * @return {boolean} True when declared.
+			 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+			 */
+			get() {
+				return this.hasCapability('pdf')
+			},
+
+			/**
+			 * Declare or withdraw reading PDFs for the current model.
+			 *
+			 * @param {boolean} value Ticked or not.
+			 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+			 */
+			set(value) {
+				this.setCapability('pdf', value)
+			},
+		},
 	},
 
 	methods: {
+		/**
+		 * Whether the current model was declared to read one kind of input.
+		 *
+		 * @param {string} capability `image` or `pdf`.
+		 * @return {boolean} True when declared.
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		hasCapability(capability) {
+			const declared = this.modelCapabilities[this.capabilityKey] || []
+			return this.capabilityKey !== '' && declared.includes(capability)
+		},
+
+		/**
+		 * Tick or untick one capability for the current model.
+		 *
+		 * @param {string} capability `image` or `pdf`.
+		 * @param {boolean} value Whether it is ticked.
+		 * @return {void}
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		setCapability(capability, value) {
+			if (this.capabilityKey === '') {
+				return
+			}
+			const others = (this.modelCapabilities[this.capabilityKey] || []).filter(
+				(c) => c !== capability,
+			)
+			this.modelCapabilities = {
+				...this.modelCapabilities,
+				[this.capabilityKey]: value ? [...others, capability] : others,
+			}
+		},
+
 		/**
 		 * Load the current (masked) config into the form.
 		 *
@@ -388,56 +693,8 @@ export default {
 				await this.fetchCredentials()
 
 				const config = await getLlmSettings()
-				this.openaiKeySet = config.openaiApiKeySet === true
-				this.fireworksKeySet = config.fireworksApiKeySet === true
-				this.form.openaiConfig.chatModel =
-					(config.openaiConfig && config.openaiConfig.chatModel) || ''
-				this.form.openaiConfig.credentialId =
-					(config.openaiConfig && config.openaiConfig.credentialId) || ''
-				this.form.ollamaConfig.url =
-					(config.ollamaConfig && config.ollamaConfig.url) || ''
-				this.form.ollamaConfig.chatModel =
-					(config.ollamaConfig && config.ollamaConfig.chatModel) || ''
-				this.form.fireworksConfig.baseUrl =
-					(config.fireworksConfig && config.fireworksConfig.baseUrl) || ''
-				this.form.fireworksConfig.chatModel =
-					(config.fireworksConfig && config.fireworksConfig.chatModel)
-					|| ''
-				this.form.fireworksConfig.credentialId =
-					(config.fireworksConfig && config.fireworksConfig.credentialId)
-					|| ''
-				this.form.anthropicConfig.chatModel =
-					(config.anthropicConfig && config.anthropicConfig.chatModel)
-					|| ''
-				this.form.anthropicConfig.credentialId =
-					(config.anthropicConfig && config.anthropicConfig.credentialId)
-					|| ''
-				this.form.anthropicConfig.authMode =
-					(config.anthropicConfig && config.anthropicConfig.authMode)
-					|| 'api_key'
-
-				// Reflect the stored credential references back into the pickers.
-				this.openaiCredential =
-					this.credentialsFor('openai').find(
-						(o) => o.value === this.form.openaiConfig.credentialId,
-					) || null
-				this.fireworksCredential =
-					this.credentialsFor('fireworks').find(
-						(o) => o.value === this.form.fireworksConfig.credentialId,
-					) || null
-				this.anthropicCredential =
-					this.credentialsFor('anthropic').find(
-						(o) => o.value === this.form.anthropicConfig.credentialId,
-					) || null
-				this.anthropicAuthMode =
-					this.authModeOptions.find(
-						(o) => o.value === this.form.anthropicConfig.authMode,
-					) || this.authModeOptions[0]
-
-				this.selectedProvider =
-					this.providerOptions.find(
-						(option) => option.value === config.chatProvider,
-					) || null
+				this.applyConfig(config)
+				this.reflectPickers(config.chatProvider)
 			} catch (e) {
 				this.error = this.t(
 					'hermiq',
@@ -449,56 +706,74 @@ export default {
 		},
 
 		/**
-		 * Load the user's broker credentials.
+		 * Copy the stored (masked) config into the key flags, the form and the
+		 * declared model capabilities.
 		 *
-		 * The endpoint already scopes to the caller's own credentials, and the response
-		 * carries no secrets — only names, providers and UUIDs.
+		 * @param {object} config The stored configuration.
+		 * @return {void}
 		 *
-		 * @return {Promise<void>}
-		 *
-		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-2
 		 */
-		async fetchCredentials() {
-			this.loadingCredentials = true
-			try {
-				const { data } = await axios.get(
-					generateUrl('/apps/openregister/api/credentials'),
-				)
-				this.credentials = data.results || []
-			} catch (e) {
-				this.credentials = []
-			} finally {
-				this.loadingCredentials = false
-			}
+		applyConfig(config) {
+			this.openaiKeySet = config.openaiApiKeySet === true
+			this.fireworksKeySet = config.fireworksApiKeySet === true
+			applyStoredConfig(this.form, config)
+			this.modelCapabilities = { ...(config.modelCapabilities || {}) }
+			this.modelContextWindows = { ...(config.modelContextWindows || {}) }
+		},
+
+		/**
+		 * Reflect the stored credential references, auth mode and provider back into
+		 * the pickers.
+		 *
+		 * @param {string} chatProvider The stored provider.
+		 * @return {void}
+		 *
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 */
+		reflectPickers(chatProvider) {
+			this.openaiCredential = optionWithValue(this.credentialsFor('openai'), this.form.openaiConfig.credentialId)
+			this.fireworksCredential = optionWithValue(this.credentialsFor('fireworks'), this.form.fireworksConfig.credentialId)
+			this.compatibleCredential = optionWithValue(this.credentialsFor('openai-compatible'), this.form.openaiCompatibleConfig.credentialId)
+			this.form.fireworksConfig.baseUrl = apiPathOf(this.form.fireworksConfig.baseUrl)
+			this.anthropicCredential = optionWithValue(this.credentialsFor('anthropic'), this.form.anthropicConfig.credentialId)
+			this.anthropicAuthMode = optionWithValue(this.authModeOptions, this.form.anthropicConfig.authMode)
+				|| this.authModeOptions[0]
+			this.selectedProvider = optionWithValue(this.providerOptions, chatProvider || 'nextcloud')
 		},
 
 		/**
 		 * The broker credentials that can serve a given LLM provider.
 		 *
-		 * @param {string} provider `openai`, `anthropic`, or `fireworks`.
+		 * @param {string|Array<string>} provider One broker provider id, or several.
+		 *                                        Anthropic passes several: an OAuth
+		 *                                        subscription token is stored under
+		 *                                        `anthropic-oauth` or `anthropic-cli`
+		 *                                        depending on the transport.
 		 * @return {Array} NcSelect options.
 		 *
-		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
 		 */
 		credentialsFor(provider) {
+			const providers = Array.isArray(provider) ? provider : [provider]
 			return this.credentials
-				.filter((c) => c.provider === provider)
+				.filter((c) => providers.includes(c.provider))
 				.map((c) => ({ label: c.name || c.id, value: c.id }))
 		},
 
 		/**
 		 * Explain where the key lives — or how to add one when there is none.
 		 *
-		 * @param {string} provider `openai`, `anthropic`, or `fireworks`.
+		 * @param {string|Array<string>} provider One broker provider id, or several.
 		 * @return {string} The hint text.
 		 *
-		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
 		 */
 		credentialHint(provider) {
 			if (!this.loadingCredentials && !this.credentialsFor(provider).length) {
 				return this.t(
 					'hermiq',
-					'No credential yet. Add one under Personal settings → Additional settings, then reopen this dialog.',
+					'No credential yet. Add one in Hermiq under Settings, Credentials. Then reopen this dialog.',
 				)
 			}
 			return this.t(
@@ -508,11 +783,198 @@ export default {
 		},
 
 		/**
+		 * The minimal patch for the selected provider, or null when a required
+		 * choice is missing (the error then says which). Only a credential
+		 * REFERENCE is ever sent — never a key. Hermiq has none.
+		 *
+		 * @return {object|null} The patch.
+		 *
+		 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-2
+		 */
+		providerPayload() {
+			const payload = { chatProvider: this.providerValue }
+			const section = {
+				openai: this.openaiSection,
+				ollama: this.ollamaSection,
+				fireworks: this.fireworksSection,
+				anthropic: this.anthropicSection,
+				'openai-compatible': this.compatibleSection,
+			}[this.providerValue]
+			if (!section) {
+				return payload
+			}
+			const config = section()
+			if (config === null) {
+				return null
+			}
+			payload[configKeyOf(this.providerValue)] = config
+			return payload
+		},
+
+		/**
+		 * The OpenAI section of the patch, or null without a credential.
+		 *
+		 * @return {object|null} The section.
+		 *
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 */
+		openaiSection() {
+			const baseUrl = String(this.form.openaiConfig.baseUrl || '').trim()
+			if (!this.openaiCredential && baseUrl === '') {
+				return this.refuse(this.t('hermiq', 'Pick an OpenAI credential first.'))
+			}
+			return {
+				chatModel: this.form.openaiConfig.chatModel,
+				credentialId: this.openaiCredential ? this.openaiCredential.value : '',
+				baseUrl,
+				ownNetwork: baseUrl !== '' && this.form.openaiConfig.ownNetwork === true,
+				apiMode: this.form.openaiConfig.apiMode === 'responses' ? 'responses' : 'chat_completions',
+			}
+		},
+
+		/**
+		 * The OpenAI-compatible section of the patch, or null without a base URL or model.
+		 *
+		 * @return {object|null} The section.
+		 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
+		 */
+		compatibleSection() {
+			const block = this.form.openaiCompatibleConfig
+			const baseUrl = String(block.baseUrl || '').trim()
+			if (baseUrl === '') {
+				return this.refuse(this.t('hermiq', 'Enter the base URL of the endpoint first.'))
+			}
+			if (String(block.chatModel || '').trim() === '') {
+				return this.refuse(this.t('hermiq', 'Enter the model the endpoint serves first.'))
+			}
+			const credentialId = this.compatibleCredential ? this.compatibleCredential.value : ''
+			return {
+				label: String(block.label || '').trim(),
+				baseUrl,
+				chatModel: String(block.chatModel).trim(),
+				credentialId,
+				ownNetwork: credentialId === '' && block.ownNetwork === true,
+				apiMode: block.apiMode === 'responses' ? 'responses' : 'chat_completions',
+			}
+		},
+
+		/**
+		 * The Ollama section of the patch.
+		 *
+		 * @return {object} The section.
+		 *
+		 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-2
+		 */
+		ollamaSection() {
+			return {
+				url: this.form.ollamaConfig.url,
+				chatModel: this.form.ollamaConfig.chatModel,
+			}
+		},
+
+		/**
+		 * The Fireworks AI section of the patch, or null without a credential.
+		 *
+		 * @return {object|null} The section.
+		 *
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 */
+		fireworksSection() {
+			if (!this.fireworksCredential) {
+				return this.refuse(this.t('hermiq', 'Pick a Fireworks AI credential first.'))
+			}
+			return {
+				baseUrl: apiPathOf(this.form.fireworksConfig.baseUrl),
+				chatModel: this.form.fireworksConfig.chatModel,
+				credentialId: this.fireworksCredential.value,
+			}
+		},
+
+		/**
+		 * The Anthropic section of the patch, or null for OAuth or without a credential.
+		 *
+		 * Claude Max (OAuth) is personal-only per the Anthropic ToS — it may never be
+		 * configured as an organisation credential here (admin settings). The server
+		 * rejects it too; this guard gives an immediate, clear message.
+		 *
+		 * @return {object|null} The section.
+		 *
+		 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 */
+		anthropicSection() {
+			if (this.anthropicAuthModeValue === 'oauth') {
+				return this.refuse(this.t(
+					'hermiq',
+					'A Claude Max subscription (OAuth) may only be set as a personal token in your personal settings, per the Anthropic Terms of Service. Use an API key here.',
+				))
+			}
+			if (!this.anthropicCredential) {
+				return this.refuse(this.t('hermiq', 'Pick an Anthropic credential first.'))
+			}
+			return {
+				chatModel: this.form.anthropicConfig.chatModel,
+				credentialId: this.anthropicCredential.value,
+				authMode: this.anthropicAuthModeValue,
+				promptCaching: this.form.anthropicConfig.promptCaching !== false,
+				// Admin settings are always organisation scope.
+				scope: 'organisation',
+			}
+		},
+
+		/**
+		 * The API mode option for a stored value; anything unknown is chat completions.
+		 *
+		 * @param {string} value The stored apiMode.
+		 * @return {object} The option.
+		 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-a-provider-can-run-in-responses-api-mode-with-governed-tools-req-pconn-004
+		 */
+		apiModeOption(value) {
+			return optionWithValue(this.apiModeOptions, value) || this.apiModeOptions[0]
+		},
+
+		/**
+		 * Show why the patch cannot be built.
+		 *
+		 * @param {string} message The translated reason.
+		 * @return {null} Always null, the missing section.
+		 *
+		 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-2
+		 */
+		refuse(message) {
+			this.error = message
+			return null
+		},
+
+		/**
+		 * The ticks for the model being saved travel with it; an untouched model is
+		 * sent as declared "neither", which is what the boxes show.
+		 *
+		 * @param {object} payload The patch.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/chat-attachments/spec.md#requirement-a-model-that-reads-images-or-pdfs-natively-gets-them-natively-req-catt-004
+		 */
+		attachModelCapabilities(payload) {
+			if (this.capabilityKey === '') {
+				return
+			}
+			payload.modelCapabilities = {
+				[this.capabilityKey]: this.modelCapabilities[this.capabilityKey] || [],
+			}
+			// A blank window is sent as null, which removes the declaration.
+			const window = this.modelContextWindows[this.capabilityKey]
+			payload.modelContextWindows = {
+				[this.capabilityKey]: Number.isInteger(window) && window > 0 ? window : null,
+			}
+		},
+
+		/**
 		 * Build a minimal patch for the selected provider and PATCH it.
 		 *
 		 * @return {Promise<void>}
 		 *
 		 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-2
+		 * @spec openspec/changes/models-provider-connections/specs/llm-provider-connections/spec.md#requirement-an-admin-can-connect-an-openai-compatible-endpoint-by-name-req-pconn-001
 		 */
 		async save() {
 			if (!this.providerValue) {
@@ -521,68 +983,17 @@ export default {
 			}
 			this.saving = true
 			this.error = ''
-			const payload = { chatProvider: this.providerValue }
-			// Only a credential REFERENCE is ever sent — never a key. Hermiq has none.
-			if (this.providerValue === 'openai') {
-				if (!this.openaiCredential) {
-					this.error = this.t('hermiq', 'Pick an OpenAI credential first.')
-					this.saving = false
-					return
-				}
-				payload.openaiConfig = {
-					chatModel: this.form.openaiConfig.chatModel,
-					credentialId: this.openaiCredential.value,
-				}
-			} else if (this.providerValue === 'ollama') {
-				payload.ollamaConfig = {
-					url: this.form.ollamaConfig.url,
-					chatModel: this.form.ollamaConfig.chatModel,
-				}
-			} else if (this.providerValue === 'fireworks') {
-				if (!this.fireworksCredential) {
-					this.error = this.t(
-						'hermiq',
-						'Pick a Fireworks AI credential first.',
-					)
-					this.saving = false
-					return
-				}
-				payload.fireworksConfig = {
-					baseUrl: this.form.fireworksConfig.baseUrl,
-					chatModel: this.form.fireworksConfig.chatModel,
-					credentialId: this.fireworksCredential.value,
-				}
-			} else if (this.providerValue === 'anthropic') {
-				// Claude Max (OAuth) is personal-only per the Anthropic ToS — it may never be
-				// configured as an organisation credential here (admin settings). The server
-				// rejects it too; this guard gives an immediate, clear message.
-				if (this.anthropicAuthModeValue === 'oauth') {
-					this.error = this.t(
-						'hermiq',
-						'A Claude Max subscription (OAuth) may only be set as a personal token in your personal settings, per the Anthropic Terms of Service. Use an API key here.',
-					)
-					this.saving = false
-					return
-				}
-				if (!this.anthropicCredential) {
-					this.error = this.t(
-						'hermiq',
-						'Pick an Anthropic credential first.',
-					)
-					this.saving = false
-					return
-				}
-				payload.anthropicConfig = {
-					chatModel: this.form.anthropicConfig.chatModel,
-					credentialId: this.anthropicCredential.value,
-					authMode: this.anthropicAuthModeValue,
-					// Admin settings are always organisation scope.
-					scope: 'organisation',
-				}
+			const payload = this.providerPayload()
+			if (payload === null) {
+				this.saving = false
+				return
 			}
 			try {
+				this.attachModelCapabilities(payload)
 				await patchLlmSettings(payload)
-				this.$emit('saved', this.providerValue)
+				// The residency and data-use statements are saved with the provider.
+				await this.$refs.declarations?.save()
+				this.$emit('saved', this.providerValue, payload.openaiCompatibleConfig?.label || '')
 				this.$emit('close')
 			} catch (e) {
 				this.error = this.t(
@@ -626,6 +1037,18 @@ export default {
 	display: flex;
 	justify-content: center;
 	padding: 24px 0;
+}
+
+.llm-provider__capabilities {
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	padding: 8px 12px;
+	margin: 0;
+}
+
+.llm-provider__capabilities legend {
+	padding: 0 4px;
+	font-weight: bold;
 }
 
 .llm-provider__actions {

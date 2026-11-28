@@ -1,0 +1,824 @@
+<?php
+
+/**
+ * Hermiq ServerSideWorkspaceProvider.
+ *
+ * Keeps each run's workspace in a directory on the governed side, under the
+ * instance's app data, named by an opaque id derived from the run id with the
+ * instance secret. The runner container never sees it: the model reaches it only
+ * through the governed tools, and only for the run its token belongs to.
+ *
+ * Budget: a size and a file-count ceiling (app config `workspace_max_bytes`,
+ * `workspace_max_files`), checked after the clone and before every write.
+ * Lifetime: the workspace is reachable only while the run's token verifies; the
+ * directory itself is removed by `reap()` once it has been idle for the retention
+ * window (app config `workspace_retention_seconds`, one hour by default), which
+ * keeps a failed run debuggable for a while without keeping source forever
+ * (design Open Question 1, provisional position).
+ *
+ * @category Service
+ * @package  OCA\Hermiq\Service\Workspace
+ *
+ * @author    Conduction Development Team <info@conduction.nl>
+ * @copyright 2026 Conduction B.V.
+ * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ *
+ * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
+ * SPDX-License-Identifier: EUPL-1.2
+ *
+ * @link https://conduction.nl
+ *
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+ */
+
+declare(strict_types=1);
+
+namespace OCA\Hermiq\Service\Workspace;
+
+use FilesystemIterator;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ServerSideWorkspaceProviderInterface;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\IAppConfig;
+use OCP\IConfig;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use ZipArchive;
+
+/**
+ * Run-keyed workspaces in app data.
+ *
+ * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+ *
+ * @SuppressWarnings(PHPMD.TooManyMethods) carried in with this batch's feature work; splitting it is follow-
+ * up work, not part of this merge.
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
+ */
+class ServerSideWorkspaceProvider implements WorkspaceProvider, ServerSideWorkspaceProviderInterface {
+
+	public const DEFAULT_MAX_BYTES = 209715200;
+
+	public const DEFAULT_MAX_FILES = 20000;
+
+	public const DEFAULT_RETENTION_SECONDS = 3600;
+
+	/**
+	 * A conversation-long workspace ends 14 days after the conversation's last activity.
+	 *
+	 * @var int
+	 */
+	public const DEFAULT_SESSION_RETENTION_SECONDS = 1209600;
+
+	/**
+	 * A conversation-long workspace holds at most this many files by default.
+	 *
+	 * @var int
+	 */
+	public const DEFAULT_SESSION_MAX_FILES = 5000;
+
+	/**
+	 * Budget for a clone.
+	 *
+	 * @var int
+	 */
+	private const CLONE_TIMEOUT_SECONDS = 60;
+
+	/**
+	 * Build the provider.
+	 *
+	 * @param IConfig      $config    System config (data directory, instance id, secret).
+	 * @param IAppConfig   $appConfig App config (budgets, retention).
+	 * @param GitRunner    $git       The hardened git runner.
+	 * @param ITimeFactory $time      Clock.
+	 * @param string|null  $baseDir   Override of the workspace base directory (tests).
+	 */
+	public function __construct(
+		private readonly IConfig $config,
+		private readonly IAppConfig $appConfig,
+		private readonly GitRunner $git,
+		private readonly ITimeFactory $time,
+		private readonly ?string $baseDir = null,
+	) {
+	}//end __construct()
+
+	/**
+	 * Materialise the run's workspace, or return the existing one.
+	 *
+	 * @param string $runKey     The run id from the verified token.
+	 * @param string $cloneUrl   The server-resolved clone URL.
+	 * @param string $repository The forge-relative slug.
+	 * @param string $ref        The branch or tag.
+	 * @param int    $depth      The history depth.
+	 *
+	 * @return array{workspaceId: string, repository: string, ref: string, headSha: string, fileCount: int}
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-model-never-learns-a-filesystem-path
+	 */
+	public function open(string $runKey, string $cloneUrl, string $repository, string $ref, int $depth): array {
+		$checkout = new CheckoutRequest(repository: $repository, ref: $ref);
+		$checkout->cloneUrl = $cloneUrl;
+		$checkout->depth = $depth;
+
+		$dir = $this->dirFor(runKey: $runKey);
+		$meta = $this->readMeta(dir: $dir);
+		if ($meta !== null) {
+			$this->assertSameCheckout(meta: $meta, checkout: $checkout);
+			$this->touch(dir: $dir, meta: $meta);
+			return $this->summary(runKey: $runKey, dir: $dir, meta: $meta);
+		}
+
+		return $this->summary(runKey: $runKey, dir: $dir, meta: $this->checkOut(dir: $dir, checkout: $checkout, runKey: $runKey));
+	}//end open()
+
+	/**
+	 * Refuse a second checkout in one run: the existing workspace must be on the same repository and ref.
+	 *
+	 * @param array<string, mixed> $meta     The existing workspace's metadata.
+	 * @param CheckoutRequest      $checkout The checkout asked for.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException invalid_argument when the repository or the ref differs.
+	 */
+	private function assertSameCheckout(array $meta, CheckoutRequest $checkout): void {
+		if ($meta['repository'] !== $checkout->repository || $meta['ref'] !== $checkout->ref) {
+			throw new WorkspaceException(
+				errorCode: WorkspaceException::INVALID_ARGUMENT,
+				message: 'This run already has a workspace on another repository or ref. One run works on one checkout.'
+			);
+		}
+	}//end assertSameCheckout()
+
+	/**
+	 * Clone into a fresh directory, check the budget and record the workspace.
+	 *
+	 * @param string          $dir      The workspace directory (a leftover one is replaced).
+	 * @param CheckoutRequest $checkout The checkout asked for.
+	 * @param string          $runKey   The workspace key.
+	 *
+	 * @return array<string, mixed> The new workspace's metadata.
+	 *
+	 * @throws WorkspaceException git_failed when the clone fails, workspace_quota when the tree is over budget.
+	 */
+	private function checkOut(string $dir, CheckoutRequest $checkout, string $runKey): array {
+		if (is_dir($dir) === true) {
+			$this->removeTree(path: $dir);
+		}
+
+		mkdir($dir, 0700, true);
+		$this->cloneInto(dir: $dir, checkout: $checkout);
+		$this->assertWithinBudget(dir: $dir, runKey: $runKey);
+
+		$meta = $this->freshMeta(checkout: $checkout, runKey: $runKey);
+		$this->writeMeta(dir: $dir, meta: $meta);
+		return $meta;
+	}//end checkOut()
+
+	/**
+	 * The metadata of a just-cloned workspace: what it holds, created and last used now.
+	 *
+	 * A conversation-long workspace also records its lifetime and conversation,
+	 * so the reaper can give it the session retention and end it with its
+	 * conversation without reversing the hashed directory name.
+	 *
+	 * @param CheckoutRequest $checkout The checkout cloned.
+	 * @param string          $runKey   The workspace key.
+	 *
+	 * @return array<string, int|string> The metadata.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionWorkspaceKey is used through its static API (a pure helper
+	 * or named constructor) with no state to inject.
+	 */
+	private function freshMeta(CheckoutRequest $checkout, string $runKey): array {
+		$meta = [
+			'repository' => $checkout->repository,
+			'ref' => $checkout->ref,
+			'createdAt' => $this->time->getTime(),
+			'lastUsedAt' => $this->time->getTime(),
+		];
+
+		$conversationId = SessionWorkspaceKey::conversationOf(key: $runKey);
+		if ($conversationId !== null) {
+			$meta['lifetime']       = SessionWorkspaceKey::MODE_SESSION;
+			$meta['conversationId'] = $conversationId;
+		}
+
+		return $meta;
+	}//end freshMeta()
+
+	/**
+	 * Clone the ref; a failed clone leaves nothing behind.
+	 *
+	 * @param string          $dir      The workspace directory.
+	 * @param CheckoutRequest $checkout The checkout asked for.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException git_failed when the clone fails.
+	 */
+	private function cloneInto(string $dir, CheckoutRequest $checkout): void {
+		$result = $this->git->run(
+			arguments: $this->cloneArguments(dir: $dir, checkout: $checkout),
+			workingDir: $dir,
+			timeoutSeconds: self::CLONE_TIMEOUT_SECONDS
+		);
+		if ($result['exit'] !== 0) {
+			$this->removeTree(path: $dir);
+			throw new WorkspaceException(
+				errorCode: WorkspaceException::GIT_FAILED,
+				message: 'The repository could not be opened. Check the repository name and the ref.'
+			);
+		}
+	}//end cloneInto()
+
+	/**
+	 * The clone arguments: one branch, no tags, the history clamped to 1..500 commits, into `repo`.
+	 *
+	 * @param string          $dir      The workspace directory.
+	 * @param CheckoutRequest $checkout The checkout asked for.
+	 *
+	 * @return array<int, string>
+	 */
+	private function cloneArguments(string $dir, CheckoutRequest $checkout): array {
+		return [
+			'clone', '--quiet', '--no-tags', '--single-branch',
+			'--depth', (string)max(1, min($checkout->depth, 500)), '--branch', $checkout->ref, '--', $checkout->cloneUrl, $dir . '/repo',
+		];
+	}//end cloneArguments()
+
+	/**
+	 * Refuse a cloned tree over the byte or file budget; nothing of it stays.
+	 *
+	 * @param string $dir    The workspace directory.
+	 * @param string $runKey The workspace key.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException workspace_quota when the tree is over budget.
+	 */
+	private function assertWithinBudget(string $dir, string $runKey): void {
+		$usage = $this->usage(root: $dir . '/repo');
+		if ($usage['bytes'] > $this->maxBytes() || $usage['files'] > $this->maxFiles(runKey: $runKey)) {
+			$this->removeTree(path: $dir);
+			throw $this->quota();
+		}
+	}//end assertWithinBudget()
+
+	/**
+	 * The opaque workspace id for a run key: an HMAC, so the run id is not recoverable.
+	 *
+	 * @param string $runKey The run id.
+	 *
+	 * @return string
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-one-run-cannot-address-another-runs-workspace
+	 */
+	public function workspaceId(string $runKey): string {
+		$hash = hash_hmac('sha256', 'hermiq-workspace:' . $runKey, $this->config->getSystemValueString('secret', 'hermiq'));
+		return substr($hash, 0, 8) . '-' . substr($hash, 8, 4) . '-' . substr($hash, 12, 4) . '-' . substr($hash, 16, 4) . '-' . substr($hash, 20, 12);
+	}//end workspaceId()
+
+	/**
+	 * The absolute repository root of the run's workspace, for the toolset only.
+	 *
+	 * @param string $runKey The run id.
+	 *
+	 * @return string
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-a-tool-call-before-materialisation-is-refused
+	 */
+	public function root(string $runKey): string {
+		$dir = $this->dirFor(runKey: $runKey);
+		$meta = $this->readMeta(dir: $dir);
+		if ($meta === null || is_dir($dir . '/repo') === false) {
+			throw new WorkspaceException(
+				errorCode: WorkspaceException::WORKSPACE_ABSENT,
+				message: 'No workspace is open for this run. Call workspace open first.'
+			);
+		}
+
+		$this->touch(dir: $dir, meta: $meta);
+		return $dir . '/repo';
+	}//end root()
+
+	/**
+	 * The repository and ref the workspace was opened on.
+	 *
+	 * @param string $runKey The run id.
+	 *
+	 * @return array{repository: string, ref: string}
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 */
+	public function describe(string $runKey): array {
+		$this->root(runKey: $runKey);
+		$meta = (array)$this->readMeta(dir: $this->dirFor(runKey: $runKey));
+		return ['repository' => (string)($meta['repository'] ?? ''), 'ref' => (string)($meta['ref'] ?? '')];
+	}//end describe()
+
+	/**
+	 * Refuse a write that would take the workspace over its budget.
+	 *
+	 * @param string $runKey   The run id.
+	 * @param int    $addBytes The bytes the write adds.
+	 * @param int    $addFiles The files the write adds.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 */
+	public function reserve(string $runKey, int $addBytes, int $addFiles): void {
+		$usage = $this->usage(root: $this->root(runKey: $runKey));
+		if (($usage['bytes'] + $addBytes) > $this->maxBytes() || ($usage['files'] + $addFiles) > $this->maxFiles(runKey: $runKey)) {
+			throw $this->quota();
+		}
+	}//end reserve()
+
+	/**
+	 * Remove the run's workspace.
+	 *
+	 * @param string $runKey The run id.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 */
+	public function discard(string $runKey): void {
+		$dir = $this->dirFor(runKey: $runKey);
+		if (is_dir($dir) === true) {
+			$this->removeTree(path: $dir);
+		}
+	}//end discard()
+
+	/**
+	 * Whether a workspace is open under this key.
+	 *
+	 * @param string $runKey The workspace key.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002
+	 */
+	public function exists(string $runKey): bool {
+		$dir = $this->dirFor(runKey: $runKey);
+		return $this->readMeta(dir: $dir) !== null && is_dir($dir . '/repo') === true;
+	}//end exists()
+
+	/**
+	 * Open a workspace under this key as a copy of a build's archive.
+	 *
+	 * The archive is extracted into a fresh directory, so nothing done in the
+	 * workspace afterwards reaches the archive. An entry naming an absolute path or
+	 * a parent directory refuses the whole archive. The budget is checked as after
+	 * a clone.
+	 *
+	 * @param string               $runKey      The workspace key.
+	 * @param string               $archivePath The build archive (zip) on disk.
+	 * @param array<string, mixed> $origin      repository, ref and buildId recorded in the workspace's metadata.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException When a workspace is already open, the archive is unreadable or unsafe, or over budget.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002
+	 */
+	public function restore(string $runKey, string $archivePath, array $origin): void {
+		if ($this->exists(runKey: $runKey) === true) {
+			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'This workspace is already open.');
+		}
+
+		$dir = $this->dirFor(runKey: $runKey);
+		$this->extractArchive(archivePath: $archivePath, dir: $dir);
+
+		$this->assertWithinBudget(dir: $dir, runKey: $runKey);
+
+		$checkout = new CheckoutRequest(repository: (string)($origin['repository'] ?? ''), ref: (string)($origin['ref'] ?? ''));
+		$meta = $this->freshMeta(checkout: $checkout, runKey: $runKey);
+		$meta['buildId'] = (string)($origin['buildId'] ?? '');
+		$this->writeMeta(dir: $dir, meta: $meta);
+	}//end restore()
+
+	/**
+	 * Unpack a build archive into a fresh `<dir>/repo`, refusing a path outside it.
+	 *
+	 * @param string $archivePath The zip archive.
+	 * @param string $dir         The workspace directory.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException When the archive cannot be read or names a path outside the workspace.
+	 */
+	private function extractArchive(string $archivePath, string $dir): void {
+		$zip = new ZipArchive();
+		if (is_file($archivePath) === false || $zip->open($archivePath) !== true) {
+			throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'The build archive could not be read.');
+		}
+
+		try {
+			self::assertArchivePaths(zip: $zip);
+			if (is_dir($dir) === true) {
+				$this->removeTree(path: $dir);
+			}
+
+			mkdir($dir . '/repo', 0700, true);
+			if ($zip->extractTo($dir . '/repo') !== true) {
+				$this->removeTree(path: $dir);
+				throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'The build archive could not be read.');
+			}
+		} finally {
+			$zip->close();
+		}
+	}//end extractArchive()
+
+	/**
+	 * Refuse an archive entry that is empty, absolute or climbs out with `..`.
+	 *
+	 * @param ZipArchive $zip The open archive.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException When an entry names a path outside the workspace.
+	 */
+	private static function assertArchivePaths(ZipArchive $zip): void {
+		for ($index = 0; $index < $zip->numFiles; $index++) {
+			$name = (string)$zip->getNameIndex($index);
+			if ($name === '' || str_starts_with($name, '/') === true || in_array('..', explode('/', $name), true) === true) {
+				throw new WorkspaceException(errorCode: WorkspaceException::INVALID_ARGUMENT, message: 'The build archive names a path outside the workspace.');
+			}
+		}
+	}//end assertArchivePaths()
+
+	/**
+	 * The build a workspace was started from, or null.
+	 *
+	 * @param string $runKey The workspace key.
+	 *
+	 * @return string|null
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002
+	 */
+	public function buildOf(string $runKey): ?string {
+		$buildId = (string)($this->readMeta(dir: $this->dirFor(runKey: $runKey))['buildId'] ?? '');
+		if ($buildId === '') {
+			return null;
+		}
+
+		return $buildId;
+	}//end buildOf()
+
+	/**
+	 * The directory build archives are kept in, beside the workspaces.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-an-agent-owner-can-publish-a-build-that-pins-files-and-installed-tools-req-build-001
+	 */
+	public function buildStore(): string {
+		return dirname($this->base()) . '/workspace-builds';
+	}//end buildStore()
+
+	/**
+	 * The directory installed tool layers are kept in, beside the workspaces,
+	 * each named by its SHA-256 so equal layers are stored once.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-installs-command-line-tools-only-from-an-allowlisted-registry-without-install-scripts-req-wksp-004
+	 */
+	public function toolLayerStore(): string {
+		return dirname($this->base()) . '/workspace-tool-layers';
+	}//end toolLayerStore()
+
+	/**
+	 * Record a tool installed for the workspace's conversation, replacing an
+	 * earlier install of the same package with the same manager.
+	 *
+	 * @param string               $runKey The workspace key.
+	 * @param array<string, mixed> $tool   `{manager, package, version, sha256, binaries}`.
+	 *
+	 * @return void
+	 *
+	 * @throws WorkspaceException When no workspace is open for the key.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#scenario-an-agent-installs-csvkit
+	 */
+	public function recordInstalledTool(string $runKey, array $tool): void {
+		$this->root(runKey: $runKey);
+		$dir = $this->dirFor(runKey: $runKey);
+		$meta = (array)$this->readMeta(dir: $dir);
+		$tools = [];
+		foreach ((array)($meta['tools'] ?? []) as $known) {
+			$same = (is_array($known) === true
+				&& ($known['manager'] ?? null) === ($tool['manager'] ?? null)
+				&& ($known['package'] ?? null) === ($tool['package'] ?? null));
+			if ($same === false) {
+				$tools[] = $known;
+			}
+		}
+
+		$tools[] = $tool;
+		$meta['tools'] = $tools;
+		$this->writeMeta(dir: $dir, meta: $meta);
+	}//end recordInstalledTool()
+
+	/**
+	 * The tools installed for the workspace's conversation; none when no workspace is open.
+	 *
+	 * @param string $runKey The workspace key.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-an-agent-owner-can-publish-a-build-that-pins-files-and-installed-tools-req-build-001
+	 */
+	public function installedTools(string $runKey): array {
+		$meta = $this->readMeta(dir: $this->dirFor(runKey: $runKey));
+		if ($meta === null) {
+			return [];
+		}
+
+		return array_values(array_filter((array)($meta['tools'] ?? []), 'is_array'));
+	}//end installedTools()
+
+	/**
+	 * Remove every workspace idle for longer than the retention window.
+	 *
+	 * @return int The number removed.
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#requirement-each-run-gets-a-bounded-workspace-on-the-governed-side-that-the-model-cannot-address-by-path
+	 */
+	public function reap(): int {
+		return $this->reapWhere(
+			ended: function (array $meta): bool {
+				$lastUsed = (int)($meta['lastUsedAt'] ?? 0);
+				return ($lastUsed + $this->retentionFor(meta: $meta)) < $this->time->getTime();
+			}
+		);
+	}//end reap()
+
+	/**
+	 * Remove every conversation-long workspace whose conversation is gone.
+	 *
+	 * A run workspace is never touched here: it ends by idleness alone.
+	 *
+	 * @param callable(string): bool $conversationGone Whether a conversation id no longer exists.
+	 *
+	 * @return int How many workspaces were removed.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
+	 */
+	public function reapEndedSessions(callable $conversationGone): int {
+		return $this->reapWhere(
+			ended: static function (array $meta) use ($conversationGone): bool {
+				$conversationId = (string)($meta['conversationId'] ?? '');
+				return ($meta['lifetime'] ?? null) === SessionWorkspaceKey::MODE_SESSION
+					&& $conversationId !== ''
+					&& $conversationGone($conversationId) === true;
+			}
+		);
+	}//end reapEndedSessions()
+
+	/**
+	 * Remove every workspace the predicate says has ended.
+	 *
+	 * @param callable(array<string, mixed>): bool $ended Judges one workspace's metadata.
+	 *
+	 * @return int How many workspaces were removed.
+	 */
+	private function reapWhere(callable $ended): int {
+		$base = $this->base();
+		if (is_dir($base) === false) {
+			return 0;
+		}
+
+		$removed = 0;
+		foreach ((array)scandir($base) as $entry) {
+			$dir = $base . '/' . (string)$entry;
+			if ($entry === '.' || $entry === '..' || is_dir($dir) === false) {
+				continue;
+			}
+
+			if ($ended((array)$this->readMeta(dir: $dir)) === true) {
+				$this->removeTree(path: $dir);
+				$removed++;
+			}
+		}
+
+		return $removed;
+	}//end reapWhere()
+
+	/**
+	 * How long a workspace may sit idle: 14 days for a conversation-long one, the run retention otherwise.
+	 *
+	 * @param array<string, mixed> $meta The workspace metadata.
+	 *
+	 * @return int Seconds.
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#requirement-an-agent-can-keep-a-workspace-for-the-whole-conversation-req-wksp-001
+	 */
+	private function retentionFor(array $meta): int {
+		if (($meta['lifetime'] ?? null) === SessionWorkspaceKey::MODE_SESSION) {
+			return $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_session_retention_seconds', self::DEFAULT_SESSION_RETENTION_SECONDS);
+		}
+
+		return $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_retention_seconds', self::DEFAULT_RETENTION_SECONDS);
+	}//end retentionFor()
+
+	/**
+	 * The workspace directory for a run key.
+	 *
+	 * @param string $runKey The run id.
+	 *
+	 * @return string
+	 */
+	private function dirFor(string $runKey): string {
+		if (trim($runKey) === '') {
+			throw new WorkspaceException(
+				errorCode: WorkspaceException::RUN_SCOPE_INVALID,
+				message: 'Workspace tools are only available inside a governed run.'
+			);
+		}
+
+		return $this->base() . '/' . $this->workspaceId(runKey: $runKey);
+	}//end dirFor()
+
+	/**
+	 * The base directory holding every workspace.
+	 *
+	 * @return string
+	 */
+	private function base(): string {
+		if ($this->baseDir !== null) {
+			return rtrim($this->baseDir, '/');
+		}
+
+		$dataDir = rtrim($this->config->getSystemValueString('datadirectory', '/var/www/html/data'), '/');
+		return $dataDir . '/appdata_' . $this->config->getSystemValueString('instanceid', '') . '/' . AppIdentity::APP_ID . '/workspaces';
+	}//end base()
+
+	/**
+	 * The size and file count of a tree, its metadata directory included.
+	 *
+	 * @param string $root The repository root.
+	 *
+	 * @return array{bytes: int, files: int}
+	 */
+	private function usage(string $root): array {
+		$bytes = 0;
+		$files = 0;
+		$iterator = new RecursiveIteratorIterator(
+			new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
+		);
+		foreach ($iterator as $file) {
+			$files++;
+			$bytes += (int)$file->getSize();
+		}
+
+		return ['bytes' => $bytes, 'files' => $files];
+	}//end usage()
+
+	/**
+	 * The result of an open, without any path.
+	 *
+	 * @param string               $runKey The run id.
+	 * @param string               $dir    The workspace directory.
+	 * @param array<string, mixed> $meta   The workspace metadata.
+	 *
+	 * @return array{workspaceId: string, repository: string, ref: string, headSha: string, fileCount: int}
+	 */
+	private function summary(string $runKey, string $dir, array $meta): array {
+		$head = $this->git->run(arguments: ['rev-parse', 'HEAD'], workingDir: $dir . '/repo', timeoutSeconds: 10);
+		$listed = $this->git->run(arguments: ['ls-files', '-z'], workingDir: $dir . '/repo', timeoutSeconds: 10);
+
+		return [
+			'workspaceId' => $this->workspaceId(runKey: $runKey),
+			'repository' => (string)$meta['repository'],
+			'ref' => (string)$meta['ref'],
+			'headSha' => trim($head['stdout']),
+			'fileCount' => count(array_filter(explode("\0", $listed['stdout']), static fn (string $f): bool => $f !== '')),
+		];
+	}//end summary()
+
+	/**
+	 * Read a workspace's metadata.
+	 *
+	 * @param string $dir The workspace directory.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function readMeta(string $dir): ?array {
+		$file = $dir . '/meta.json';
+		if (is_file($file) === false) {
+			return null;
+		}
+
+		$meta = json_decode((string)file_get_contents($file), true);
+		if (is_array($meta) === false) {
+			return null;
+		}
+
+		return $meta;
+	}//end readMeta()
+
+	/**
+	 * Write a workspace's metadata.
+	 *
+	 * @param string               $dir  The workspace directory.
+	 * @param array<string, mixed> $meta The metadata.
+	 *
+	 * @return void
+	 */
+	private function writeMeta(string $dir, array $meta): void {
+		file_put_contents($dir . '/meta.json', (string)json_encode($meta));
+	}//end writeMeta()
+
+	/**
+	 * Record that the workspace was used now.
+	 *
+	 * @param string               $dir  The workspace directory.
+	 * @param array<string, mixed> $meta The metadata.
+	 *
+	 * @return void
+	 */
+	private function touch(string $dir, array $meta): void {
+		$meta['lastUsedAt'] = $this->time->getTime();
+		$this->writeMeta(dir: $dir, meta: $meta);
+	}//end touch()
+
+	/**
+	 * Remove a directory tree without following links out of it.
+	 *
+	 * @param string $path The directory.
+	 *
+	 * @return void
+	 */
+	private function removeTree(string $path): void {
+		$iterator = new RecursiveIteratorIterator(
+			new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
+			RecursiveIteratorIterator::CHILD_FIRST
+		);
+		foreach ($iterator as $file) {
+			if ($file->isDir() === true && $file->isLink() === false) {
+				rmdir($file->getPathname());
+				continue;
+			}
+
+			unlink($file->getPathname());
+		}
+
+		rmdir($path);
+	}//end removeTree()
+
+	/**
+	 * The size ceiling in bytes.
+	 *
+	 * @return int
+	 */
+	private function maxBytes(): int {
+		return $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_max_bytes', self::DEFAULT_MAX_BYTES);
+	}//end maxBytes()
+
+	/**
+	 * The file-count ceiling: 5,000 by default for a conversation-long workspace.
+	 *
+	 * @param string $runKey The workspace key.
+	 *
+	 * @return int
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) SessionWorkspaceKey is used through its static API (a pure helper
+	 * or named constructor) with no state to inject.
+	 */
+	private function maxFiles(string $runKey): int {
+		if (SessionWorkspaceKey::isSession(key: $runKey) === true) {
+			return $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_session_max_files', self::DEFAULT_SESSION_MAX_FILES);
+		}
+
+		return $this->appConfig->getValueInt(AppIdentity::APP_ID, 'workspace_max_files', self::DEFAULT_MAX_FILES);
+	}//end maxFiles()
+
+	/**
+	 * The quota refusal.
+	 *
+	 * @return WorkspaceException
+	 */
+	private function quota(): WorkspaceException {
+		return new WorkspaceException(
+			errorCode: WorkspaceException::WORKSPACE_QUOTA,
+			message: 'The workspace would exceed its size or file budget.'
+		);
+	}//end quota()
+}//end class

@@ -20,6 +20,13 @@
 			"order": 10
 		},
 		{
+			"id": "Schedules",
+			"label": "Schedules",
+			"icon": "CalendarClock",
+			"route": "Schedules",
+			"order": 11
+		},
+		{
 			"id": "ApprovalInbox",
 			"label": "Approvals",
 			"icon": "Check",
@@ -28,7 +35,7 @@
 		},
 		{
 			"id": "Store",
-			"label": "Store",
+			"label": "Marketplace",
 			"icon": "StoreOutline",
 			"route": "Store",
 			"order": 92,
@@ -54,6 +61,13 @@
 			"icon": "SchoolOutline",
 			"route": "SkillsCatalog",
 			"order": 18
+		},
+		{
+			"id": "Contexts",
+			"label": "Contexts",
+			"icon": "FileDocumentMultipleOutline",
+			"route": "Contexts",
+			"order": 19
 		},
 		{
 			"id": "Dashboard",
@@ -85,6 +99,15 @@
 			"route": "TenantOps",
 			"section": "settings",
 			"order": 40
+		},
+		{
+			"id": "PublicChatMenu",
+			"label": "Public chat",
+			"icon": "ChatOutline",
+			"route": "PublicChat",
+			"section": "settings",
+			"order": 45,
+			"permission": "admin"
 		},
 		{
 			"id": "EvalDatasets",
@@ -133,12 +156,34 @@
 			"order": 96
 		},
 		{
+			"id": "IntegrationsMenu",
+			"label": "Integrations",
+			"icon": "Connection",
+			"route": "Integrations",
+			"query": {
+				"app": "hermiq"
+			},
+			"section": "settings",
+			"order": 97,
+			"permission": "admin",
+			"visibleIf": {
+				"appInstalled": "integriq"
+			}
+		},
+		{
 			"id": "ReportsMenu",
 			"label": "Reports",
 			"icon": "ChartBoxOutline",
 			"route": "Reports",
-			"section": "footer",
+			"section": "settings",
 			"order": 95
+		},
+		{
+			"id": "AiLiteracy",
+			"label": "Working with AI",
+			"icon": "SchoolOutline",
+			"route": "AiLiteracy",
+			"order": 20
 		}
 	],
 	"pages": [
@@ -148,7 +193,15 @@
 			"type": "custom",
 			"component": "Chat",
 			"title": "Chat",
-			"_note": "Custom page: a streaming chat thread is genuinely custom — SSE token/tool-call consumption with a live assistant bubble, a conversation archive lifecycle driven by Hermiq's payload-marker soft delete, per-message feedback, and an agent-selector empty state are not expressible via the built-in index/detail/dashboard page types (agent-engine-port). Standard nav page — not a dashboard."
+			"_note": "Custom page: a streaming chat thread is genuinely custom — SSE token/tool-call consumption with a live assistant bubble, a session archive lifecycle driven by Hermiq's payload-marker soft delete, per-message feedback, and an agent-selector empty state are not expressible via the built-in index/detail/dashboard page types (agent-engine-port). Standard nav page — not a dashboard."
+		},
+		{
+			"id": "SharedSession",
+			"route": "/chat/shared/:id",
+			"type": "custom",
+			"component": "SharedSession",
+			"title": "Shared session",
+			"_note": "chat-fork-and-share-link: the read-only page of a session shared with the reader. Custom because it reads through the session routes, which decide per request whether a share admits the reader; there is no message box and no action on it."
 		},
 		{
 			"id": "AgentCatalog",
@@ -165,6 +218,21 @@
 						"label": "Name"
 					},
 					{
+						"key": "owner",
+						"label": "Owner"
+					},
+					{
+						"key": "isPrivate",
+						"label": "Who can use it",
+						"formatter": "agentSharing",
+						"sortable": false
+					},
+					{
+						"key": "active",
+						"label": "Status",
+						"formatter": "agentStatus"
+					},
+					{
 						"key": "model",
 						"label": "Model"
 					}
@@ -177,11 +245,97 @@
 						"icon": "Package",
 						"handler": "navigate",
 						"route": "Store"
+					},
+					{
+						"id": "import-agent",
+						"label": "Import agent",
+						"type": "open-modal",
+						"target": "template-import",
+						"icon": "TrayArrowDown",
+						"props": {
+							"show": true,
+							"mode": "agent"
+						}
 					}
 				]
 			},
 			"slots": {
-				"form-dialog": "AgentFormModal"
+				"form-dialog": "AgentFormModal",
+				"delete-dialog": "AgentDeleteDialog"
+			}
+		},
+		{
+			"id": "Schedules",
+			"route": "/schedules",
+			"type": "index",
+			"title": "Schedules",
+			"config": {
+				"_note": "scheduling-overview-and-start-choice D1: every schedule the viewer may see, read from GET /api/schedules (ScheduleListController), which filters per row by owner, agent access and organisation admin. Not an index over the schedule objects: their read rule is authenticated, so that would list every schedule of the organisation to everyone.",
+				"entitySource": "endpoint",
+				"sourceConfig": {
+					"url": "/apps/hermiq/api/schedules",
+					"rowsPath": "results",
+					"totalPath": "total",
+					"searchFields": {
+						"agentId": {
+							"param": "agentId",
+							"single": true
+						},
+						"enabled": {
+							"param": "enabled",
+							"single": true
+						}
+					}
+				},
+				"showAdd": false,
+				"quickFilters": [
+					{
+						"label": "All",
+						"filter": {},
+						"default": true
+					},
+					{
+						"label": "Failed",
+						"filter": {
+							"failed": "true"
+						}
+					},
+					{
+						"label": "Paused",
+						"filter": {
+							"enabled": "false"
+						}
+					}
+				],
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "agentName",
+						"label": "Agent"
+					},
+					{
+						"key": "when",
+						"label": "When"
+					},
+					{
+						"key": "nextRun",
+						"label": "Next run",
+						"formatter": "scheduleNextRun"
+					},
+					{
+						"key": "lastStatus",
+						"label": "Last result",
+						"formatter": "scheduleLastResult"
+					},
+					{
+						"key": "enabled",
+						"label": "Enabled",
+						"formatter": "scheduleEnabled"
+					}
+				]
 			}
 		},
 		{
@@ -212,8 +366,25 @@
 								"prompt",
 								"temperature",
 								"maxTokens",
-								"active"
-							]
+								"maxToolCalls",
+								"ensemble",
+								"answerCache"
+							],
+							"overrides": {
+								"ensemble": {
+									"_note": "An object property is left out of the card unless its override names a widget (nextcloud-vue fieldsFromSchema). json is a structured widget, never edited inline; the formatter shows the summary.",
+									"label": "Answer with several models",
+									"widget": "json",
+									"formatter": "agentEnsemble",
+									"editable": false
+								},
+								"answerCache": {
+									"label": "Reuse answers to repeated questions",
+									"widget": "json",
+									"formatter": "agentAnswerCache",
+									"editable": false
+								}
+							}
 						}
 					},
 					{
@@ -361,6 +532,20 @@
 						"title": "Eval baseline mode",
 						"icon": "ClipboardCheckOutline",
 						"_note": "skill-evals: the data widget holding Agent.evalBaselineMode — edited here, with the register property's consequence-explaining description (joint vs per-skill, 2x vs (N+1)x cost) surfaced as an info affordance exactly where the value is changed (spec scenario). Resolved via page.slots.widget-agent-eval-baseline -> agent-eval-baseline."
+					},
+					{
+						"id": "agent-ratings",
+						"type": "custom",
+						"title": "Ratings",
+						"icon": "ThumbUpOutline",
+						"_note": "observability-feedback-per-agent: share rated helpful with the thumbs up and down counts, and the latest thumbs-down comments. Resolved via page.slots.widget-agent-ratings -> agent-ratings."
+					},
+					{
+						"id": "agent-builds",
+						"type": "custom",
+						"title": "Builds",
+						"icon": "PackageVariantClosed",
+						"_note": "tools-agent-workspace-and-installed-tools: the published builds (files and installed tools frozen with an agent version), the pinned one, the unpublished-changes note and Publish build. Resolved via page.slots.widget-agent-builds -> agent-builds."
 					}
 				],
 				"layout": [
@@ -471,6 +656,24 @@
 						"gridWidth": 12,
 						"gridHeight": 4,
 						"showTitle": true
+					},
+					{
+						"id": "12",
+						"widgetId": "agent-ratings",
+						"gridX": 0,
+						"gridY": 33,
+						"gridWidth": 12,
+						"gridHeight": 4,
+						"showTitle": true
+					},
+					{
+						"id": "13",
+						"widgetId": "agent-builds",
+						"gridX": 0,
+						"gridY": 37,
+						"gridWidth": 12,
+						"gridHeight": 4,
+						"showTitle": false
 					}
 				],
 				"headerActions": [
@@ -485,11 +688,63 @@
 						}
 					},
 					{
+						"id": "switch-availability",
+						"label": "Switch off or on",
+						"type": "open-modal",
+						"target": "agent-availability",
+						"icon": "Power",
+						"props": {
+							"show": true
+						}
+					},
+					{
+						"id": "clear-answer-cache",
+						"label": "Clear cached answers",
+						"type": "open-modal",
+						"target": "agent-answer-cache-clear",
+						"icon": "DeleteSweepOutline",
+						"props": {
+							"show": true
+						}
+					},
+					{
 						"id": "version-history",
 						"label": "Version history",
 						"type": "open-modal",
 						"target": "agent-version-history",
 						"icon": "History",
+						"props": {
+							"show": true
+						}
+					},
+					{
+						"id": "export-agent",
+						"label": "Export",
+						"type": "open-modal",
+						"target": "agent-export",
+						"icon": "TrayArrowDown",
+						"props": {
+							"show": true,
+							"mode": "export"
+						}
+					},
+					{
+						"id": "save-as-template",
+						"label": "Save as template",
+						"type": "open-modal",
+						"target": "agent-export",
+						"icon": "PackageVariant",
+						"props": {
+							"show": true,
+							"mode": "save"
+						}
+					},
+					{
+						"id": "keep-in-git",
+						"label": "Keep in git",
+						"type": "open-modal",
+						"target": "agent-git",
+						"icon": "SourceBranch",
 						"props": {
 							"show": true
 						}
@@ -516,7 +771,9 @@
 				"widget-agent-run-operations": "agent-run-operations",
 				"widget-agent-memory": "agent-memory",
 				"widget-agent-run-history": "agent-run-history",
-				"widget-agent-eval-baseline": "agent-eval-baseline"
+				"widget-agent-eval-baseline": "agent-eval-baseline",
+				"widget-agent-ratings": "agent-ratings",
+				"widget-agent-builds": "agent-builds"
 			}
 		},
 		{
@@ -542,6 +799,22 @@
 			"component": "Runs",
 			"title": "Runs",
 			"_note": "Custom page: the cross-agent run list. Not an index page, because runs are not OpenRegister objects — they are `action` in ('run','agent-run') AuditTrail entries, read through AnalyticsService so the list and the dashboard KPIs share one tenant boundary. Two things had no surface before it: the failures behind a dropped success rate (the only run listing was per-schedule), and flow-triggered runs, whose audit entries hang on the triggering object and so matched no schedule-scoped query at all. `?schedule=` narrows it to one schedule, which is where run-history and Talk delivery links now point — both previously built /apps/hermiq/schedules/<uuid>, a route this manifest never declared, so they answered 200 with the app shell and landed the reader on the dashboard. Standard nav page — not a dashboard."
+		},
+		{
+			"id": "RunCompare",
+			"route": "/runs/compare",
+			"type": "custom",
+			"component": "RunCompare",
+			"title": "Compare runs",
+			"_note": "Two agent runs side by side (observability-compare-two-runs). Opened from the Runs page with ?left=&right=; the server compares only runs of agents the caller may see in the run list and answers any other run 404, like a run that does not exist."
+		},
+		{
+			"id": "FlowRunCompare",
+			"route": "/flow-runs/compare",
+			"type": "custom",
+			"component": "FlowRunCompare",
+			"title": "Compare flow runs",
+			"_note": "Two runs of one flow, node by node (observability-compare-two-runs). Flows and runs are read from OpenRegister in the browser with the person's own session; hermiq stores no flow runs. Its own page because the flow detail page is the shared flow page type."
 		},
 		{
 			"id": "SkillsCatalog",
@@ -579,7 +852,93 @@
 			"title": "Skills",
 			"slots": {
 				"row-actions": "skill-row-actions",
-				"form-dialog": "SkillFormModal"
+				"form-dialog": "SkillFormModal",
+				"below-header": "skill-merge-proposals"
+			}
+		},
+		{
+			"id": "Contexts",
+			"route": "/contexts",
+			"type": "index",
+			"title": "Contexts",
+			"config": {
+				"register": "hermiq",
+				"schema": "context",
+				"_note": "hermiq-context-documents: create and edit Context bundles (documents, files, live data queries) that agents read at run start. The form-dialog slot mounts ContextFormModal in place of the generic dialog, so documents get a markdown editor per entry.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					},
+					{
+						"key": "needsConsolidation",
+						"label": "Over budget"
+					}
+				]
+			},
+			"slots": {
+				"form-dialog": "ContextFormModal"
+			}
+		},
+		{
+			"id": "KnowledgeBases",
+			"route": "/knowledge-bases",
+			"type": "index",
+			"title": "Knowledge bases",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentknowledgebase",
+				"_note": "memory-knowledge-bases: knowledge bases are documents an agent searches per question. Reached from the Memory page and the agent form's picker, not from the menu (design.md D6). Create and edit go through the generic schema form (name, description, folder); sources are managed on the detail page.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					}
+				],
+				"rowRoute": "KnowledgeBaseDetail"
+			}
+		},
+		{
+			"id": "KnowledgeBaseDetail",
+			"route": "/knowledge-bases/:id",
+			"type": "detail",
+			"title": "Knowledge base",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentknowledgebase",
+				"widgets": [
+					{
+						"id": "knowledge-base-sources",
+						"type": "custom",
+						"title": "Sources",
+						"icon": "BookOpenVariantOutline",
+						"_note": "Sources with their indexing state, the only-you notice and where an outside source comes from; upload, add from Files, add a folder, remove. Resolved via page.slots.widget-knowledge-base-sources -> knowledge-base-sources."
+					}
+				],
+				"layout": [
+					{
+						"id": "1",
+						"widgetId": "knowledge-base-sources",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 12,
+						"gridHeight": 6
+					}
+				],
+				"sidebar": {
+					"enabled": false
+				}
+			},
+			"slots": {
+				"widget-knowledge-base-sources": "knowledge-base-sources"
 			}
 		},
 		{
@@ -702,7 +1061,7 @@
 			"id": "Store",
 			"route": "/store",
 			"type": "index",
-			"title": "Store",
+			"title": "Marketplace",
 			"config": {
 				"register": "hermiq",
 				"schema": "agenttemplate",
@@ -732,6 +1091,16 @@
 						"type": "open-modal",
 						"target": "template-import",
 						"icon": "TrayArrowDown",
+						"props": {
+							"show": true
+						}
+					},
+					{
+						"id": "collect-app-templates",
+						"label": "Check apps for templates",
+						"type": "open-modal",
+						"target": "app-template-collect",
+						"icon": "PuzzleOutline",
 						"props": {
 							"show": true
 						}
@@ -878,7 +1247,7 @@
 						"type": "stat",
 						"title": "Schedules quota",
 						"content": {
-							"_note": "dashboard-org-widgets (2026-08-13): was a type:custom QuotaStatWidget.vue, which drew a bare value + label and so did not read as a KPI beside the four stat tiles above it — different component, different visual language. CnStatWidget gained `limitField` (nc-vue 2.2.0-vue3.18) precisely so a quota can be expressed as a capacity pair declaratively, and the custom widget was deleted. `limitField` rather than a hardcoded 100: the ceiling is an appConfig value (TenantOpsService::quotaStatus reads `scheduleQuota`), so duplicating it in the manifest would silently drift the moment an admin changed it. The at-limit warning tint is now CnStatWidget's, derived from value >= limit, replacing the widget's own `atLimit` styling.",
+							"_note": "dashboard-org-widgets (2026-08-13): was a type:custom QuotaStatWidget.vue, which drew a bare value + label and so did not read as a KPI beside the four stat tiles above it — different component, different visual language. CnStatWidget gained `limitField` (nc-vue 2.2.0-vue3.18) precisely so a quota can be expressed as a capacity pair declaratively, and the custom widget was deleted. `limitField` rather than a hardcoded 100: the ceiling is an appConfig value (OrganisationOpsService::quotaStatus reads `scheduleQuota`), so duplicating it in the manifest would silently drift the moment an admin changed it. The at-limit warning tint is now CnStatWidget's, derived from value >= limit, replacing the widget's own `atLimit` styling.",
 							"label": "Schedules",
 							"icon": "Calendar",
 							"format": {
@@ -897,7 +1266,7 @@
 						"type": "stat",
 						"title": "Agents quota",
 						"content": {
-							"_note": "Sibling of quota-schedules — see its note. `agents.count` is agents in use ACROSS THE ORG'S SCHEDULES (TenantOpsService counts distinct agentIds on live schedules), not the agent inventory, which is why it can read 0 while agents exist.",
+							"_note": "Sibling of quota-schedules — see its note. `agents.count` is agents in use ACROSS THE ORG'S SCHEDULES (OrganisationOpsService counts distinct agentIds on live schedules), not the agent inventory, which is why it can read 0 while agents exist.",
 							"label": "Agents in use",
 							"icon": "AccountGroup",
 							"format": {
@@ -1183,6 +1552,43 @@
 			"title": "Guardrail policy"
 		},
 		{
+			"id": "PublicChat",
+			"route": "/settings/public-chat",
+			"type": "index",
+			"title": "Public chat",
+			"permission": "admin",
+			"_note": "delivery-public-web-chat task 6 (REQ-PUBCHAT-001): the public chat channels, rows of hermiq's agentpublicchannel objects. The form-dialog slot mounts PublicChannelFormModal: an agent picker that offers only agents without tools (PublicChannelGuardListener refuses one with tools on save and gives a new channel its token), the allowed origins, the public sources, the visitor notice and the questions per day; a saved website channel shows its script and iframe snippets. Channels only answer while the public-chat AI feature is enabled.",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentpublicchannel",
+				"defaultSort": {
+					"field": "name",
+					"direction": "asc"
+				},
+				"columns": [
+					{
+						"key": "name",
+						"label": "Channel"
+					},
+					{
+						"key": "kind",
+						"label": "Kind"
+					},
+					{
+						"key": "enabled",
+						"label": "Answers visitors"
+					},
+					{
+						"key": "dailyQuestionLimit",
+						"label": "Questions per day"
+					}
+				]
+			},
+			"slots": {
+				"form-dialog": "PublicChannelFormModal"
+			}
+		},
+		{
 			"id": "AlgorithmRegister",
 			"route": "/algorithm-register",
 			"type": "index",
@@ -1252,14 +1658,115 @@
 			"title": "MCP tools"
 		},
 		{
+			"id": "CustomTools",
+			"route": "/custom-tools",
+			"type": "index",
+			"title": "Custom tools",
+			"config": {
+				"register": "hermiq",
+				"schema": "customtool",
+				"_note": "tools-custom-tools-without-code: an organisation's own tools that call a flow or an integriq endpoint. Reads go through the generic objects path (the schema lets authenticated users read their organisation's tools); create and edit mount CustomToolFormModal through slots.form-dialog, which writes through hermiq's /api/custom-tools, the endpoint only an organisation admin or instance admin passes. Reached from the MCP tools page.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "slug",
+						"label": "Slug"
+					},
+					{
+						"key": "changesData",
+						"label": "Changes data"
+					},
+					{
+						"key": "enabled",
+						"label": "Enabled"
+					}
+				]
+			},
+			"slots": {
+				"form-dialog": "CustomToolFormModal"
+			}
+		},
+		{
 			"id": "FlowIndex",
 			"route": "/flows",
 			"type": "index",
 			"title": "Flows",
-			"_note": "An ordinary index over the named `flows` source. A flow lives in OpenRegister's native flow table rather than a register/schema pair, so an object-backed index had nothing to bind to and this was a custom page over FlowIndex.vue; `config.entitySource` closes that. The list reads the one native store the engine runs, so what an author sees and what executes cannot drift.",
+			"_note": "An ordinary index over the named `flows` source. A flow lives in OpenRegister's native flow table rather than a register/schema pair, so an object-backed index had nothing to bind to and this was a custom page over FlowIndex.vue; `config.entitySource` closes that. The list reads the one native store the engine runs, so what an author sees and what executes cannot drift. rowRoute names the FlowDetail page (a route name, not a path): a named-source page has no register and schema, so without it a row click opens nothing and Edit falls back to the source's own /flows path.",
 			"config": {
 				"entitySource": "flows",
-				"app": "hermiq"
+				"app": "hermiq",
+				"rowRoute": "FlowDetail"
+			}
+		},
+		{
+			"id": "Integrations",
+			"route": "/settings/integrations",
+			"type": "index",
+			"title": "Integrations",
+			"permission": "admin",
+			"requiresApp": {
+				"id": "integriq",
+				"name": "Integriq"
+			},
+			"_note": "Hermiq's outside connections (adopt-connection-registry, hydra connection-registry D8). The rows are integriq's `app_connection` objects, synced from lib/Settings/connections.json. Integriq works out each status; hermiq only reports. The app=hermiq preset is the menu entry's `query` (ADR-097 decision 5), which the index page merges into the fetch as a bare filter key. `showAdd` is false because a row nothing declared has nothing to check (D9). Add integration leaves for integriq's overview through the openIntegriqConnections handler in src/customComponents.js, because a header action's `navigate` only pushes a route inside this app.",
+			"config": {
+				"register": "integriq",
+				"schema": "app_connection",
+				"showViewAction": false,
+				"showAdd": false,
+				"headerActions": [
+					{
+						"id": "add-integration",
+						"label": "Add integration",
+						"icon": "Connection",
+						"handler": "openIntegriqConnections"
+					}
+				],
+				"defaultSort": {
+					"field": "order",
+					"direction": "asc"
+				},
+				"folderSidebar": {
+					"source": "field",
+					"field": "status",
+					"allLabel": "All connections"
+				},
+				"columns": [
+					{
+						"key": "title",
+						"label": "Connection"
+					},
+					{
+						"key": "status",
+						"label": "Status",
+						"formatter": "connectionStatus"
+					},
+					{
+						"key": "statusMessage",
+						"label": "Status message",
+						"sortable": false
+					},
+					{
+						"key": "checkedAt",
+						"label": "Last checked"
+					},
+					{
+						"key": "settingsUrl",
+						"label": "Settings",
+						"sortable": false,
+						"formatter": "connectionSettingsLabel",
+						"widget": "link",
+						"widgetProps": {
+							"href": "{settingsUrl}"
+						}
+					}
+				]
+			},
+			"slots": {
+				"below-header": "chat-health"
 			}
 		},
 		{
@@ -1270,7 +1777,8 @@
 			"_note": "Legacy path. Hermiq called flows 'graphs' until hermiq-flow-rename, and those URLs are pasted into Hydra issues, run logs and PR bodies. The manifest has no redirect field, so the old path is declared as a second page onto the same page type rather than left to 404. Remove once the old links have aged out.",
 			"config": {
 				"entitySource": "flows",
-				"app": "hermiq"
+				"app": "hermiq",
+				"rowRoute": "FlowDetail"
 			}
 		},
 		{
@@ -1281,6 +1789,8 @@
 			"_note": "The shared `flow` page type: CnFlowEditorPage over CnFlowDetail, the same canvas every other app uses. This was a custom page over FlowBuilder.vue, a parallel editor with its own store and API client - which flow-storage/spec.md forbids outright (\"No other app SHALL own a flow store, a flow controller, or a flow execution service\"). Controls are the shared CnFlowSidebar so the canvas keeps full width.",
 			"sidebarComponent": "CnFlowSidebar",
 			"config": {
+				"listMode": true,
+				"testPayload": true,
 				"app": "hermiq"
 			}
 		},
@@ -1292,6 +1802,8 @@
 			"_note": "Legacy path - see FlowIndexLegacyRedirect. Carries the same sidebarComponent as FlowDetail: without it an old link would open the canvas with no controls, which is worse than a 404 because it looks like the editor is broken rather than like the URL is old.",
 			"sidebarComponent": "CnFlowSidebar",
 			"config": {
+				"listMode": true,
+				"testPayload": true,
 				"app": "hermiq"
 			}
 		},
@@ -1309,6 +1821,57 @@
 						"description": "What the agents did, and what a human still has to answer for.",
 						"icon": "ShieldCheckOutline",
 						"route": "AiOversight"
+					}
+				],
+				"cardState": {
+					"url": "/apps/hermiq/api/report-subscriptions",
+					"keyField": "report"
+				},
+				"cardActions": [
+					{
+						"id": "send-weekly",
+						"label": "Send me this weekly",
+						"type": "api-call",
+						"method": "POST",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"payload": {
+							"frequency": "weekly"
+						},
+						"successMessage": "You will get this report every week.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "neq",
+							"value": "active"
+						}
+					},
+					{
+						"id": "send-monthly",
+						"label": "Send me this monthly",
+						"type": "api-call",
+						"method": "POST",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"payload": {
+							"frequency": "monthly"
+						},
+						"successMessage": "You will get this report every month.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "neq",
+							"value": "active"
+						}
+					},
+					{
+						"id": "stop-sending",
+						"label": "Stop sending",
+						"type": "api-call",
+						"method": "DELETE",
+						"url": "/apps/hermiq/api/report-subscriptions/@objectId",
+						"successMessage": "This report is no longer sent to you.",
+						"visibleWhen": {
+							"field": "state.status",
+							"op": "eq",
+							"value": "active"
+						}
 					}
 				]
 			},
@@ -1420,6 +1983,11 @@
 							"rowRoute": "AiOversightDetail",
 							"emptyText": "No AI oversight decisions recorded yet"
 						}
+					},
+					{
+						"id": "aio-ai-label",
+						"type": "custom",
+						"title": "Made with AI"
 					}
 				],
 				"layout": [
@@ -1454,8 +2022,19 @@
 						"gridY": 3,
 						"gridWidth": 12,
 						"gridHeight": 9
+					},
+					{
+						"id": 5,
+						"widgetId": "aio-ai-label",
+						"gridX": 0,
+						"gridY": 12,
+						"gridWidth": 12,
+						"gridHeight": 4
 					}
 				]
+			},
+			"slots": {
+				"widget-aio-ai-label": "ai-label-section"
 			}
 		},
 		{
@@ -1506,6 +2085,14 @@
 					]
 				}
 			}
+		},
+		{
+			"id": "AiLiteracy",
+			"route": "/ai-literacy",
+			"type": "custom",
+			"component": "AiLiteracy",
+			"title": "Working with AI",
+			"_note": "compliance-ai-literacy: six lessons on working with AI, each with a check question; an organisation admin also sees completion per person, exports it as CSV and may require the course before first use. Custom because reading, answering and checking a lesson happen on one page."
 		}
 	],
 	"setup": {
@@ -1525,17 +2112,10 @@
 				"display": "cards",
 				"optionsSource": "datasets",
 				"configKey": "demo_dataset",
+				"loadAction": "load-demo-data",
 				"title": "Load example data?",
 				"required": false,
-				"body": "Example data fills the lists, detail pages and dashboards so you can see the app working straight away. Pick \"None\" on a production install."
-			},
-			{
-				"id": "load-demo-data",
-				"type": "run-action",
-				"action": "load-demo-data",
-				"title": "Load the example data",
-				"required": false,
-				"body": "Loads what you picked. The data is obviously sample data, it is safe to run more than once, and you can delete it afterwards."
+				"body": "Example data fills the lists, detail pages and dashboards so you can see the app working straight away. Each card has its own Load button. Pick \"None\" on a production install."
 			},
 			{
 				"id": "llm-endpoint",
@@ -1683,6 +2263,75 @@
 						},
 						"advanceOn": {
 							"type": "manual"
+						}
+					}
+				]
+			},
+			{
+				"id": "hermiq:ai-literacy",
+				"title": "Working with AI",
+				"trigger": "manual",
+				"minAppVersion": "0.2.17",
+				"steps": [
+					{
+						"id": "course",
+						"sinceVersion": "0.2.17",
+						"placement": "center",
+						"title": "Working with AI",
+						"body": "Six short lessons on working with AI agents: what an agent is, why answers can be wrong, and when a person decides. Each ends with one question.",
+						"target": {
+							"kind": "page",
+							"ref": "AiLiteracy"
+						},
+						"advanceOn": {
+							"type": "manual"
+						}
+					},
+					{
+						"id": "go-chat",
+						"sinceVersion": "0.2.17",
+						"placement": "right",
+						"body": "In a chat, the sources an agent used are listed under its answer. Open them before you use the answer.",
+						"task": "Click Chat in the menu",
+						"target": {
+							"kind": "nav-item",
+							"ref": "Chat"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "Chat"
+						}
+					},
+					{
+						"id": "see-flows",
+						"sinceVersion": "0.2.17",
+						"placement": "right",
+						"optional": true,
+						"allowManualNext": true,
+						"body": "A flow runs agents on a schedule or after an event, without anyone clicking. Read what a flow does before you switch it on.",
+						"task": "Open Flows in the menu",
+						"target": {
+							"kind": "nav-item",
+							"ref": "FlowIndex"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "FlowIndex"
+						}
+					},
+					{
+						"id": "go-approvals",
+						"sinceVersion": "0.2.17",
+						"placement": "right",
+						"body": "When an agent wants to change something that needs a person, the request waits here with what it will do. You decide.",
+						"task": "Click Approvals in the menu",
+						"target": {
+							"kind": "nav-item",
+							"ref": "ApprovalInbox"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "ApprovalInbox"
 						}
 					}
 				]

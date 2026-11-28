@@ -21,7 +21,7 @@
  * never collide.
  */
 
-import type { APIRequestContext, Page } from '@playwright/test'
+import type { APIRequestContext, Locator, Page } from '@playwright/test'
 
 import { expect } from '@playwright/test'
 
@@ -394,6 +394,13 @@ export async function dismissTour(page: Page): Promise<void> {
 	}
 
 	const wizard = page.locator('[data-testid-modal="cn-wizard-dialog"]')
+	// The wizard mounts after the app's first settings read, often after this
+	// function was called on domcontentloaded; a single look then misses it and
+	// the next click lands on its overlay. Wait a moment for it to appear.
+	await wizard
+		.first()
+		.waitFor({ state: 'visible', timeout: 3_000 })
+		.catch(() => undefined)
 	if (
 		(await wizard.count()) > 0
 		&& (await wizard
@@ -411,6 +418,39 @@ export async function dismissTour(page: Page): Promise<void> {
 			.waitFor({ state: 'hidden', timeout: 10_000 })
 			.catch(() => undefined)
 	}
+}
+
+/**
+ * Run one of a detail page's manifest `headerActions`.
+ *
+ * CnDetailPage renders those as `menuitem`s inside the header's Actions menu,
+ * not as buttons, and they exist only once the menu is open.
+ *
+ * @param page     The Playwright page, on a detail page.
+ * @param actionId The `headerActions` entry id, e.g. `edit-agent`.
+ * @return void
+ */
+export async function runHeaderAction(page: Page, actionId: string): Promise<void> {
+	const actionsMenu = page.getByTestId('cn-detail-page-actions')
+	await expect(actionsMenu).toBeVisible({ timeout: 30_000 })
+	await actionsMenu.locator('.action-item__menutoggle').click()
+	await page.getByTestId(`cn-action-${actionId}`).click()
+}
+
+/**
+ * Open the agent form from an agent's detail page.
+ *
+ * The header's own "Edit" button opens the generic object form; the agent
+ * form is the `edit-agent` header action.
+ *
+ * @param page The Playwright page, on `/agents/{id}`.
+ * @return The agent form locator, once visible.
+ */
+export async function openAgentForm(page: Page): Promise<Locator> {
+	await runHeaderAction(page, 'edit-agent')
+	const form = page.locator('.agent-form')
+	await expect(form).toBeVisible({ timeout: 20_000 })
+	return form
 }
 
 /**

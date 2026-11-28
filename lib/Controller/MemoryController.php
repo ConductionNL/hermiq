@@ -27,16 +27,16 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-memory/tasks.md#3-controller-routes
+ * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#3-controller-routes
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\AgentAccessService;
-use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AgentAccessServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\MemoryServiceInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -49,28 +49,48 @@ use Throwable;
 /**
  * Tenant-scoped agent-memory read/manage endpoints.
  *
- * @spec openspec/changes/agent-memory/tasks.md#3-controller-routes
+ * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#3-controller-routes
+ *
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods) carried in with this batch's feature work; splitting it is
+ * follow-up work, not part of this merge.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with this batch's feature work; splitting it
+ * is follow-up work, not part of this merge.
  */
 class MemoryController extends Controller {
+
+	/**
+	 * The access a read route needs: the agent is accessible to the caller.
+	 *
+	 * @var string
+	 */
+	private const READ = 'read';
+
+	/**
+	 * The access a write route needs: the caller owns the agent.
+	 *
+	 * @var string
+	 */
+	private const WRITE = 'write';
+
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param MemoryService $memoryService The memory read/write path.
+	 * @param MemoryServiceInterface $memoryService The memory read/write path.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param AgentAccessService $agentAccess Per-agent authorization (IDOR guard).
+	 * @param AgentAccessServiceInterface $agentAccess Per-agent authorization (IDOR guard).
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly MemoryService $memoryService,
+		private readonly MemoryServiceInterface $memoryService,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
-		private readonly AgentAccessService $agentAccess,
+		private readonly AgentAccessServiceInterface $agentAccess,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -83,19 +103,22 @@ class MemoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
 	 */
 	public function memory(string $agentId): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		try {
-			$memory = $this->memoryService->getMemory(agentId: $agentId);
+			$project = $this->requestedProject(agentId: $agentId);
+			if ($project === false) {
+				return self::projectNotFound();
+			}
+
+			$memory = $this->memoryService->getMemory(agentId: $agentId, projectKey: $project);
 			return new JSONResponse($this->shape(object: $memory));
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq memory read failed: ' . $e->getMessage(), ['exception' => $e]);
@@ -119,15 +142,12 @@ class MemoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
 	 */
 	public function addMemory(string $agentId): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentOwnership(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		$text = trim((string)$this->request->getParam('text', ''));
@@ -146,6 +166,228 @@ class MemoryController extends Controller {
 	}//end addMemory()
 
 	/**
+	 * Correct one fact the agent remembers (owner only).
+	 *
+	 * The old entry is kept with `deletedAt` set and the new text is stored as a
+	 * new entry, so the history shows both wordings.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $entryId The id of the entry to correct.
+	 *
+	 * @return JSONResponse The updated memory payload, or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+	 */
+	public function correctEntry(string $agentId, string $entryId): JSONResponse {
+		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);
+		if ($refusal !== null) {
+			return $refusal;
+		}
+
+		$text = trim((string)$this->request->getParam('text', ''));
+		if ($text === '') {
+			return new JSONResponse(['error' => 'A non-empty text is required'], Http::STATUS_BAD_REQUEST);
+		}
+
+		try {
+			$project = $this->requestedProject(agentId: $agentId);
+			if ($project === false) {
+				return self::projectNotFound();
+			}
+
+			return $this->entryResponse(
+				memory: $this->memoryService->correctMemoryEntry(agentId: $agentId, entryId: $entryId, text: $text, projectKey: $project)
+			);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq memory correction failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not correct memory'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end correctEntry()
+
+	/**
+	 * Make the agent forget one fact (owner only). A soft delete: the entry stays
+	 * in the history and is left out of recall.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $entryId The id of the entry to forget.
+	 *
+	 * @return JSONResponse The updated memory payload, or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+	 */
+	public function forgetEntry(string $agentId, string $entryId): JSONResponse {
+		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);
+		if ($refusal !== null) {
+			return $refusal;
+		}
+
+		try {
+			$project = $this->requestedProject(agentId: $agentId);
+			if ($project === false) {
+				return self::projectNotFound();
+			}
+
+			$result = $this->memoryService->forgetEntry(agentId: $agentId, subjectUid: null, entryId: $entryId, projectKey: $project);
+			if ($result['found'] === false) {
+				return new JSONResponse(['error' => 'Memory entry not found'], Http::STATUS_NOT_FOUND);
+			}
+
+			return new JSONResponse($this->shape(object: $this->memoryService->getMemory(agentId: $agentId, projectKey: $project)));
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq memory forget failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not forget memory'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end forgetEntry()
+
+	/**
+	 * List the projects the agent keeps a memory for (memory-project-scopes).
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return JSONResponse `{projects: [{projectKey, projectName}]}`, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-agent-has-one-shared-memory-and-a-memory-per-project-req-pmem-001
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	public function projects(string $agentId): JSONResponse {
+		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
+		if ($refusal !== null) {
+			return $refusal;
+		}
+
+		try {
+			return new JSONResponse(['projects' => $this->memoryService->listProjects(agentId: $agentId)]);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq memory projects read failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not load projects'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+	}//end projects()
+
+	/**
+	 * Move one entry between the shared memory and a project memory (owner only).
+	 *
+	 * Body: `from` and `to`, each a project key or '' for the shared memory. The
+	 * moved text is redacted again on its way in.
+	 *
+	 * @param string $agentId The agent UUID.
+	 * @param string $entryId The entry to move.
+	 *
+	 * @return JSONResponse The memory the entry is now in, or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	public function moveEntry(string $agentId, string $entryId): JSONResponse {
+		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);
+		if ($refusal !== null) {
+			return $refusal;
+		}
+
+		$from = trim((string)$this->request->getParam('from', ''));
+		$to   = trim((string)$this->request->getParam('to', ''));
+		if ($from === $to) {
+			return new JSONResponse(['error' => 'Choose another layer to move the entry to'], Http::STATUS_BAD_REQUEST);
+		}
+
+		try {
+			if ($this->namesAnUnknownProject(agentId: $agentId, keys: [$from, $to]) === true) {
+				return self::projectNotFound();
+			}
+
+			return $this->entryResponse(
+				memory: $this->memoryService->moveMemoryEntry(agentId: $agentId, entryId: $entryId, from: $from, to: $to)
+			);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq memory move failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not move memory'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+	}//end moveEntry()
+
+	/**
+	 * Whether any of the given project keys names a project the agent does not have; '' is the shared memory.
+	 *
+	 * @param string             $agentId The agent UUID.
+	 * @param array<int, string> $keys    The project keys.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	private function namesAnUnknownProject(string $agentId, array $keys): bool {
+		$known = array_column($this->memoryService->listProjects(agentId: $agentId), 'projectKey');
+		foreach ($keys as $key) {
+			if ($key !== '' && in_array($key, $known, true) === false) {
+				return true;
+			}
+		}
+
+		return false;
+	}//end namesAnUnknownProject()
+
+	/**
+	 * The memory an entry change left, or 404 when there was no such live entry.
+	 *
+	 * @param ObjectEntity|null $memory The memory, or null.
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	private function entryResponse(?ObjectEntity $memory): JSONResponse {
+		if ($memory === null) {
+			return new JSONResponse(['error' => 'Memory entry not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		return new JSONResponse($this->shape(object: $memory));
+	}//end entryResponse()
+
+	/**
+	 * The 404 answer to a project the agent does not have.
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	private static function projectNotFound(): JSONResponse {
+		return new JSONResponse(['error' => 'Project not found'], Http::STATUS_NOT_FOUND);
+	}//end projectNotFound()
+
+	/**
+	 * The project the request names in `project`: null for none (the shared
+	 * memory), its key when the agent keeps a memory for it, false when it names
+	 * a project the agent has no memory for. A read never creates a project.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return string|false|null
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+	 */
+	private function requestedProject(string $agentId): string|false|null {
+		$key = trim((string)$this->request->getParam('project', ''));
+		if ($key === '') {
+			return null;
+		}
+
+		$known = array_column($this->memoryService->listProjects(agentId: $agentId), 'projectKey');
+		if (in_array($key, $known, true) === false) {
+			return false;
+		}
+
+		return $key;
+	}//end requestedProject()
+
+	/**
 	 * List an agent's UserProfile objects (tenant-scoped).
 	 *
 	 * @param string $agentId The agent UUID.
@@ -155,15 +397,12 @@ class MemoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
 	 */
 	public function userProfiles(string $agentId): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		try {
@@ -186,15 +425,12 @@ class MemoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
 	 */
 	public function sessions(string $agentId): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		try {
@@ -218,15 +454,13 @@ class MemoryController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
+	 * @spec openspec/specs/agent-memory/spec.md#REQ-SPCOV-008
 	 */
 	public function consolidate(string $agentId): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentOwnership(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::WRITE);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		$entries = $this->request->getParam('entries');
@@ -262,15 +496,12 @@ class MemoryController extends Controller {
 	 * (`GET /api/agents/{agentId}/recall?q=…`) — NC binds route params by name, so
 	 * renaming it would break the API contract.
 	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-3-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-memory/tasks.md#task-3-1
 	 */
 	public function recall(string $agentId, string $q = ''): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
-			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		$refusal = $this->refusal(agentId: $agentId, level: self::READ);
+		if ($refusal !== null) {
+			return $refusal;
 		}
 
 		try {
@@ -333,6 +564,33 @@ class MemoryController extends Controller {
 		) !== null;
 
 	}//end requireAgentOwnership()
+
+	/**
+	 * The 401 for an anonymous caller (before any agent lookup), the 404 when the
+	 * caller may not read (`READ`) or modify (`WRITE`) this agent, or null.
+	 *
+	 * @param string $agentId The agent UUID taken off the URL.
+	 * @param string $level   `READ` or `WRITE`.
+	 *
+	 * @return JSONResponse|null
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
+	 */
+	private function refusal(string $agentId, string $level): ?JSONResponse {
+		if ($this->userSession->getUser() === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		$allowed = match ($level) {
+			self::WRITE => $this->requireAgentOwnership(agentId: $agentId),
+			default => $this->requireAgentReadAccess(agentId: $agentId),
+		};
+		if ($allowed === false) {
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		return null;
+	}//end refusal()
 
 	/**
 	 * De-duplicate the current Memory entries by text (default consolidation strategy).

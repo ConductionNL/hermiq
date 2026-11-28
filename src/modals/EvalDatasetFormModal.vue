@@ -10,7 +10,7 @@
   prompt plus one expectation (contains / notContains / jsonPathEquals / rubric). Every
   NcSelect carries an `inputLabel` (nc-input-labels accessibility gate).
 
-  @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+  @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 -->
 <template>
 	<NcModal :show="show" size="large" :name="heading" @close="$emit('close')">
@@ -135,6 +135,7 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import { useEvalDatasetStore } from '../store/store.js'
+import { resetOnOpen } from './resetOnOpen.js'
 
 export default {
 	name: 'EvalDatasetFormModal',
@@ -149,13 +150,9 @@ export default {
 		NcTextField,
 	},
 
-	props: {
-		/** Whether the modal is visible. */
-		show: {
-			type: Boolean,
-			default: false,
-		},
+	mixins: [resetOnOpen],
 
+	props: {
 		/** The dataset being edited, or null when creating a new one. */
 		dataset: {
 			type: Object,
@@ -196,7 +193,7 @@ export default {
 		 * Modal heading — differs for create vs edit.
 		 *
 		 * @return {string} The localised heading.
-		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+		 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 		 */
 		heading() {
 			return this.dataset
@@ -205,19 +202,8 @@ export default {
 		},
 	},
 
-	watch: {
-		/**
-		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
-		 */
-		show(open) {
-			if (open) {
-				this.resetForm()
-			}
-		},
-	},
-
 	/**
-	 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+	 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 	 */
 	created() {
 		this.store = useEvalDatasetStore()
@@ -229,7 +215,7 @@ export default {
 		 * An empty dataset form with one starter case.
 		 *
 		 * @return {object} The blank form model.
-		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+		 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 		 */
 		blankForm() {
 			return { name: '', cases: [this.blankCase()] }
@@ -239,7 +225,7 @@ export default {
 		 * An empty case (defaults to a substring assertion).
 		 *
 		 * @return {object} The blank case model.
-		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+		 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 		 */
 		blankCase() {
 			return {
@@ -256,7 +242,7 @@ export default {
 		 * Seed the form from the `dataset` prop (edit) or blank (create).
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+		 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 		 */
 		resetForm() {
 			this.error = ''
@@ -279,7 +265,7 @@ export default {
 		 *
 		 * @param {object} evalCase The case.
 		 * @return {object|null} The matching option.
-		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+		 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 		 */
 		expectationOptionFor(evalCase) {
 			return (
@@ -304,7 +290,7 @@ export default {
 		 * Append a blank case.
 		 *
 		 * @return {void}
-		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+		 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 		 */
 		addCase() {
 			this.form.cases.push(this.blankCase())
@@ -315,7 +301,7 @@ export default {
 		 *
 		 * @param {number} index The case index.
 		 * @return {void}
-		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+		 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 		 */
 		removeCase(index) {
 			this.form.cases.splice(index, 1)
@@ -328,7 +314,7 @@ export default {
 		 * Build the payload, dropping the fields irrelevant to each case's expectation type.
 		 *
 		 * @return {object} The evaldataset payload.
-		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+		 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 		 */
 		buildPayload() {
 			const base = this.dataset ? { ...this.dataset } : {}
@@ -365,7 +351,7 @@ export default {
 		 * Persist the dataset via the createObjectStore and notify the parent.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+		 * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 		 */
 		async save() {
 			this.saving = true

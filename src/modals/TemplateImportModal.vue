@@ -12,13 +12,17 @@
   template" button. Emits `imported` on success (parent refreshes the list) and `close`
   to dismiss. Mirrors SkillImportModal.vue's shape exactly.
 
-  @spec openspec/changes/agent-template-gallery/tasks.md#task-8-templateimportmodalvue-agentcatalogvue-entry-point
+  @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-8-templateimportmodalvue-agentcatalogvue-entry-point
 -->
 <template>
-	<NcModal size="normal" :canClose="!busy" @close="$emit('close')">
+	<NcModal size="normal" :noClose="busy" @close="$emit('close')">
 		<div class="template-import">
 			<h2 class="template-import__title">
-				{{ t('hermiq', 'Import an agent template') }}
+				{{
+					agentMode
+						? t('hermiq', 'Import an agent')
+						: t('hermiq', 'Import an agent template')
+				}}
 			</h2>
 
 			<NcNoteCard v-if="error" type="error">
@@ -32,6 +36,15 @@
 			  the user starts typing.
 			-->
 			<label class="template-import__label">
+				<span>{{ t('hermiq', 'File exported from an agent') }}</span>
+				<input
+					type="file"
+					accept=".json,application/json"
+					:disabled="busy"
+					@change="readFile" />
+			</label>
+
+			<label class="template-import__label">
 				<span>{{ t('hermiq', 'Template package') }}</span>
 				<textarea
 					v-model="importText"
@@ -40,7 +53,15 @@
 					:placeholder="placeholder" />
 			</label>
 
-			<p class="template-import__note">
+			<p v-if="agentMode" class="template-import__note">
+				{{
+					t(
+						'hermiq',
+						'Imported agents are reviewed before anyone can use them.',
+					)
+				}}
+			</p>
+			<p v-else class="template-import__note">
 				{{
 					t(
 						'hermiq',
@@ -50,11 +71,22 @@
 			</p>
 
 			<div class="template-import__actions">
-				<NcButton type="tertiary" :disabled="busy" @click="$emit('close')">
+				<NcButton
+					variant="tertiary"
+					:disabled="busy"
+					@click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
-					type="secondary"
+					v-if="agentMode"
+					variant="primary"
+					:disabled="busy || importText.trim() === ''"
+					@click="run('org')">
+					{{ t('hermiq', 'Import agent') }}
+				</NcButton>
+				<NcButton
+					v-if="!agentMode"
+					variant="secondary"
 					:disabled="busy || importText.trim() === ''"
 					@click="run('org')">
 					{{
@@ -62,7 +94,8 @@
 					}}
 				</NcButton>
 				<NcButton
-					type="primary"
+					v-if="!agentMode"
+					variant="primary"
 					:disabled="busy || importText.trim() === ''"
 					@click="run('local')">
 					<template v-if="busy" #icon>
@@ -78,6 +111,8 @@
 <script>
 import { NcButton, NcLoadingIcon, NcModal, NcNoteCard } from '@nextcloud/vue'
 import { importAgentTemplate } from '../api/agentTemplates.js'
+import { packageFromFile } from '../utils/agentExport.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'TemplateImportModal',
@@ -87,6 +122,17 @@ export default {
 		NcLoadingIcon,
 		NcModal,
 		NcNoteCard,
+	},
+
+	props: {
+		/**
+		 * `agent` for the catalog's "Import agent": a file lands quarantined for
+		 * review, with no direct import. Anything else is the Store's template import.
+		 */
+		mode: {
+			type: String,
+			default: 'template',
+		},
 	},
 
 	data() {
@@ -99,13 +145,49 @@ export default {
 		}
 	},
 
+	computed: {
+		/**
+		 * Whether this is the catalog's "Import agent".
+		 *
+		 * @return {boolean}
+		 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-exported-agent-is-imported-through-review-req-agexp-002
+		 */
+		agentMode() {
+			return this.mode === 'agent'
+		},
+	},
+
 	methods: {
+		/**
+		 * Read a chosen file into the package field, refusing a file that is not an exported agent.
+		 *
+		 * @param {Event} event The file input's change event.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-exported-agent-is-imported-through-review-req-agexp-002
+		 */
+		async readFile(event) {
+			const file = event?.target?.files?.[0]
+			if (!file) {
+				return
+			}
+			this.error = ''
+			try {
+				this.importText = packageFromFile(await file.text())
+			} catch (e) {
+				this.importText = ''
+				this.error =
+					e?.code === 'no-name'
+						? this.t('hermiq', 'This agent file has no name.')
+						: this.t('hermiq', 'This file is not an exported agent.')
+			}
+		},
+
 		/**
 		 * Import the pasted package with the chosen source.
 		 *
 		 * @param {string} source The import source ('local' | 'org').
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-template-gallery/tasks.md#task-8-templateimportmodalvue-agentcatalogvue-entry-point
+		 * @spec openspec/changes/archive/2026-07-13-agent-template-gallery/tasks.md#task-8-templateimportmodalvue-agentcatalogvue-entry-point
 		 */
 		async run(source) {
 			const pkg = this.importText.trim()
@@ -122,10 +204,7 @@ export default {
 				this.$emit('imported')
 				this.$emit('close')
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Could not import the template')
+				this.error = errorMessage(e, this.t('hermiq', 'Could not import the template'))
 			} finally {
 				this.busy = false
 			}

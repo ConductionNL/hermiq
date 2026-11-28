@@ -29,9 +29,11 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\Llm\RunTokenService;
+use OCA\Hermiq\Tests\Unit\Support\InMemoryRunTokenStore;
 use OCA\Hermiq\Service\StageDispatchService;
-use OCP\ICache;
-use OCP\ICacheFactory;
+use OCA\Hermiq\Service\StageOptions;
+use OCA\Hermiq\Service\StageRequest;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -49,18 +51,22 @@ class ExposedCollectStageDispatchService extends StageDispatchService {
 	 */
 	public function paramsFor(array $collect): array {
 		return $this->buildParams(
-			repo: 'https://github.com/ConductionNL/larpingapp',
-			ref: 'main',
-			command: ['claude', '-p', 'review'],
-			uid: null,
-			credentialId: '',
-			ceiling: 1000,
-			toolRepo: '',
-			toolRef: '',
-			push: [],
-			pushCredentialId: '',
-			llmCredentialId: '',
-			collect: $collect
+			request: new StageRequest(
+				repo: 'https://github.com/ConductionNL/larpingapp',
+				ref: 'main',
+				command: ['claude', '-p', 'review'],
+				uid: null,
+				options: new StageOptions(
+					credentialId: '',
+					timeoutMs: 1000,
+					toolRepo: '',
+					toolRef: '',
+					push: [],
+					pushCredentialId: '',
+					llmCredentialId: '',
+					collect: $collect
+				)
+			)
 		);
 	}//end paramsFor()
 
@@ -78,6 +84,9 @@ class ExposedCollectStageDispatchService extends StageDispatchService {
  * @covers \OCA\Hermiq\Service\StageDispatchService
  *
  * @uses \OCA\Hermiq\Service\Llm\RunTokenService
+ * @uses \OCA\Hermiq\Service\StageOptions
+ * @uses \OCA\Hermiq\Service\StageRequest
+ * @uses \OCA\Hermiq\Service\Llm\RunTokenRequest
  */
 final class StageDispatchCollectTest extends TestCase {
 
@@ -94,15 +103,12 @@ final class StageDispatchCollectTest extends TestCase {
 	 * @return void
 	 */
 	protected function setUp(): void {
-		$cacheFactory = $this->createMock(originalClassName: ICacheFactory::class);
-		$cacheFactory->method('createDistributed')->willReturn($this->createMock(originalClassName: ICache::class));
-
 		$this->service = new ExposedCollectStageDispatchService(
 			$this->createMock(originalClassName: LoggerInterface::class),
 			new RunTokenService(
-				$cacheFactory,
+				new InMemoryRunTokenStore(),
 				$this->createMock(originalClassName: ISecureRandom::class),
-				$this->createMock(originalClassName: LoggerInterface::class)
+				$this->createMock(originalClassName: ITimeFactory::class)
 			)
 		);
 

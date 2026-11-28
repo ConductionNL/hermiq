@@ -23,19 +23,22 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\LlmSettingsHandlerInterface;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Service\Llm\NextcloudTaskClient;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\AnonRateLimit;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use OCP\TaskProcessing\TaskTypes\TextToTextChat;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -49,24 +52,27 @@ use Throwable;
  * {status:"config_error"} when the config read itself fails, which IS the app
  * being broken.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
  */
 class ChatHealthController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param LlmSettingsHandler $llmSettings Reads the `hermiq.llm` provider configuration.
+	 * @param LlmSettingsHandlerInterface $llmSettings Reads the `hermiq.llm` provider configuration.
 	 * @param LoggerInterface $logger PSR-3 logger for surfacing config errors.
+	 * @param NextcloudTaskClient|null $nextcloudAi Answers whether Nextcloud AI can chat;
+	 *                                              null when built by hand in a test.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly LlmSettingsHandler $llmSettings,
+		private readonly LlmSettingsHandlerInterface $llmSettings,
 		private readonly LoggerInterface $logger,
+		private readonly ?NextcloudTaskClient $nextcloudAi = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -94,15 +100,24 @@ class ChatHealthController extends Controller {
 	 * short interval, and a ceiling that trips on a normal probe cadence turns
 	 * the health check into the outage it was meant to detect.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-4-1
+	 * @spec openspec/changes/archive/2026-11-20-use-nextcloud-ai-settings/tasks.md#task-3-2
+	 * @spec openspec/specs/observability/spec.md#REQ-SPCOV-012
 	 */
 	#[AnonRateLimit(limit: 240, period: 60)]
 	public function health(): JSONResponse {
 		try {
 			$llmConfig = $this->llmSettings->getLLMSettingsOnly();
-			$chatProvider = ($llmConfig['chatProvider'] ?? null);
+			// Use-nextcloud-ai-settings: no hermiq-specific provider means Nextcloud AI,
+			// which is only configured when a Nextcloud provider serves chat.
+			$chatProvider = (string)($llmConfig['chatProvider'] ?? '');
+			if (trim($chatProvider) === '') {
+				$chatProvider = LlmSettingsHandler::DEFAULT_CHAT_PROVIDER;
+			}
+			$nextcloudCannotChat = ($chatProvider === LlmSettingsHandler::DEFAULT_CHAT_PROVIDER
+				&& $this->nextcloudAi?->isAvailable(taskTypeId: TextToTextChat::ID) !== true);
 
-			if (empty($chatProvider) === true) {
+			if ($nextcloudCannotChat === true) {
 				return new JSONResponse(
 					data: [
 						'status' => 'unconfigured',

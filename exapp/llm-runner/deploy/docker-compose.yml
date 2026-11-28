@@ -76,8 +76,24 @@ services:
       # network, so there is no route to the internet to leak through — the
       # proxy is reachable by name and nothing else is reachable at all.
       - jailed
-    ports:
-      - "127.0.0.1:9000:9000"
+    # NO `ports:` HERE, AND THAT IS NOT AN OVERSIGHT.
+    #
+    # This service used to publish `127.0.0.1:9000:9000`. Docker cannot NAT a
+    # published port into a container attached only to an `internal: true`
+    # network, and it never says so: `docker port` prints nothing, `docker ps`
+    # shows a bare `9000/tcp`, and no process listens on the host. Measured again
+    # on 2026-09-18 with a throwaway container on an internal network. The
+    # `ports:` entry and the network jail contradicted each other, the network
+    # won silently, and the entry promised a reachability that never existed.
+    # The speech sidecar's compose carried the same contradiction and dropped it
+    # for the same reason (docs/exapp-runner.md, "Bringing one up").
+    #
+    # Nextcloud reaches the runner by JOINING this network instead:
+    #
+    #   docker network connect <compose-project>_jailed <nextcloud-container>
+    #
+    # That costs nothing in posture. The runner still gets no gateway, so its
+    # only route out stays the egress proxy.
     depends_on:
       - egress-proxy
     # `always`, not `unless-stopped`. This container is the execution plane for
@@ -108,7 +124,7 @@ services:
       # returns the latter, and inside a container `localhost` is the container.
       EGRESS_PDP_URL: ${EGRESS_PDP_URL:?set to e.g. http://nextcloud/apps/hermiq/api/egress/authorize}
       # A slow PDP DENIES. This bounds how long a caller waits to be told "no".
-      EGRESS_PDP_TIMEOUT_MS: "5000"
+      EGRESS_PDP_TIMEOUT_MS: "15000"
     networks:
       # Both sides: `jailed` to accept the runner's CONNECTs, `egress` to reach
       # the PDP and the allowed provider hosts. This dual attachment is the

@@ -22,8 +22,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\EgressAuthorizeController;
+use OCA\Hermiq\Service\Llm\GovernedMcpEndpoint;
 use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
+use OCA\Hermiq\Service\Workspace\ForgeEgressPolicy;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
@@ -47,6 +49,43 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	private ?IThrottler $throttlerOverride = null;
 
 	/**
+	 * Set by a test that needs the guard to resolve a PRIVATE address (the shape
+	 * a containerised governance origin actually has); otherwise the default
+	 * public-address guard applies.
+	 *
+	 * @var string
+	 */
+	private string $resolvedAddress = '203.0.113.10';
+
+	/**
+	 * The authority the governed MCP endpoint double claims, or '' for none.
+	 *
+	 * @var string
+	 */
+	private string $governanceAuthority = '';
+
+	/**
+	 * A GovernedMcpEndpoint double that recognises exactly one authority.
+	 *
+	 * It is the REAL matching rule that is under test elsewhere; here the double
+	 * only has to answer "is this the governance origin", which is the single
+	 * question the controller asks it.
+	 *
+	 * @return GovernedMcpEndpoint
+	 */
+	private function mcpEndpointStub(): GovernedMcpEndpoint {
+		$authority = $this->governanceAuthority;
+		$endpoint = $this->createMock(GovernedMcpEndpoint::class);
+		$endpoint->method('matches')->willReturnCallback(
+			static function (string $host, int $port) use ($authority): bool {
+				return $authority !== '' && $authority === strtolower($host) . ':' . $port;
+			}
+		);
+		return $endpoint;
+
+	}//end mcpEndpointStub()
+
+	/**
 	 * A throttler that records nothing — most tests here assert HTTP outcomes,
 	 * not brute-force bookkeeping.
 	 *
@@ -61,15 +100,25 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	}//end throttlerStub()
 
 	/**
+	 * Whether the run's agent holds a resolving grant for a forge tool.
+	 *
+	 * @var bool
+	 */
+	private bool $forgeGranted = false;
+
+	/**
 	 * A guard double whose DNS resolution is deterministic (a public address), so allow/deny
 	 * turns purely on the allowlist/denylist without a real network.
 	 *
 	 * @return WebResearchEgressGuard
 	 */
 	private function guard(): WebResearchEgressGuard {
-		return new class extends WebResearchEgressGuard {
+		$address = $this->resolvedAddress;
+		return new class($address) extends WebResearchEgressGuard {
+			public function __construct(private string $address) {
+			}
 			protected function resolveAddresses(string $host): array {
-				return ['203.0.113.10'];
+				return [$this->address];
 			}
 		};
 
@@ -111,16 +160,22 @@ final class EgressAuthorizeControllerTest extends TestCase {
 		// arguments to user-defined functions. Adding $throttler as a real 5th
 		// parameter made that stray argument bind, so it now has to be the
 		// thing the parent actually expects.
-		return new class($request, $tokens, $this->guard(), $settings, $this->throttlerStub(), $body) extends EgressAuthorizeController {
+		$forge = $this->createMock(ForgeEgressPolicy::class);
+		$forge->method('isForgeHost')->willReturnCallback(static fn (string $host): bool => $host === 'github.com');
+		$forge->method('permits')->willReturnCallback(fn (string $agentId): bool => $this->forgeGranted);
+
+		return new class($request, $tokens, $this->guard(), $settings, $this->throttlerStub(), $this->mcpEndpointStub(), $forge, $body) extends EgressAuthorizeController {
 			public function __construct(
 				$request,
 				$tokens,
 				$guard,
 				$settings,
 				$throttler,
+				$mcpEndpoint,
+				$forge,
 				private string $rawBody,
 			) {
-				parent::__construct($request, $tokens, $guard, $settings, $throttler);
+				parent::__construct($request, $tokens, $guard, $settings, $throttler, $mcpEndpoint, $forge);
 			}
 			protected function readRawBody(): string {
 				return $this->rawBody;
@@ -148,6 +203,50 @@ final class EgressAuthorizeControllerTest extends TestCase {
 		);
 		return $tokens;
 	}//end tokens()
+
+	/**
+	 * A token service that recognises one SIGN-IN token for claude.ai.
+	 *
+	 * @return RunTokenService
+	 */
+	private function signInTokens(): RunTokenService {
+		$tokens = $this->createMock(RunTokenService::class);
+		$tokens->method('verify')->willReturnCallback(
+			static function (string $token): ?array {
+				if ($token === 'sign-in') {
+					return ['runId' => 'sign-in:x', 'agentId' => '', 'userId' => 'alice', 'conversationId' => '', 'egressHosts' => ['claude.ai']];
+				}
+				return null;
+			}
+		);
+		return $tokens;
+	}//end signInTokens()
+
+	/**
+	 * A sign-in token reaches its own host on 443, and nothing the allowlist
+	 * admits for a run: not an allowlisted host, not its own host on another port.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/models-provider-connections/specs/agent-credentials/spec.md#requirement-a-user-can-sign-in-with-a-claude-subscription-req-signin-001
+	 */
+	public function testASignInTokenReachesOnlyItsOwnHostsOn443(): void {
+		$settings = ['fetchAllowlist' => ['api.anthropic.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false];
+		$verdict = function (string $body) use ($settings): array {
+			$controller = $this->controller($this->signInTokens(), $this->settings($settings), 'Bearer sign-in', $body);
+			return $controller->authorize()->getData();
+		};
+
+		$this->assertSame(['allowed' => true, 'code' => 'allowed', 'message' => ''], $verdict('{"host":"Claude.AI","port":443}'));
+		$this->assertSame(false, $verdict('{"host":"api.anthropic.com","port":443}')['allowed']);
+		$this->assertSame('egress_denied', $verdict('{"host":"api.anthropic.com","port":443}')['code']);
+		$this->assertSame(false, $verdict('{"host":"claude.ai","port":80}')['allowed']);
+
+		// The same allowlisted host IS reachable for an ordinary run token.
+		$run = $this->controller($this->tokens('good'), $this->settings($settings), 'Bearer good', '{"host":"api.anthropic.com","port":443}');
+		$this->assertTrue($run->authorize()->getData()['allowed']);
+
+	}//end testASignInTokenReachesOnlyItsOwnHostsOn443()
 
 	/**
 	 * No/invalid token → 401 before any policy evaluation.
@@ -219,6 +318,66 @@ final class EgressAuthorizeControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_OK, $controller->authorize()->getStatus());
 
 	}//end testAnAcceptedTokenRegistersNothing()
+
+	/**
+	 * A token this instance DID issue, now spent or expired, is refused but NOT counted.
+	 *
+	 * Measured 2026-09-29: eleven 401s from one run's CLI tripped the throttle,
+	 * and from then on the proxy's IP got 429 for every run on the host. A
+	 * genuinely issued token cannot be a guess, so it must not feed the counter
+	 * that punishes guessing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	public function testASpentButGenuineTokenIsRefusedWithoutFeedingTheThrottler(): void {
+		$throttler = $this->createMock(IThrottler::class);
+		$throttler->expects($this->never())->method('registerAttempt');
+		$this->throttlerOverride = $throttler;
+
+		$tokens = $this->tokens('good');
+		$tokens->method('isKnown')->willReturnCallback(static fn (string $token): bool => $token === 'spent');
+
+		$controller = $this->controller(
+			$tokens,
+			$this->settings(['fetchAllowlist' => ['api.anthropic.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer spent',
+			'{"host":"api.anthropic.com","port":443}'
+		);
+
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->authorize()->getStatus());
+
+	}//end testASpentButGenuineTokenIsRefusedWithoutFeedingTheThrottler()
+
+	/**
+	 * The control for the test above: a presented token the instance never issued is still
+	 * counted, so the throttle keeps protecting against guessing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	public function testAnUnknownPresentedTokenIsStillCounted(): void {
+		$throttler = $this->createMock(IThrottler::class);
+		$throttler->expects($this->once())
+			->method('registerAttempt')
+			->with('hermiq_run_token', $this->anything());
+		$this->throttlerOverride = $throttler;
+
+		$tokens = $this->tokens('good');
+		$tokens->method('isKnown')->willReturnCallback(static fn (string $token): bool => $token === 'spent');
+
+		$controller = $this->controller(
+			$tokens,
+			$this->settings(['fetchAllowlist' => ['api.anthropic.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer guessed',
+			'{"host":"api.anthropic.com","port":443}'
+		);
+
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->authorize()->getStatus());
+
+	}//end testAnUnknownPresentedTokenIsStillCounted()
 
 	/**
 	 * A throttler that BLOWS UP must not change the answer.
@@ -332,6 +491,68 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	}//end testAllowlistedHostIsAllowed()
 
 	/**
+	 * The browser of the code sandbox app presents a run token minted for one
+	 * conversation (tools-browser-and-computer-use): the PDP accepts it and judges
+	 * its destinations by the same policy, so a private address is refused and an
+	 * allowed host is reached.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/browser-use/spec.md#requirement-the-browser-reaches-only-what-the-egress-policy-allows-req-browse-001
+	 */
+	public function testTheBrowsersRunTokenIsJudgedByTheSamePolicy(): void {
+		$tokens = $this->createMock(RunTokenService::class);
+		$tokens->method('verify')->willReturnCallback(
+			static fn (string $token): ?array => $token === 'browser-token'
+				? ['runId' => 'browser:conv-1', 'agentId' => 'agent-1', 'userId' => 'alice', 'conversationId' => 'conv-1']
+				: null
+		);
+		$settings = ['fetchAllowlist' => [], 'fetchDenylist' => [], 'allowInsecureHttp' => true];
+
+		$public = $this->resolvedAddress;
+		$this->resolvedAddress = '10.0.0.5';
+		$private = $this->controller($tokens, $this->settings($settings), 'Bearer browser-token', '{"host":"10.0.0.5","port":80}')->authorize();
+		$this->assertSame(200, $private->getStatus());
+		$this->assertFalse($private->getData()['allowed']);
+		$this->assertNotEmpty($private->getData()['code']);
+
+		$this->resolvedAddress = $public;
+		$public = $this->controller(
+			$tokens,
+			$this->settings(['fetchAllowlist' => ['api.anthropic.com']] + $settings),
+			'Bearer browser-token',
+			'{"host":"api.anthropic.com","port":443}'
+		)->authorize();
+		$this->assertTrue($public->getData()['allowed']);
+
+	}//end testTheBrowsersRunTokenIsJudgedByTheSamePolicy()
+
+	/**
+	 * The forge host is denied, as egress_denied, to a run whose agent holds no forge tool grant,
+	 * even when the allowlist names it; with the grant the ordinary policy decides.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-workspace-git-tools/spec.md#scenario-the-forge-host-is-denied-without-the-grant
+	 */
+	public function testTheForgeHostIsDeniedWithoutTheGrant(): void {
+		$call = fn (): array => $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => ['github.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer good',
+			'{"host":"github.com","port":443}'
+		)->authorize()->getData();
+
+		$denied = $call();
+		$this->assertFalse($denied['allowed']);
+		$this->assertSame('egress_denied', $denied['code']);
+
+		$this->forgeGranted = true;
+		$this->assertTrue($call()['allowed']);
+
+	}//end testTheForgeHostIsDeniedWithoutTheGrant()
+
+	/**
 	 * A denylisted host is refused, proving the deny path returns the guard's verdict verbatim.
 	 *
 	 * @return void
@@ -349,4 +570,104 @@ final class EgressAuthorizeControllerTest extends TestCase {
 		$this->assertSame('denylisted_host', $data['code']);
 
 	}//end testDenylistedHostIsDenied()
+
+	/**
+	 * The governed MCP endpoint is admitted even though it resolves to a PRIVATE
+	 * address — because it is Hermiq's own control plane, not an internet host.
+	 *
+	 * This is the case that made the floating chat answer without tools. The
+	 * runner reaches its governance through the same proxy as everything else, and
+	 * on a container deployment `mcp_run_base_url` is `http://nextcloud`, an
+	 * RFC1918 address the SSRF guard blocks — correctly, for every destination the
+	 * MODEL names, and wrongly for the one the ADMIN configured.
+	 *
+	 * @return void
+	 */
+	public function testTheGovernedMcpOriginIsAdmittedEvenThoughItIsPrivate(): void {
+		$this->resolvedAddress = '192.168.32.4';
+		$this->governanceAuthority = 'nextcloud:80';
+
+		$controller = $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => [], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer good',
+			'{"host":"nextcloud","port":80}'
+		);
+
+		$data = $controller->authorize()->getData();
+		$this->assertTrue($data['allowed'], 'the governance origin must be reachable, or no tool call can run');
+		$this->assertNull($data['code']);
+
+	}//end testTheGovernedMcpOriginIsAdmittedEvenThoughItIsPrivate()
+
+	/**
+	 * A NEIGHBOUR of the governance origin is still judged by the ordinary policy.
+	 *
+	 * The admission is exact-authority, not a suffix and not a domain. This is the
+	 * property a `NO_PROXY` exemption could not have given: `NO_PROXY=nextcloud`
+	 * is a suffix match in libcurl and in Node's proxy-from-env, so
+	 * `evil.nextcloud` would have travelled unpoliced.
+	 *
+	 * @return void
+	 */
+	public function testANeighbourOfTheGovernanceOriginIsStillJudgedByPolicy(): void {
+		$this->resolvedAddress = '192.168.32.9';
+		$this->governanceAuthority = 'nextcloud:80';
+
+		$controller = $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => [], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer good',
+			'{"host":"evil.nextcloud","port":80}'
+		);
+
+		$data = $controller->authorize()->getData();
+		$this->assertFalse($data['allowed']);
+		$this->assertSame('private_address', $data['code']);
+
+	}//end testANeighbourOfTheGovernanceOriginIsStillJudgedByPolicy()
+
+	/**
+	 * Another PORT on the governance host is not the governance origin.
+	 *
+	 * @return void
+	 */
+	public function testAnotherPortOnTheGovernanceHostIsNotAdmitted(): void {
+		$this->resolvedAddress = '192.168.32.4';
+		$this->governanceAuthority = 'nextcloud:80';
+
+		$controller = $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => [], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer good',
+			'{"host":"nextcloud","port":8080}'
+		);
+
+		$data = $controller->authorize()->getData();
+		$this->assertFalse($data['allowed']);
+		$this->assertSame('private_address', $data['code']);
+
+	}//end testAnotherPortOnTheGovernanceHostIsNotAdmitted()
+
+	/**
+	 * An ARBITRARY internet host is refused exactly as before — the admission
+	 * widened nothing else.
+	 *
+	 * @return void
+	 */
+	public function testAnArbitraryHostIsStillRefusedWhenAnAllowlistIsSet(): void {
+		$this->governanceAuthority = 'nextcloud:80';
+
+		$controller = $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => ['api.anthropic.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer good',
+			'{"host":"evil.example.com","port":443}'
+		);
+
+		$data = $controller->authorize()->getData();
+		$this->assertFalse($data['allowed']);
+		$this->assertSame('not_allowlisted', $data['code']);
+
+	}//end testAnArbitraryHostIsStillRefusedWhenAnAllowlistIsSet()
 }//end class

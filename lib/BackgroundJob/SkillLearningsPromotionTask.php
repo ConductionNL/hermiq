@@ -29,7 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\BackgroundJob;
 
-use OCA\Hermiq\Service\SkillLearningsPromotionService;
+use OCA\Hermiq\Kernel\Contracts\SkillLearningsPromotionServiceInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 
@@ -46,11 +46,11 @@ class SkillLearningsPromotionTask extends TimedJob {
 	 * Constructor.
 	 *
 	 * @param ITimeFactory $time Time factory for TimedJob scheduling.
-	 * @param SkillLearningsPromotionService $promotionService Service that promotes/expires candidates.
+	 * @param SkillLearningsPromotionServiceInterface $promotionService Service that promotes/expires candidates.
 	 */
 	public function __construct(
 		ITimeFactory $time,
-		private readonly SkillLearningsPromotionService $promotionService,
+		private readonly SkillLearningsPromotionServiceInterface $promotionService,
 	) {
 		parent::__construct(time: $time);
 

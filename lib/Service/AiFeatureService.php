@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
  */
 
 declare(strict_types=1);
@@ -32,18 +32,24 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\AiFeatureServiceInterface;
+use OCA\Hermiq\Service\AiFeature\AiFeatureLookup;
+use OCA\Hermiq\Service\AiFeature\FeatureTransition;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Exception\HookStoppedException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 
 /**
  * Reads and governs AiFeature objects via OpenRegister.
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
  */
-class AiFeatureService {
+class AiFeatureService implements AiFeatureServiceInterface {
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -67,27 +73,6 @@ class AiFeatureService {
 	private const ACK_KEY_PREFIX = 'dpo_ack';
 
 	/**
-	 * Transition outcome: the feature is now enabled.
-	 *
-	 * @var string
-	 */
-	public const RESULT_ENABLED = 'enabled';
-
-	/**
-	 * Transition outcome: the feature is now disabled.
-	 *
-	 * @var string
-	 */
-	public const RESULT_DISABLED = 'disabled';
-
-	/**
-	 * Transition outcome: the guard refused the transition (e.g. no DPO ack).
-	 *
-	 * @var string
-	 */
-	public const RESULT_BLOCKED = 'blocked';
-
-	/**
 	 * Transition outcome: the transition is not allowed from the current state.
 	 *
 	 * @var string
@@ -95,23 +80,18 @@ class AiFeatureService {
 	public const RESULT_INVALID = 'invalid';
 
 	/**
-	 * Transition outcome: the feature was not found (or is cross-tenant).
-	 *
-	 * @var string
-	 */
-	public const RESULT_NOT_FOUND = 'notfound';
-
-	/**
 	 * Constructor.
 	 *
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param IAppConfig $appConfig App config holding the authoritative DPO acknowledgement.
+	 * @param AiFeatureLookup $lookup Finds a feature by slug.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-2
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
 		private readonly IAppConfig $appConfig,
+		private readonly AiFeatureLookup $lookup,
 	) {
 	}//end __construct()
 
@@ -120,7 +100,7 @@ class AiFeatureService {
 	 *
 	 * @return array<int, ObjectEntity> The AiFeature objects.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-2
 	 */
 	public function listFeatures(): array {
 		$objects = $this->objectService
@@ -145,7 +125,7 @@ class AiFeatureService {
 	 *
 	 * @return ObjectEntity|null The AiFeature object, or null when absent / cross-tenant.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-4
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	public function getFeature(string $id): ?ObjectEntity {
 		if ($id === '') {
@@ -154,8 +134,7 @@ class AiFeatureService {
 
 		return $this->objectService->find(
 			id: $id,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA
+			options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA)
 		);
 
 	}//end getFeature()
@@ -167,30 +146,45 @@ class AiFeatureService {
 	 *
 	 * @return ObjectEntity|null The AiFeature object, or null.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-3
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-3
 	 */
 	public function findBySlug(string $slug): ?ObjectEntity {
-		if ($slug === '') {
-			return null;
-		}
-
-		$objects = $this->objectService
-			->setRegister(self::REGISTER_SLUG)
-			->setSchema(self::AIFEATURE_SCHEMA)
-			->findAll(config: ['filters' => ['slug' => $slug], 'limit' => 200]);
-
-		foreach ($objects as $object) {
-			if (($object instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			if ((string)($object->getObject()['slug'] ?? '') === $slug) {
-				return $object;
-			}
-		}
-
-		return null;
+		return $this->lookup->findBySlug(slug: $slug);
 	}//end findBySlug()
+
+	/**
+	 * Find the AiFeature a delegate engine gates on, whoever the caller is.
+	 *
+	 * Whether a feature is enabled is instance configuration a DPO decided, not
+	 * something the caller must be allowed to read. A consuming app that serves a
+	 * portal subject (portaliq's guardian messages) calls the engine with no
+	 * Nextcloud session; under RBAC the row reads as absent and the gate answers
+	 * "feature-not-enabled" even after the DPO enabled it. This read skips RBAC
+	 * and keeps tenant scoping. The row itself is never returned to a client.
+	 *
+	 * @param string $slug The feature slug.
+	 *
+	 * @return ObjectEntity|null The AiFeature object, or null.
+	 *
+	 * @spec openspec/specs/message-translation/spec.md#requirement-req-011-the-gate-answers-for-a-caller-without-a-nextcloud-session
+	 */
+	public function findBySlugForGate(string $slug): ?ObjectEntity {
+		return $this->lookup->findBySlugForGate(slug: $slug);
+	}//end findBySlugForGate()
+
+	/**
+	 * One organisation's AiFeature by slug, read for a caller without a session.
+	 *
+	 * @param string $slug         The feature slug.
+	 * @param string $organisation The organisation uuid whose feature counts.
+	 *
+	 * @return ObjectEntity|null The AiFeature object, or null.
+	 *
+	 * @spec openspec/specs/public-chat-channel/spec.md#requirement-the-public-endpoint-is-limited-and-origin-bound-req-pubchat-003
+	 */
+	public function findBySlugForOrganisation(string $slug, string $organisation): ?ObjectEntity {
+		return $this->lookup->findBySlugForOrganisation(slug: $slug, organisation: $organisation);
+	}//end findBySlugForOrganisation()
 
 	/**
 	 * Record the DPO acknowledgement for a feature and stamp the object.
@@ -206,7 +200,7 @@ class AiFeatureService {
 	 *
 	 * @return ObjectEntity|null The stamped AiFeature, or null when no such feature.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-3
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-3
 	 */
 	public function acknowledge(string $slug, string $uid): ?ObjectEntity {
 		$feature = $this->findBySlug(slug: $slug);
@@ -220,7 +214,7 @@ class AiFeatureService {
 
 		// Authoritative acknowledgement the guard reads (admin/DPO-only config write).
 		$this->appConfig->setValueString(
-			Application::APP_ID,
+			AppIdentity::APP_ID,
 			$this->ackKey(slug: $slug, tenantId: $tenantId),
 			$uid . '@' . $timestamp
 		);
@@ -231,9 +225,10 @@ class AiFeatureService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$feature->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$feature->getUuid()
+			)
 		);
 
 	}//end acknowledge()
@@ -250,7 +245,7 @@ class AiFeatureService {
 	 *
 	 * @return ObjectEntity|null The stamped feature, or null when absent.
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	public function recordPublication(string $id, string $reference): ?ObjectEntity {
 		$feature = $this->getFeature(id: $id);
@@ -264,9 +259,10 @@ class AiFeatureService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$feature->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$feature->getUuid()
+			)
 		);
 
 	}//end recordPublication()
@@ -281,7 +277,7 @@ class AiFeatureService {
 	 *
 	 * @return ObjectEntity|null The stamped feature, or null when absent.
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	public function recordWithdrawal(string $id): ?ObjectEntity {
 		$feature = $this->getFeature(id: $id);
@@ -294,9 +290,10 @@ class AiFeatureService {
 
 		return $this->objectService->saveObject(
 			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: self::AIFEATURE_SCHEMA,
-			uuid: (string)$feature->getUuid()
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+				uuid: (string)$feature->getUuid()
+			)
 		);
 
 	}//end recordWithdrawal()
@@ -308,10 +305,10 @@ class AiFeatureService {
 	 *
 	 * @return string One of the RESULT_* outcomes.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-4
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	public function enable(string $id): string {
-		return $this->transition(id: $id, target: self::RESULT_ENABLED, from: [self::RESULT_DISABLED]);
+		return $this->transition(id: $id, change: new FeatureTransition(target: self::RESULT_ENABLED, from: [self::RESULT_DISABLED]));
 	}//end enable()
 
 	/**
@@ -321,10 +318,10 @@ class AiFeatureService {
 	 *
 	 * @return string One of the RESULT_* outcomes.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-4
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	public function disable(string $id): string {
-		return $this->transition(id: $id, target: self::RESULT_DISABLED, from: [self::RESULT_ENABLED]);
+		return $this->transition(id: $id, change: new FeatureTransition(target: self::RESULT_DISABLED, from: [self::RESULT_ENABLED]));
 	}//end disable()
 
 	/**
@@ -337,14 +334,15 @@ class AiFeatureService {
 	 * so a genuinely-disallowed transition is reported as RESULT_INVALID without a write.
 	 *
 	 * @param string $id The AiFeature UUID.
-	 * @param string $target The target lifecycle value.
-	 * @param array<int,string> $from The lifecycle values from which the transition is allowed.
+	 * @param FeatureTransition $change The lifecycle state an AI feature moves to, and the states it may move from.
 	 *
 	 * @return string One of the RESULT_* outcomes.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-4
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
-	private function transition(string $id, string $target, array $from): string {
+	private function transition(string $id, FeatureTransition $change): string {
+		$target = $change->target;
+		$from = $change->from;
 		$feature = $this->getFeature(id: $id);
 		if ($feature === null) {
 			return self::RESULT_NOT_FOUND;
@@ -367,9 +365,10 @@ class AiFeatureService {
 		try {
 			$this->objectService->saveObject(
 				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::AIFEATURE_SCHEMA,
-				uuid: (string)$feature->getUuid()
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::AIFEATURE_SCHEMA),
+					uuid: (string)$feature->getUuid()
+				)
 			);
 		} catch (HookStoppedException $e) {
 			// The lifecycle guard denied the transition (e.g. no DPO acknowledgement),
@@ -387,7 +386,7 @@ class AiFeatureService {
 	 *
 	 * @return string The tenant identifier, or an empty string when untenanted.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-3
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-3
 	 */
 	private function resolveTenant(array $object): string {
 		return trim((string)($object['tenantId'] ?? ($object['tenant_id'] ?? '')));
@@ -401,7 +400,7 @@ class AiFeatureService {
 	 *
 	 * @return string The IAppConfig key.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-3
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-3
 	 */
 	private function ackKey(string $slug, string $tenantId): string {
 		if ($tenantId !== '') {

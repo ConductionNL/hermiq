@@ -10,6 +10,7 @@
 - `nc-native-tools` — DONE (Hermiq surface): `NcNativeToolProvider` implementing `IMcpToolProvider` with six `hermiq.*` tools (listFiles, readFile, searchContacts, listCalendarEvents, sendMail, listDeckBoards), each IDOR-guarded (scoped to the acting user), registered under the `hermiq` MCP alias; `invokeTool` never throws. **BLOCKED (OR#269):** an OpenRegister agent turn cannot yet invoke a tool (Ollama tool-calling 400) — the LLM-selects-and-calls path is documented as blocked, not verified end-to-end. Verified: registration + enumeration in OR's tool registry + direct invocation (unit).
 - `openspec/changes/archive/2026-08-15-nc-native-write-tools/` — ADDED delta: closes the read-only asymmetry (every capability was read-only except `sendMail`, the one irreversible one) with `createCalendarEvent`, `upsertContact` and Notes list/create/update — create/update only, no delete verb anywhere, attendees supported but classified `reach: external` + `destructiveHint: true` because iMIP invitations leave the instance, and every written object carries the ADR-088 agent-authored mark (kind: code) — **DONE** (merged in hermiq#221; 19 tools live, verified in the running instance's grant editor; two Playwright specs pin the grant surface and default-deny)
 - `openspec/changes/archive/2026-08-15-nc-mail-read-tools/` — ADDED delta: read-only mail via Nextcloud Mail's internal API (no OCP contract; lazy resolution degrading softly like Deck), bounded and attachment-byte-free, plus the new rule that moving personal correspondence into model context requires AI-feature authorisation BEYOND a tool grant — these tools are honestly `readOnlyHint: true`, so the write default-deny does not protect them and the gate carries that weight instead; the invocation record names the engine and quotes none of the mail (kind: code) — **DONE** (merged in hermiq#222; 22 tools live, all six PHPUnit matrix cells green)
+- `openspec/changes/archive/2026-09-30-tools-nextcloud-tasks/`: ADDED delta: `hermiq.listTasks`, `hermiq.createTask` and `hermiq.completeTask` over the acting user's own CalDAV task lists; writes only to lists the user owns (`ICalendarIsShared`), marked in the same object, no delete verb; completing writes back through the DAV backend because `createFromString()` does not replace (kind: code) (**DONE**, row `tl-tasks`)
 
 ## Purpose
 
@@ -17,7 +18,9 @@ Exposes Nextcloud-native capabilities — Files, Contacts, Calendar, Deck, and o
 agent tools through OpenRegister's MCP `IMcpToolProvider` interface, so Hermiq agents can act inside
 the host Nextcloud instance without a second tool-registration mechanism. Anything outside Nextcloud
 routes through OpenConnector's `CallService` instead of a bespoke integration layer.
+
 ## Requirements
+
 ### Requirement: NC-native capabilities registered as IMcpToolProvider tools
 The system MUST register Files (`IRootFolder`), Contacts (addressbook `IManager`), Calendar
 (`ICalendarManager`), Deck, and outbound email (`IMailer`) as tools through OpenRegister's
@@ -28,6 +31,17 @@ The system MUST register Files (`IRootFolder`), Contacts (addressbook `IManager`
 - WHEN an agent run queries available tools via MCP
 - THEN the Files, Contacts, Calendar, Deck, and email tools MUST appear in the returned tool list
 - AND they MUST be indistinguishable in registration mechanism from OR's own MCP tools
+
+#### Scenario: An agent looks up a contact
+- **GIVEN** an agent granted `hermiq.searchContacts`, acting for a case handler whose address book holds "Jansen Bouw BV"
+- **WHEN** the case handler asks "What is the email address of Jansen Bouw?"
+- **THEN** the agent searches the address books the case handler can read and answers with the contact's email address
+
+#### Scenario: An agent sends an email
+- **GIVEN** an agent granted `hermiq.sendMail`, acting for a case handler
+- **WHEN** the case handler asks it to mail "Uw aanvraag is compleet" to the applicant
+- **THEN** the mail goes out through the instance's mail server with that text
+- **AND** the sender is the case handler's own address
 
 ### Requirement: Per-object IDOR guard on every provider
 Every NC-native tool provider MUST enforce a per-object authorization guard before acting on a
@@ -81,6 +95,230 @@ at call time," which the requirement did not previously contemplate. -->
 - AND merely resembling `hermiq.webSearch`/`hermiq.webFetch` MUST NOT be treated as
   sufficient justification to bypass `CallService` without an equivalent, explicitly
   documented spec change
+
+### Requirement: An agent can list the acting user's tasks (REQ-NCTASK-001)
+
+Hermiq MUST expose `hermiq.listTasks`, which returns at most 50 tasks from the acting user's own task lists, filtered by status, due date and list, and MUST NOT return tasks of lists the user cannot read.
+
+#### Scenario: A case handler asks what is still open
+- GIVEN a case handler with the task list "Werkvoorraad Burgerzaken" and an agent granted `hermiq.listTasks`
+- WHEN they ask "Welke taken staan nog open voor deze week?"
+- THEN the answer lists the open tasks due this week, including "Terugbellen mevrouw De Vries over parkeervergunning"
+- @e2e exclude turning the sentence into a tool call needs a live model; the listing behind it is covered by TaskWriteServiceTest::testListReturnsOpenTasksDueBefore and testListIsCappedAtFifty
+
+### Requirement: An agent can create a task in the user's own list, marked as agent-authored (REQ-NCTASK-002)
+
+Hermiq MUST expose `hermiq.createTask`, which writes a VTODO only into a task list the acting user owns and can write, with the agent-authored property inside the stored object. A failed mark MUST be reported as a failed write. The descriptor MUST be write-classified with reach `instance`, and its description MUST start by saying that people who share the list will see the task.
+
+#### Scenario: A task for Friday
+- GIVEN an agent granted `hermiq.createTask`
+- WHEN a case handler says "Zet 'Besluit bezwaar Kerkstraat 12 versturen' op mijn takenlijst voor vrijdag"
+- THEN the task appears in their Tasks app with due date Friday, and its stored object carries `X-HERMIQ-AGENT-AUTHORED`
+- @e2e exclude turning the sentence into a tool call needs a live model and reading the stored bytes needs a CalDAV fetch; the payload handed to the store is covered by TaskWriteServiceTest::testOnlyOwnWritableTaskListsAreWriteTargets
+
+#### Scenario: A list shared by a colleague is not written
+- GIVEN a list "Team Vergunningen" that a colleague shared with the case handler
+- WHEN the agent creates a task there
+- THEN nothing is written, and the tool answers "That task list is shared with you by someone else and cannot be written."
+- @e2e exclude needs two users and a shared list; covered by TaskWriteServiceTest::testASharedInListIsNotWritten
+
+### Requirement: An agent can complete a task without losing what the user wrote (REQ-NCTASK-003)
+
+Hermiq MUST expose `hermiq.completeTask`, which sets the task completed, keeps every other property of the task as it was, and adds the agent-authored property. When hermiq cannot replace an existing calendar object on the instance, it MUST NOT offer the tool.
+
+#### Scenario: Done after the call
+- GIVEN the open task "Terugbellen mevrouw De Vries over parkeervergunning"
+- WHEN the case handler says "Die terugbeltaak is gedaan"
+- THEN the task shows as completed in the Tasks app with its description unchanged
+- @e2e exclude turning the sentence into a tool call needs a live model; the rewrite is covered by TaskCalendarObjectTest::testCompletingKeepsEveryPropertyItDoesNotOwn and TaskWriteServiceTest::testCompleteUpdatesTheObjectInPlace
+
+### Requirement: Task tools are default-denied, never delete, and record identity without content (REQ-NCTASK-004)
+
+`hermiq.createTask` and `hermiq.completeTask` MUST be default-denied and MUST go through the approval gate when invoked un-granted. No task tool MUST delete a task. The run MUST record the list and the task's uid for each write, and MUST NOT record the task's summary or description.
+
+#### Scenario: The grant editor shows the task tools honestly
+- GIVEN an agent owner in the agent's Tool governance grant editor
+- WHEN they look at the task tools
+- THEN `hermiq.listTasks` shows as read with reach user, and `hermiq.createTask` and `hermiq.completeTask` show as write with reach instance, all ungranted by default
+
+#### Scenario: The run record holds no task text
+- GIVEN a run in which the agent created a task
+- WHEN an auditor opens the run
+- THEN the tool step shows the list and the task uid, and not the task's summary
+- @e2e exclude reading the trace payload has no browser surface; covered by FacadeToolInvokerTest::testTaskWritesGetTheAgentIdAndRecordListAndUidOnly
+
+### Requirement: An agent can post a message in a Talk conversation it is a member of (REQ-NCTALK-001)
+
+The system SHALL offer a Nextcloud-native tool `talk.message.send` that posts a message in a Talk
+conversation. The tool SHALL be classified medium risk and SHALL be default-denied until an agent
+is granted it. It SHALL post only in a conversation where the agent's Talk identity is a member,
+and SHALL refuse any other conversation without posting. The tool SHALL be offered to outside
+agents over MCP under the same grants. When Talk is not installed, the tool SHALL answer with an
+error the agent can read, and the turn SHALL carry on.
+
+Rows: `tl-talk` (hermiq matrix).
+
+#### Scenario: A granted agent posts in its own conversation
+- **GIVEN** an agent granted `talk.message.send` and a member of the conversation "Servicedesk"
+- **WHEN** the agent calls the tool with that conversation and a message
+- **THEN** the message appears in "Servicedesk", posted by the agent's Talk identity
+- @e2e exclude {needs Talk with a per-agent bot enabled in a room and a live model run; covered by tests/Unit/Mcp/TalkMessageToolTest.php}
+
+#### Scenario: A conversation the agent is not in is refused
+- **GIVEN** an agent granted `talk.message.send` that is not a member of the conversation "Directie"
+- **WHEN** the agent calls the tool for "Directie"
+- **THEN** nothing is posted and the agent receives a refusal naming the reason
+- @e2e exclude {needs Talk with a per-agent bot and a live model run; covered by tests/Unit/Mcp/TalkMessageToolTest.php}
+
+#### Scenario: An agent without the grant cannot post
+- **GIVEN** an agent that was not granted `talk.message.send`
+- **WHEN** the agent calls the tool
+- **THEN** nothing is posted and the call goes through the approval gate like any other ungranted write
+- @e2e exclude {the approval gate is the shared FacadeToolInvoker path; the tool is a non-read-only write, asserted in tests/Unit/Mcp/TalkMessageToolTest.php}
+
+#### Scenario: Talk is not installed
+- **WHEN** an agent calls the tool on an instance without Talk
+- **THEN** the agent receives an error result and its turn continues
+- @e2e exclude {needs an instance without Talk; covered by tests/Unit/Mcp/TalkMessageToolTest.php}
+
+### Requirement: Every object an agent writes is marked as agent-authored (REQ-AILBL-001)
+
+hermiq SHALL mark each object an agent creates or updates as agent-authored, in the same operation
+as the write, with the mechanism native to that object's subsystem: a Nextcloud system tag for
+files and notes, and the `X-HERMIQ-AGENT-AUTHORED` property on the object itself for contacts
+(vCard), calendar items and tasks (iCalendar). The stored system tag name SHALL be the
+untranslated identifier `Agent authored` in every UI language, so one filter finds every tagged
+file, and hermiq SHALL NOT rename or translate the stored tag. A write whose mark cannot be applied
+SHALL report failure, never success.
+
+Rows: `dm-ai-label`. Board: `hermiq/HmToezicht`.
+
+#### Scenario: An agent writes a note
+- **WHEN** an agent creates or updates a note
+- **THEN** the note's file carries the agent-authored system tag
+
+@e2e exclude requires the Notes app, which CI does not install; covered by NotesWriteServiceTest.
+
+#### Scenario: An agent writes a contact or a calendar item
+- **WHEN** an agent upserts a contact or creates a calendar event
+- **THEN** the stored object carries `X-HERMIQ-AGENT-AUTHORED`
+- **AND** the property survives export and synchronisation of the object
+
+@e2e exclude asserting stored vCard and iCalendar bytes needs a CardDAV or CalDAV fetch, not a page; covered by ContactWriteServiceTest and CalendarWriteServiceTest.
+
+#### Scenario: The stored tag name does not follow the UI language
+- **GIVEN** one person uses Nextcloud in Dutch and another in English
+- **WHEN** an agent writes a file for each of them
+- **THEN** both files carry the system tag `Agent authored`
+- **AND** filtering Files on that one tag finds both
+
+@e2e exclude a second user with another UI language plus an agent write; covered by the AgentArtefactMarker unit test.
+
+#### Scenario: The mark cannot be applied
+- **GIVEN** the object was written
+- **WHEN** applying the mark fails
+- **THEN** the tool call reports failure to the agent and the run trace records it
+
+@e2e exclude a tagging failure cannot be forced from a page; covered by the write service tests.
+
+### Requirement: A person can mark a labelled file as reviewed, and the oversight page counts the labels (REQ-AILBL-002)
+
+A person who can read an agent-authored file SHALL be able to mark it as reviewed; the file SHALL
+then carry a reviewed system tag next to the agent-authored tag, which stays. The AI oversight page
+SHALL show a section, as drawn on `hermiq/HmToezicht`, with the number of agent-authored notes and
+files, contacts and calendar items, the share of agent-authored files marked as reviewed, and a link
+that opens Files filtered on the agent-authored tag. Counts SHALL include only what the viewer is
+allowed to see.
+
+Rows: `dm-ai-label`. Board: `hermiq/HmToezicht`.
+
+#### Scenario: A reviewed file counts as reviewed
+- **GIVEN** four agent-authored files the viewer can read, one marked as reviewed
+- **WHEN** the viewer opens the AI oversight page
+- **THEN** the label section shows 4 files and a reviewed share of 25%
+
+@e2e exclude needs agent-authored files tagged through an agent write and a review mark set up in advance; covered by AiLabelStatsServiceTest and the AiLabelSection Vitest test.
+
+#### Scenario: Marking a file someone cannot read is refused
+- **GIVEN** an agent-authored file the caller cannot read
+- **WHEN** they ask to mark it as reviewed
+- **THEN** the request is refused with 404 and the file's tags are unchanged
+
+@e2e exclude needs a second Nextcloud user who cannot read the file; covered by AiLabelControllerTest.
+
+### Requirement: hermiq shows the AI label as "Gemaakt met AI" (REQ-AILBL-004)
+
+Wherever hermiq's own pages show the label of REQ-AILBL-001 (the label section on the AI oversight
+page, the reviewed action, and any badge on an agent-authored object), they SHALL show the
+translatable display text "Gemaakt met AI" (English source "Made with AI"), never the stored
+identifier `Agent authored`. The link that opens Files filtered on the label SHALL filter on the
+stored tag. Files itself shows a system tag by its stored name; hermiq does not change that.
+
+Rows: `dm-ai-label`. Board: `hermiq/HmToezicht`.
+
+#### Scenario: The oversight section shows the display text
+- **GIVEN** a person using Nextcloud in Dutch
+- **WHEN** they open the AI oversight page
+- **THEN** the label section names the label "Gemaakt met AI"
+- **AND** the text `Agent authored` does not appear in the section
+- **AND** its link opens Files filtered on the tag `Agent authored`
+
+### Requirement: Chat answers are shown as the agent's, without a separate label (REQ-AILBL-003)
+
+On hermiq's chat page every answer SHALL be shown under the agent's name and avatar, so a person
+can always tell an agent's text from a person's. hermiq SHALL NOT add a separate AI label to chat
+answers; the label of REQ-AILBL-001 applies to what an agent writes outside the conversation.
+
+Rows: `dm-ai-label`. Board: `hermiq/HmChat`.
+
+#### Scenario: An answer shows who wrote it
+- **WHEN** an agent answers in a conversation
+- **THEN** the answer bubble shows the agent's name, and a person's own message shows that person's name
+
+### Requirement: An agent can read, create and move files in the acting user's Files (REQ-SPCOV-005)
+
+The system SHALL offer agent tools to list and read files, and to create and move a file,
+in the acting user's own Files folder only. Creating and moving SHALL be write tools,
+ungranted by default. A path outside the acting user's folder SHALL be refused.
+
+Rows: `tl-files`. Board: `hermiq/HmAgentBewerken`.
+
+#### Scenario: An agent reads a file
+- **GIVEN** an agent granted `hermiq.readFile`, acting for a user with `Beleid/nota.md`
+- **WHEN** a person asks it to summarise `Beleid/nota.md`
+- **THEN** the agent reads the file and the answer summarises it
+@e2e exclude A tool call made by the model on the server, with no screen of its own; covered by FilesWriteServiceTest and NcNativeWriteServiceFilesTest.
+
+#### Scenario: An agent creates and moves a file
+- **GIVEN** an agent granted the file write tools
+- **WHEN** a person asks it to write `concept.md` and then move it to `Archief/`
+- **THEN** `Archief/concept.md` exists in that person's Files and `concept.md` does not
+@e2e exclude A tool call made by the model on the server, with no screen of its own; covered by FilesWriteServiceTest and NcNativeWriteServiceFilesTest.
+
+#### Scenario: A path outside the user's folder is refused
+- **WHEN** the agent asks to read `../other-user/files/salaris.xlsx`
+- **THEN** the call is refused and no content is returned
+@e2e exclude A server-side refusal with no screen; covered by FilesWriteServiceTest.
+
+### Requirement: An agent can read the calendar and create events (REQ-SPCOV-006)
+
+The system SHALL offer an agent tool that lists the acting user's calendar events in a
+period, and a write tool, ungranted by default, that creates an event in a calendar that
+user owns and can write.
+
+Rows: `tl-calendar`. Board: `hermiq/HmAgentBewerken`.
+
+#### Scenario: An agent lists tomorrow's events
+- **GIVEN** an agent granted `hermiq.listCalendarEvents`
+- **WHEN** a person asks "What is in my calendar tomorrow?"
+- **THEN** the answer names tomorrow's events from that person's calendars
+@e2e exclude A tool call made by the model on the server, and the shared e2e instance has no seeded calendar; covered by HermiqToolProviderCalendarTest.
+
+#### Scenario: An agent creates an event
+- **GIVEN** an agent granted `hermiq.createCalendarEvent`
+- **WHEN** a person asks it to plan "Overleg bestemmingsplan" on Friday at 10:00
+- **THEN** the event appears on Friday at 10:00 in that person's calendar
+@e2e exclude A tool call made by the model on the server, and the shared e2e instance has no seeded calendar; covered by CalendarWriteServiceTest.
 
 ## User Stories
 

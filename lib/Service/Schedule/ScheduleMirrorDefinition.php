@@ -37,23 +37,36 @@ namespace OCA\Hermiq\Service\Schedule;
 class ScheduleMirrorDefinition {
 
 	/**
+	 * The schedule trigger's config key naming the zone its cron is read in
+	 * (OpenRegister's `TriggerScheduleNode::CONFIG_TIMEZONE`).
+	 */
+	public const TRIGGER_TIMEZONE = 'timezone';
+
+	/**
 	 * The mirror flow's three nodes.
 	 *
 	 * @param string $scheduleUuid The schedule uuid the dispatch node fires.
 	 * @param string $cron The 5-field cron expression.
 	 * @param string $runAs The declared acting identity.
+	 * @param string $timezone The zone the engine reads the cron in, or '' for the server's.
 	 *
 	 * @return array<int,array<string,mixed>> The nodes.
 	 *
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-eligible-schedules-delegate-their-clock-to-the-engine
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
 	 */
-	public function nodes(string $scheduleUuid, string $cron, string $runAs): array {
+	public function nodes(string $scheduleUuid, string $cron, string $runAs, string $timezone = ''): array {
+		$trigger = ['cron' => $cron, 'runAs' => $runAs];
+		if ($timezone !== '') {
+			$trigger[self::TRIGGER_TIMEZONE] = $timezone;
+		}
+
 		return [
 			[
 				'id' => 'trigger',
 				'position' => ['x' => 0, 'y' => 0],
 				'type' => 'openregister.trigger-schedule',
-				'config' => ['cron' => $cron, 'runAs' => $runAs],
+				'config' => $trigger,
 			],
 			[
 				'id' => 'dispatch',
@@ -104,6 +117,33 @@ class ScheduleMirrorDefinition {
 	 * @spec openspec/changes/schedules-onto-engine-triggers/specs/schedule-engine-delegation/spec.md#requirement-a-mirrored-run-declares-and-re-enters-its-governed-identity
 	 */
 	public function triggerRunAs(mixed $nodes): string {
+		return $this->triggerValue(nodes: $nodes, key: 'runAs');
+	}//end triggerRunAs()
+
+	/**
+	 * The trigger node's declared timezone in a stored node list.
+	 *
+	 * @param mixed $nodes The stored nodes.
+	 *
+	 * @return string The declared timezone, or '' when the trigger names none.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
+	 */
+	public function triggerTimezone(mixed $nodes): string {
+		return $this->triggerValue(nodes: $nodes, key: self::TRIGGER_TIMEZONE);
+	}//end triggerTimezone()
+
+	/**
+	 * One config value of the schedule trigger node in a stored node list.
+	 *
+	 * @param mixed  $nodes The stored nodes.
+	 * @param string $key   The config key.
+	 *
+	 * @return string The trimmed value, or ''.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-2-2
+	 */
+	private function triggerValue(mixed $nodes, string $key): string {
 		if (is_array($nodes) === false) {
 			return '';
 		}
@@ -112,13 +152,39 @@ class ScheduleMirrorDefinition {
 			if (is_array($node) === true && ($node['type'] ?? null) === 'openregister.trigger-schedule') {
 				$config = ($node['config'] ?? []);
 				if (is_array($config) === true) {
-					return trim((string)($config['runAs'] ?? ''));
+					return trim((string)($config[$key] ?? ''));
 				}
 			}
 		}
 
 		return '';
-	}//end triggerRunAs()
+	}//end triggerValue()
+
+	/**
+	 * The schedule a stored mirror's dispatch node fires.
+	 *
+	 * @param mixed $nodes The stored nodes.
+	 *
+	 * @return string The schedule uuid, or '' when the flow has no dispatch node naming one.
+	 *
+	 * @spec openspec/changes/schedules-onto-engine-triggers/tasks.md#task-3-1
+	 */
+	public function dispatchedScheduleId(mixed $nodes): string {
+		if (is_array($nodes) === false) {
+			return '';
+		}
+
+		foreach ($nodes as $node) {
+			if (is_array($node) === true && ($node['type'] ?? null) === 'hermiq.schedule-dispatch') {
+				$config = ($node['config'] ?? []);
+				if (is_array($config) === true) {
+					return trim((string)($config['scheduleId'] ?? ''));
+				}
+			}
+		}
+
+		return '';
+	}//end dispatchedScheduleId()
 
 	/**
 	 * A fresh v4 uuid for a mirror flow row.

@@ -30,6 +30,8 @@ use OCP\Migration\IOutput;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * Tests for the agent-lifecycle-governance SeedIncidents repair step.
@@ -55,6 +57,13 @@ class SeedIncidentsTest extends TestCase {
 			public array $saved = [];
 
 			/**
+			 * The error saveObject() throws, if any.
+			 *
+			 * @var \Throwable|null
+			 */
+			public ?\Throwable $saveError = null;
+
+			/**
 			 * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
 			 */
 			public function __construct(
@@ -77,23 +86,26 @@ class SeedIncidentsTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				// openregister#2211 (insert-only saves) added this. A double that
-				// drifts from the real signature is a FATAL, not a failed
-				// assertion: PHP refuses to declare the class and the whole
-				// suite dies before it runs.
-				bool $failIfExists = false,
-				bool $_unowned = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
+				if ($this->saveError !== null) {
+					throw $this->saveError;
+				}
+
 				$this->saved[] = (array)$object;
 				$entity = new ObjectEntity();
 				$entity->setUuid('new-incident');
@@ -231,4 +243,60 @@ class SeedIncidentsTest extends TestCase {
 		$this->assertCount(2, $objectService->saved);
 
 	}//end testReRunIsIdempotent()
+
+	/**
+	 * The step names what it seeds.
+	 *
+	 * @return void
+	 */
+	public function testName(): void {
+		$step = new SeedIncidents(
+			container: $this->container($this->objectService([])),
+			logger: $this->createMock(LoggerInterface::class),
+		);
+
+		$this->assertSame('Seed agent-lifecycle-governance incident records', $step->getName());
+	}//end testName()
+
+	/**
+	 * A failed write is reported per row and counted as nothing new; rows
+	 * that are not objects are ignored when matching agents and incidents.
+	 *
+	 * @return void
+	 */
+	public function testAFailedWriteIsReportedAndNotCounted(): void {
+		$objectService = $this->objectService(
+			[
+				'incident' => [['description' => 'Agent posted a duplicate reply to the same Talk thread three times.']],
+				'agent' => [
+					['name' => 'Daily Briefing'],
+					$this->agent('agent-briefing', 'Daily Briefing'),
+					$this->agent('agent-heavy', 'Heavy Tool Runner'),
+				],
+			]
+		);
+		$objectService->saveError = new \RuntimeException('schema missing');
+
+		$warnings = [];
+		$infos = [];
+		$output = $this->createMock(IOutput::class);
+		$output->method('warning')->willReturnCallback(
+			static function (string $message) use (&$warnings): void {
+				$warnings[] = $message;
+			}
+		);
+		$output->method('info')->willReturnCallback(
+			static function (string $message) use (&$infos): void {
+				$infos[] = $message;
+			}
+		);
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->exactly(3))->method('error')->with('[hermiq] Incident seed failed: schema missing');
+
+		(new SeedIncidents(container: $this->container($objectService), logger: $logger))->run(output: $output);
+
+		$this->assertSame([], $objectService->saved);
+		$this->assertSame(array_fill(0, 3, 'Could not seed an incident: schema missing'), $warnings);
+		$this->assertSame(['Incident seed complete (0 new).'], $infos);
+	}//end testAFailedWriteIsReportedAndNotCounted()
 }//end class

@@ -46,7 +46,7 @@ use OCP\EventDispatcher\Event;
  *   originApp       string  REQUIRED  app id whose surface produced the suggestion
  *   subjectType     string  REQUIRED  origin app's object type ('case', 'document')
  *   subjectId       string  REQUIRED  that object's id in the origin app
- *   humanAction     string  REQUIRED  'accepted' | 'rejected' | 'overridden'
+ *   humanAction     string  REQUIRED  'accepted' | 'rejected' | 'overridden' | 'ignored'
  *   userId          string            NC uid of the human who decided
  *   decidedAt       string            RFC3339 timestamp of the decision
  *   suggestionType  string            classification | extraction | summarisation | routing | answer
@@ -59,8 +59,9 @@ use OCP\EventDispatcher\Event;
  *   reason          string            why, when the human gave one
  *   responseTimeMs  int               how long the model took
  *   externalRef     string            consumer's own reference, for idempotency
+ *   unusedBecause   string            with 'ignored': 'closed' | 'expired' | 'superseded'
  *
- * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md
+ * @spec openspec/specs/ai-oversight/spec.md
  */
 class AiOversightRecordedEvent extends Event {
 
@@ -103,7 +104,7 @@ class AiOversightRecordedEvent extends Event {
      *
      * @return array<string, mixed> The record as the consumer supplied it.
      *
-     * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
+     * @spec openspec/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
      */
     public function getRecord(): array {
         return $this->record;
@@ -116,7 +117,7 @@ class AiOversightRecordedEvent extends Event {
      *
      * @return string|null The Approval id, or null when unhandled.
      *
-     * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
+     * @spec openspec/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
      */
     public function getApprovalId(): ?string {
         return $this->approvalId;
@@ -131,7 +132,7 @@ class AiOversightRecordedEvent extends Event {
      *
      * @return void
      *
-     * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
+     * @spec openspec/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
      */
     public function setApprovalId(string $approvalId): void {
         $this->approvalId = $approvalId;
@@ -145,7 +146,7 @@ class AiOversightRecordedEvent extends Event {
      *
      * @return boolean True when hermiq's listener wrote an Approval.
      *
-     * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
+     * @spec openspec/specs/ai-oversight/spec.md#requirement-hermiq-records-advisory-human-oversight-decisions-from-consumer-apps
      */
     public function isHandled(): bool {
         return $this->handled;

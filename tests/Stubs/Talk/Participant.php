@@ -35,4 +35,17 @@ namespace OCA\Talk;
  * Minimal stub of the spreed Participant model.
  */
 class Participant {
+
+	/**
+	 * Spreed's constructor shape: the room, the attendee, the session. Hermiq
+	 * builds a bot participant this way to edit the bot's own message
+	 * (instant-talk progressive replies).
+	 *
+	 * @param mixed $room     The room.
+	 * @param mixed $attendee The attendee.
+	 * @param mixed $session  The session, or null.
+	 */
+	public function __construct(mixed $room = null, mixed $attendee = null, mixed $session = null) {
+		unset($room, $attendee, $session);
+	}//end __construct()
 }//end class

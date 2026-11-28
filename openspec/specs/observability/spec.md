@@ -32,7 +32,7 @@ to work without credentials.
 
 ## Requirements
 
-### REQ-OBS-001: Prometheus metrics endpoint (admin only)
+### Requirement: Prometheus metrics endpoint (admin only) (REQ-OBS-001)
 
 The system MUST expose `GET /api/metrics` returning Prometheus text exposition
 format (`Content-Type: text/plain; version=0.0.4`). The endpoint MUST be
@@ -62,7 +62,7 @@ version) and `{app_id}_health_status` (1 when healthy, 0 when degraded).
 - THEN the system MUST log the exception server-side with full context
 - AND the response MUST be HTTP 500 with a static generic error message (per ADR-005)
 
-### REQ-OBS-002: Health check endpoint (public)
+### Requirement: Health check endpoint (public) (REQ-OBS-002)
 
 The system MUST expose `GET /api/health` as a **public** endpoint
 (`#[PublicPage]` + `#[NoCSRFRequired]`) returning a JSON object summarising the
@@ -90,3 +90,27 @@ all required dependencies are present, 503 when one or more are missing.
 - THEN the system MUST log server-side with full context
 - AND the response MUST be HTTP 500 with a static generic message (per ADR-005)
 - AND the response body MUST NOT leak exception detail
+
+### Requirement: Chat reports whether its model provider is ready (REQ-SPCOV-012)
+
+The system SHALL answer `GET /api/chat/health` with whether a chat provider is configured
+and can be reached, so the companion and the connections page can show if chat works. The
+answer SHALL hold no credential or endpoint secret.
+
+Rows: `op-health`. Board: `hermiq/HmKoppelingen`.
+
+#### Scenario: A provider is configured
+- **GIVEN** a configured chat provider that answers
+- **WHEN** the companion requests `GET /api/chat/health`
+- **THEN** the answer is 200 with status "ok"
+
+#### Scenario: No provider is configured
+- **GIVEN** no chat provider is configured
+- **WHEN** the companion requests `GET /api/chat/health`
+- **THEN** the answer says chat is not configured and holds no secret
+
+#### Scenario: The connections page shows chat health with each dependency
+- **GIVEN** a functional administrator at Gemeente Zuiddrecht, with Ollama answering and the speech service not reachable
+- **WHEN** they open the connections page in Hermiq
+- **THEN** the page shows whether chat works, above a list of the AI provider, the default model, OpenRegister, Talk, the speech service and web search, each with its own state and the time it was checked
+- **AND** the speech service row says it does not answer, and no row shows a key or secret

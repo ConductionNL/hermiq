@@ -39,7 +39,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
+ * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
  */
 
 declare(strict_types=1);
@@ -59,7 +59,7 @@ use Throwable;
 /**
  * PSR-18 client that delegates the call — and the secret — to the credential broker.
  *
- * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
+ * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
  */
 class BrokerHttpClient implements ClientInterface {
 	/**
@@ -140,7 +140,7 @@ class BrokerHttpClient implements ClientInterface {
 	 *
 	 * @return bool True when the broker class can be resolved.
 	 *
-	 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
+	 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
 	 */
 	public static function isAvailable(): bool {
 		return class_exists(self::BROKER_CLASS) === true;
@@ -162,9 +162,28 @@ class BrokerHttpClient implements ClientInterface {
 	 *   class-string and resolved through the injected container (feature-detected via
 	 *   isAvailable()) so this class stays constructible when the broker is absent.
 	 *
-	 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
+	 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
 	 */
 	public function sendRequest(RequestInterface $request): ResponseInterface {
+		$this->assertBrokerConfigured();
+		$this->brokerContainer();
+		$response = $this->brokered(request: $request, path: $this->brokerPath(request: $request));
+
+		return new Response(
+			(int)($response['status'] ?? 502),
+			$this->passthroughResponseHeaders(brokerHeaders: ($response['headers'] ?? [])),
+			(string)($response['body'] ?? '')
+		);
+	}//end sendRequest()
+
+	/**
+	 * Refuse when the broker is not installed or no credential is configured.
+	 *
+	 * @return void
+	 *
+	 * @throws RuntimeException When the broker is absent or no credential is set.
+	 */
+	private function assertBrokerConfigured(): void {
 		if (self::isAvailable() === false) {
 			throw new RuntimeException(
 				'Hermiq LLM: the OpenRegister credential broker is not available; refusing to call the provider.'
@@ -174,10 +193,20 @@ class BrokerHttpClient implements ClientInterface {
 		if ($this->credentialId === '') {
 			throw new RuntimeException('Hermiq LLM: no broker credential is configured for this provider.');
 		}
+	}//end assertBrokerConfigured()
 
-		// No container means nothing to resolve the broker from, which is the same dead
-		// end as the broker being absent. Failing closed here is deliberate for the same
-		// reason as above: there is no app-held key left to fall back to.
+	/**
+	 * The container the broker is resolved from.
+	 *
+	 * No container means nothing to resolve the broker from, which is the same dead
+	 * end as the broker being absent. Failing closed here is deliberate for the same
+	 * reason as above: there is no app-held key left to fall back to.
+	 *
+	 * @return ContainerInterface
+	 *
+	 * @throws RuntimeException When this client was built without a container.
+	 */
+	private function brokerContainer(): ContainerInterface {
 		if ($this->container === null) {
 			throw new RuntimeException(
 				'Hermiq LLM: this client was constructed without a container, so the OpenRegister '
@@ -185,6 +214,17 @@ class BrokerHttpClient implements ClientInterface {
 			);
 		}
 
+		return $this->container;
+	}//end brokerContainer()
+
+	/**
+	 * The request's path and query as the broker takes them; an empty path is `/`.
+	 *
+	 * @param RequestInterface $request The request.
+	 *
+	 * @return string
+	 */
+	private function brokerPath(RequestInterface $request): string {
 		$uri = $request->getUri();
 		$path = $uri->getPath();
 		if ($path === '') {
@@ -195,17 +235,22 @@ class BrokerHttpClient implements ClientInterface {
 			$path .= '?' . $uri->getQuery();
 		}
 
+		return $path;
+	}//end brokerPath()
+
+	/**
+	 * Make the call through the broker; a failure is logged (method and path only) and wrapped.
+	 *
+	 * @param RequestInterface $request The request.
+	 * @param string           $path    The broker path.
+	 *
+	 * @return array<string, mixed> The broker's response.
+	 *
+	 * @throws RuntimeException When the broker refuses or cannot make the call.
+	 */
+	private function brokered(RequestInterface $request, string $path): array {
 		try {
-			$broker = $this->container->get(self::BROKER_CLASS);
-			$response = $broker->request(
-				$this->credentialId,
-				self::APP_ID,
-				$request->getMethod(),
-				$path,
-				$this->headersWithoutAuth(request: $request),
-				(string)$request->getBody(),
-				$this->actingUserId
-			);
+			return $this->callBroker(request: $request, path: $path);
 		} catch (Throwable $e) {
 			// Never log the body — it carries the prompt, which can carry anything the
 			// user typed. Method and path only.
@@ -218,13 +263,28 @@ class BrokerHttpClient implements ClientInterface {
 			);
 			throw new RuntimeException('Hermiq LLM: the credential broker refused or could not make the call.', 0, $e);
 		}//end try
+	}//end brokered()
 
-		return new Response(
-			(int)($response['status'] ?? 502),
-			$this->passthroughResponseHeaders(brokerHeaders: ($response['headers'] ?? [])),
-			(string)($response['body'] ?? '')
+	/**
+	 * Resolve the broker and hand it the request.
+	 *
+	 * @param RequestInterface $request The request.
+	 * @param string           $path    The broker path.
+	 *
+	 * @return array<string, mixed> The broker's response.
+	 */
+	private function callBroker(RequestInterface $request, string $path): array {
+		$broker = $this->brokerContainer()->get(self::BROKER_CLASS);
+		return $broker->request(
+			$this->credentialId,
+			self::APP_ID,
+			$request->getMethod(),
+			$path,
+			$this->headersWithoutAuth(request: $request),
+			(string)$request->getBody(),
+			$this->actingUserId
 		);
-	}//end sendRequest()
+	}//end callBroker()
 
 	/**
 	 * The upstream provider's response headers, minus the transfer-scoped ones.
@@ -238,22 +298,18 @@ class BrokerHttpClient implements ClientInterface {
 	 *
 	 * @return array<string, array<int, string>|string> Headers for the PSR-7 response.
 	 *
-	 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
+	 * @spec openspec/changes/archive/2026-07-12-llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
 	 */
 	private function passthroughResponseHeaders(mixed $brokerHeaders): array {
-		if (is_array($brokerHeaders) === false || $brokerHeaders === []) {
+		if (is_array($brokerHeaders) === false) {
 			return ['Content-Type' => 'application/json'];
 		}
 
-		$out = [];
-		foreach ($brokerHeaders as $name => $values) {
-			if (in_array(strtolower((string)$name), self::HOP_BY_HOP_RESPONSE_HEADERS, true) === true) {
-				continue;
-			}
-
-			$out[(string)$name] = $values;
-		}
-
+		$out = array_filter(
+			$brokerHeaders,
+			static fn (int|string $name): bool => in_array(strtolower((string)$name), self::HOP_BY_HOP_RESPONSE_HEADERS, true) === false,
+			ARRAY_FILTER_USE_KEY
+		);
 		if ($out === []) {
 			return ['Content-Type' => 'application/json'];
 		}

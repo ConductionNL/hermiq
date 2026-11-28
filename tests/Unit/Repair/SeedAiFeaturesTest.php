@@ -44,6 +44,8 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
+use OCA\OpenRegister\Contract\ObjectSaveOptions as PublishedObjectSaveOptions;
 
 /**
  * Tests for the ai-feature-governance-register SeedAiFeatures repair step.
@@ -131,23 +133,22 @@ class SeedAiFeaturesTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				// openregister#2211 (insert-only saves) added this. A double that
-				// drifts from the real signature is a FATAL, not a failed
-				// assertion: PHP refuses to declare the class and the whole
-				// suite dies before it runs.
-				bool $failIfExists = false,
-				bool $_unowned = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = [
 					'schema' => (string)$schema,
@@ -225,7 +226,7 @@ class SeedAiFeaturesTest extends TestCase {
 	}//end testItNamesItself()
 
 	/**
-	 * A fresh install seeds all three governance rows, every one DISABLED.
+	 * A fresh install seeds every governance row, each one DISABLED.
 	 *
 	 * `lifecycle: disabled` is the whole point of the seed: the feature exists as
 	 * a governance record to be acknowledged, not as something switched on by an
@@ -238,11 +239,11 @@ class SeedAiFeaturesTest extends TestCase {
 
 		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
 
-		$this->assertCount(3, $objectService->saved);
+		$this->assertCount(9, $objectService->saved);
 
 		$slugs = array_map(static fn (array $row): string => (string)$row['object']['slug'], $objectService->saved);
 		$this->assertSame(
-			['autonomous-agent-run', 'skill-code-execution', 'chat-companion'],
+			['autonomous-agent-run', 'skill-code-execution', 'agent-code-execution', 'chat-companion', 'conversational-intake', 'image-generation', 'speech-translation', 'computer-use', 'public-chat'],
 			$slugs
 		);
 
@@ -296,14 +297,21 @@ class SeedAiFeaturesTest extends TestCase {
 				'agentaifeature' => [
 					$this->object('existing-1', ['slug' => 'autonomous-agent-run']),
 					$this->object('existing-2', ['slug' => 'chat-companion']),
+					$this->object('existing-3', ['slug' => 'conversational-intake']),
 				],
 			]
 		);
 
 		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
 
-		$this->assertCount(1, $objectService->saved);
+		$this->assertCount(6, $objectService->saved);
 		$this->assertSame('skill-code-execution', $objectService->saved[0]['object']['slug']);
+		$this->assertSame('agent-code-execution', $objectService->saved[1]['object']['slug']);
+		$this->assertSame('image-generation', $objectService->saved[2]['object']['slug']);
+		$this->assertSame('speech-translation', $objectService->saved[3]['object']['slug']);
+		$this->assertSame('computer-use', $objectService->saved[4]['object']['slug']);
+		$this->assertSame('public-chat', $objectService->saved[5]['object']['slug']);
+		$this->assertSame('limited', $objectService->saved[5]['object']['riskCategory']);
 
 	}//end testReRunSeedsOnlyTheMissingFeatures()
 
@@ -319,6 +327,12 @@ class SeedAiFeaturesTest extends TestCase {
 					$this->object('existing-1', ['slug' => 'autonomous-agent-run']),
 					$this->object('existing-2', ['slug' => 'skill-code-execution']),
 					$this->object('existing-3', ['slug' => 'chat-companion']),
+					$this->object('existing-4', ['slug' => 'conversational-intake']),
+					$this->object('existing-5', ['slug' => 'image-generation']),
+					$this->object('existing-6', ['slug' => 'agent-code-execution']),
+					$this->object('existing-7', ['slug' => 'speech-translation']),
+					$this->object('existing-8', ['slug' => 'computer-use']),
+					$this->object('existing-9', ['slug' => 'public-chat']),
 				],
 			]
 		);
@@ -343,7 +357,7 @@ class SeedAiFeaturesTest extends TestCase {
 
 		$this->step(objectService: $objectService)->run(output: $this->createMock(IOutput::class));
 
-		$this->assertCount(3, $objectService->saved);
+		$this->assertCount(9, $objectService->saved);
 
 	}//end testNonEntityRowsAreNotTreatedAsExisting()
 
@@ -397,19 +411,22 @@ class SeedAiFeaturesTest extends TestCase {
 
 			public function saveObject(
 				array|ObjectEntity $object,
-				?array $extend = [],
-				mixed $register = null,
-				mixed $schema = null,
-				?string $uuid = null,
+				ObjectSaveOptions|PublishedObjectSaveOptions $options = new ObjectSaveOptions(),
 				bool $_rbac = true,
-				bool $_multitenancy = true,
-				bool $silent = false,
-				bool $_validation = true,
-				?array $uploadedFiles = null,
-				?\OCP\IUser $currentUser = null,
-				bool $failIfExists = false,
-				bool $_unowned = false,
+				bool $_multitenancy = true
 			): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
+				$silent = $options->policy->silent ?? false;
+				$_validation = $options->policy->validation ?? true;
+				$uploadedFiles = $options->uploadedFiles;
+				$currentUser = $options->actor->currentUser;
+				$failIfExists = $options->policy->failIfExists ?? false;
+				$_unowned = $options->actor->unowned ?? false;
+				$_dedupOverride = $options->policy->dedupOverride ?? false;
+				$_owner = $options->actor->owner;
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->attempted[] = (string)($payload['slug'] ?? '');
 				throw new RuntimeException('register unavailable');
@@ -417,12 +434,12 @@ class SeedAiFeaturesTest extends TestCase {
 		};
 
 		$output = $this->createMock(IOutput::class);
-		$output->expects($this->exactly(3))->method('warning');
+		$output->expects($this->exactly(9))->method('warning');
 
 		$this->step(objectService: $objectService)->run(output: $output);
 
 		$this->assertSame(
-			['autonomous-agent-run', 'skill-code-execution', 'chat-companion'],
+			['autonomous-agent-run', 'skill-code-execution', 'agent-code-execution', 'chat-companion', 'conversational-intake', 'image-generation', 'speech-translation', 'computer-use', 'public-chat'],
 			$objectService->attempted,
 			'One failed write must not stop the seeds that follow it.'
 		);

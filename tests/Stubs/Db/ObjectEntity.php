@@ -167,12 +167,12 @@ class ObjectEntity {
 	}//end setOrganisation()
 
 	/**
-	 * Get the JSON object payload.
+	 * Get the JSON object payload, led by `id` (the uuid) as OpenRegister's entity returns it.
 	 *
 	 * @return array<string,mixed>
 	 */
 	public function getObject(): array {
-		return $this->object;
+		return array_merge(['id' => $this->uuid], $this->object);
 	}//end getObject()
 
 	/**
@@ -325,4 +325,81 @@ class ObjectEntity {
 	public function setSchema(string|int|null $schema): void {
 		$this->schema = $schema;
 	}//end setSchema()
+
+	/**
+	 * The object's version, as OpenRegister records it on each save.
+	 *
+	 * @var string|null
+	 */
+	private ?string $version = null;
+
+	/**
+	 * Get the object's version.
+	 *
+	 * @return string|null
+	 */
+	public function getVersion(): ?string {
+		return $this->version;
+	}//end getVersion()
+
+	/**
+	 * Set the object's version.
+	 *
+	 * @param string|null $version The version.
+	 *
+	 * @return void
+	 */
+	public function setVersion(?string $version): void {
+		$this->version = $version;
+	}//end setVersion()
+
+	/**
+	 * Lifecycle status: saved, but not yet submitted.
+	 *
+	 * @var string
+	 */
+	public const STATUS_DRAFT = 'draft';
+
+	/**
+	 * Lifecycle status: left draft through a submit, received.
+	 *
+	 * @var string
+	 */
+	public const STATUS_ACTIVE = 'active';
+
+	/**
+	 * The object's lifecycle status.
+	 *
+	 * @var string|null
+	 */
+	private ?string $status = null;
+
+	/**
+	 * Get the lifecycle status.
+	 *
+	 * @return string|null
+	 */
+	public function getStatus(): ?string {
+		return $this->status;
+	}//end getStatus()
+
+	/**
+	 * Set the lifecycle status.
+	 *
+	 * @param string|null $status The status.
+	 *
+	 * @return void
+	 */
+	public function setStatus(?string $status): void {
+		$this->status = $status;
+	}//end setStatus()
+
+	/**
+	 * Whether the object is a draft.
+	 *
+	 * @return bool
+	 */
+	public function isDraft(): bool {
+		return $this->status === self::STATUS_DRAFT;
+	}//end isDraft()
 }//end class

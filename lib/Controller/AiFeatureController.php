@@ -27,24 +27,27 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\AiFeatureService;
-use OCA\Hermiq\Service\AlgoritmekaderMapper;
-use OCA\Hermiq\Service\PublicationGateway;
+use InvalidArgumentException;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\ActionAuthServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AiFeatureBindingServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AiFeatureServiceInterface;
+use OCA\Hermiq\Kernel\Contracts\AlgoritmekaderMapperInterface;
+use OCA\Hermiq\Kernel\Contracts\PublicationGatewayInterface;
+use OCA\Hermiq\Service\AiFeature\FeatureProviderResolver;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IRequest;
+use OCP\IUser;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -56,32 +59,36 @@ use Throwable;
  *   governance service, the ADR-023 action-auth gate, the Algoritmekader readiness/mapper,
  *   and the runtime publication seam — each a distinct single-responsibility collaborator.
  *
- * @spec openspec/changes/ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
+ * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
  */
 class AiFeatureController extends Controller {
 	/**
 	 * Constructor.
 	 *
 	 * @param IRequest $request The request object.
-	 * @param AiFeatureService $aiFeatureService The AiFeature read/govern path.
-	 * @param ActionAuthService $actionAuth The ADR-023 action-authorization service.
+	 * @param AiFeatureServiceInterface $aiFeatureService The AiFeature read/govern path.
+	 * @param ActionAuthServiceInterface $actionAuth The ADR-023 action-authorization service.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param LoggerInterface $logger PSR-3 logger.
-	 * @param AlgoritmekaderMapper $algoritmekader Publish-readiness gate + Algoritmekader mapping.
-	 * @param PublicationGateway $publicationGateway Runtime seam to the fleet publication path (OpenCatalogi).
+	 * @param AlgoritmekaderMapperInterface $algoritmekader Publish-readiness gate + Algoritmekader mapping.
+	 * @param PublicationGatewayInterface $publicationGateway Runtime seam to the fleet publication path (OpenCatalogi).
+	 * @param AiFeatureBindingServiceInterface $bindingService Writes a feature's provider binding and required residency.
+	 * @param FeatureProviderResolver $featureResolver Resolves which provider each feature will use.
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/tasks.md#3-publish-withdraw-action-delegated-to-opencatalogi
+	 * @spec openspec/changes/archive/2026-09-06-algoritmeregister-publication/tasks.md#3-publish-withdraw-action-delegated-to-opencatalogi
 	 */
 	public function __construct(
 		IRequest $request,
-		private readonly AiFeatureService $aiFeatureService,
-		private readonly ActionAuthService $actionAuth,
+		private readonly AiFeatureServiceInterface $aiFeatureService,
+		private readonly ActionAuthServiceInterface $actionAuth,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
-		private readonly AlgoritmekaderMapper $algoritmekader,
-		private readonly PublicationGateway $publicationGateway,
+		private readonly AlgoritmekaderMapperInterface $algoritmekader,
+		private readonly PublicationGatewayInterface $publicationGateway,
+		private readonly AiFeatureBindingServiceInterface $bindingService,
+		private readonly FeatureProviderResolver $featureResolver,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -92,7 +99,7 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-2
 	 */
 	public function index(): JSONResponse {
 		if ($this->userSession->getUser() === null) {
@@ -119,24 +126,18 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-3
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-3
 	 */
 	public function acknowledge(string $slug): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		try {
-			$this->actionAuth->requireAction(user: $user, action: 'aifeature.acknowledge');
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		$user = $this->authorise(action: 'aifeature.acknowledge');
+		if ($user instanceof JSONResponse) {
+			return $user;
 		}
 
 		try {
 			$feature = $this->aiFeatureService->acknowledge(slug: $slug, uid: $user->getUID());
 			if ($feature === null) {
-				return new JSONResponse(['error' => 'AI feature not found'], Http::STATUS_NOT_FOUND);
+				return $this->notFound();
 			}
 
 			return new JSONResponse($this->shape(object: $feature));
@@ -148,6 +149,92 @@ class AiFeatureController extends Controller {
 	}//end acknowledge()
 
 	/**
+	 * Bind a provider and model to a feature, and set the residency it requires
+	 * (action-auth-gated).
+	 *
+	 * The organisation's effective model policy is the ceiling: a binding outside it
+	 * is refused with a 422 naming the policy. Sending an empty provider and model
+	 * clears the binding and returns the feature to the policy default.
+	 *
+	 * @param string $id The AiFeature UUID.
+	 *
+	 * @return JSONResponse The bound feature, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-an-ai-feature-may-bind-its-own-provider-and-model
+	 */
+	public function bind(string $id): JSONResponse {
+		$user = $this->authorise(action: 'aifeature.bind');
+		if ($user instanceof JSONResponse) {
+			return $user;
+		}
+
+		try {
+			$feature = $this->bindingService->bind(
+				id: $id,
+				provider: $this->stringParam(name: 'provider'),
+				model: $this->stringParam(name: 'model'),
+				requiredResidency: $this->stringParam(name: 'requiredResidency')
+			);
+		} catch (InvalidArgumentException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq AI-feature bind failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Binding failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+		if ($feature === null) {
+			return $this->notFound();
+		}
+
+		return new JSONResponse($this->shape(object: $feature));
+	}//end bind()
+
+	/**
+	 * What every registered feature will use, and where that provider runs, so what
+	 * leaves the building is readable in one place.
+	 *
+	 * @return JSONResponse One row per feature, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/ai-feature-governance/spec.md#requirement-a-split-deployment-must-be-expressible-as-configuration
+	 */
+	public function residencyOverview(): JSONResponse {
+		if ($this->userSession->getUser() === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		try {
+			$rows = $this->bindingService->overview(resolver: $this->featureResolver);
+			return new JSONResponse(['results' => $rows, 'total' => count($rows)]);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq AI-feature residency overview failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not load the AI feature residency overview'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
+
+	}//end residencyOverview()
+
+	/**
+	 * Read one trimmed string request parameter, or null when it was not sent.
+	 *
+	 * @param string $name The parameter name.
+	 *
+	 * @return string|null The trimmed value, or null when absent.
+	 */
+	private function stringParam(string $name): ?string {
+		$value = $this->request->getParam($name);
+		if (is_string($value) === false) {
+			return null;
+		}
+
+		return trim($value);
+	}//end stringParam()
+
+	/**
 	 * Enable a feature (action-auth-gated; the lifecycle guard blocks un-acknowledged features).
 	 *
 	 * @param string $id The AiFeature UUID.
@@ -157,7 +244,7 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-4
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	public function enable(string $id): JSONResponse {
 		return $this->drive(id: $id, action: 'aifeature.enable', enable: true);
@@ -173,7 +260,7 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-4
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	public function disable(string $id): JSONResponse {
 		return $this->drive(id: $id, action: 'aifeature.disable', enable: false);
@@ -195,69 +282,119 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	public function publishToAlgoritmeregister(string $id): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		$user = $this->authorise(action: 'aifeature.publish-to-algoritmeregister');
+		if ($user instanceof JSONResponse) {
+			return $user;
 		}
 
 		try {
-			$this->actionAuth->requireAction(user: $user, action: 'aifeature.publish-to-algoritmeregister');
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
-		}
-
-		try {
-			$feature = $this->aiFeatureService->getFeature(id: $id);
-			if ($feature === null) {
-				return new JSONResponse(['error' => 'AI feature not found'], Http::STATUS_NOT_FOUND);
-			}
-
-			$data = $feature->getObject();
-			$failing = $this->algoritmekader->assessReadiness(feature: $data);
-			if ($failing !== []) {
-				// Fail-closed: never a partial/placeholder national-register entry.
-				return new JSONResponse(
-					[
-						'error' => 'Not ready to publish to the Algoritmeregister.',
-						'missing' => $failing,
-					],
-					Http::STATUS_UNPROCESSABLE_ENTITY
-				);
-			}
-
-			if ($this->publicationGateway->isAvailable() === false) {
-				// OpenCatalogi absent — the feature remains internally governable.
-				return new JSONResponse(
-					['error' => 'The publication path (OpenCatalogi) is not available.'],
-					Http::STATUS_SERVICE_UNAVAILABLE
-				);
-			}
-
-			$reference = $this->publicationGateway->publish(
-				publication: $this->algoritmekader->map(feature: $data)
-			);
-			if ($reference === null) {
-				return new JSONResponse(
-					['error' => 'The publication path (OpenCatalogi) is not available.'],
-					Http::STATUS_SERVICE_UNAVAILABLE
-				);
-			}
-
-			$stamped = $this->aiFeatureService->recordPublication(id: $id, reference: $reference);
-			if ($stamped === null) {
-				return new JSONResponse(['error' => 'AI feature not found'], Http::STATUS_NOT_FOUND);
-			}
-
-			return new JSONResponse($this->shape(object: $stamped));
+			return $this->publish(id: $id);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq Algoritmeregister publish failed: ' . $e->getMessage(), ['exception' => $e]);
 			return new JSONResponse(['error' => 'Publish failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}//end try
+		}
 
 	}//end publishToAlgoritmeregister()
+
+	/**
+	 * Publish one feature past the action gate: refuse a missing or unready feature
+	 * or an absent publication path, otherwise publish and record the reference.
+	 *
+	 * @param string $id The AiFeature UUID.
+	 *
+	 * @return JSONResponse The stamped feature, or an error status.
+	 */
+	private function publish(string $id): JSONResponse {
+		$feature = $this->aiFeatureService->getFeature(id: $id);
+		if ($feature === null) {
+			return $this->notFound();
+		}
+
+		$data = $feature->getObject();
+		$refusal = $this->publicationRefusal(feature: $data);
+		if ($refusal !== null) {
+			return $refusal;
+		}
+
+		$reference = $this->publicationGateway->publish(
+			publication: $this->algoritmekader->map(feature: $data)
+		);
+		if ($reference === null) {
+			return $this->publicationUnavailable();
+		}
+
+		$stamped = $this->aiFeatureService->recordPublication(id: $id, reference: $reference);
+		if ($stamped === null) {
+			return $this->notFound();
+		}
+
+		return new JSONResponse($this->shape(object: $stamped));
+	}//end publish()
+
+	/**
+	 * Why a feature cannot be published now: not ready (422, naming what is missing)
+	 * or no publication path (503); null when it can.
+	 *
+	 * @param array<string, mixed> $feature The feature's object data.
+	 *
+	 * @return JSONResponse|null
+	 */
+	private function publicationRefusal(array $feature): ?JSONResponse {
+		$failing = $this->algoritmekader->assessReadiness(feature: $feature);
+		if ($failing !== []) {
+			// Fail-closed: never a partial/placeholder national-register entry.
+			return new JSONResponse(
+				[
+					'error' => 'Not ready to publish to the Algoritmeregister.',
+					'missing' => $failing,
+				],
+				Http::STATUS_UNPROCESSABLE_ENTITY
+			);
+		}
+
+		if ($this->publicationGateway->isAvailable() === false) {
+			// OpenCatalogi absent — the feature remains internally governable.
+			return $this->publicationUnavailable();
+		}
+
+		return null;
+	}//end publicationRefusal()
+
+	/**
+	 * The 503 for an absent publication path (OpenCatalogi).
+	 *
+	 * @return JSONResponse
+	 */
+	private function publicationUnavailable(): JSONResponse {
+		return new JSONResponse(
+			['error' => 'The publication path (OpenCatalogi) is not available.'],
+			Http::STATUS_SERVICE_UNAVAILABLE
+		);
+	}//end publicationUnavailable()
+
+	/**
+	 * The 404 for a feature that does not exist or is not the caller's.
+	 *
+	 * @return JSONResponse
+	 */
+	private function notFound(): JSONResponse {
+		return new JSONResponse(['error' => 'AI feature not found'], Http::STATUS_NOT_FOUND);
+	}//end notFound()
+
+	/**
+	 * The signed-in user when they may perform the action, otherwise the 401/403
+	 * refusal (see ActionGate).
+	 *
+	 * @param string $action The ADR-023 action name to require.
+	 *
+	 * @return IUser|JSONResponse
+	 */
+	private function authorise(string $action): IUser|JSONResponse {
+		return (new ActionGate(userSession: $this->userSession, actionAuth: $this->actionAuth))->authorise(action: $action);
+	}//end authorise()
 
 	/**
 	 * Withdraw a feature from the national Algoritmeregister (intrekken; action-auth-gated).
@@ -272,24 +409,18 @@ class AiFeatureController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 * @spec openspec/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	public function withdrawFromAlgoritmeregister(string $id): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		try {
-			$this->actionAuth->requireAction(user: $user, action: 'aifeature.withdraw-from-algoritmeregister');
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		$user = $this->authorise(action: 'aifeature.withdraw-from-algoritmeregister');
+		if ($user instanceof JSONResponse) {
+			return $user;
 		}
 
 		try {
 			$feature = $this->aiFeatureService->getFeature(id: $id);
 			if ($feature === null) {
-				return new JSONResponse(['error' => 'AI feature not found'], Http::STATUS_NOT_FOUND);
+				return $this->notFound();
 			}
 
 			$reference = (string)($feature->getObject()['algoritmeregisterRef'] ?? '');
@@ -297,7 +428,7 @@ class AiFeatureController extends Controller {
 
 			$stamped = $this->aiFeatureService->recordWithdrawal(id: $id);
 			if ($stamped === null) {
-				return new JSONResponse(['error' => 'AI feature not found'], Http::STATUS_NOT_FOUND);
+				return $this->notFound();
 			}
 
 			return new JSONResponse($this->shape(object: $stamped));
@@ -317,18 +448,12 @@ class AiFeatureController extends Controller {
 	 *
 	 * @return JSONResponse The transition outcome, or an error status.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-4
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	private function drive(string $id, string $action, bool $enable): JSONResponse {
-		$user = $this->userSession->getUser();
-		if ($user === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		try {
-			$this->actionAuth->requireAction(user: $user, action: $action);
-		} catch (OCSForbiddenException $e) {
-			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		$user = $this->authorise(action: $action);
+		if ($user instanceof JSONResponse) {
+			return $user;
 		}
 
 		try {
@@ -352,26 +477,21 @@ class AiFeatureController extends Controller {
 	 *
 	 * @return JSONResponse The mapped response.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-4
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-4
 	 */
 	private function mapTransition(string $id, string $result): JSONResponse {
-		switch ($result) {
-			case AiFeatureService::RESULT_ENABLED:
-			case AiFeatureService::RESULT_DISABLED:
-				return new JSONResponse(['id' => $id, 'lifecycle' => $result]);
-			case AiFeatureService::RESULT_NOT_FOUND:
-				return new JSONResponse(['error' => 'AI feature not found'], Http::STATUS_NOT_FOUND);
-			case AiFeatureService::RESULT_BLOCKED:
-				return new JSONResponse(
-					['error' => 'Transition blocked: the DPO has not acknowledged this AI feature.'],
-					Http::STATUS_CONFLICT
-				);
-			default:
-				return new JSONResponse(
-					['error' => 'Transition not allowed from the current state.'],
-					Http::STATUS_UNPROCESSABLE_ENTITY
-				);
-		}
+		return match ($result) {
+			AiFeatureServiceInterface::RESULT_ENABLED, AiFeatureServiceInterface::RESULT_DISABLED => new JSONResponse(['id' => $id, 'lifecycle' => $result]),
+			AiFeatureServiceInterface::RESULT_NOT_FOUND => $this->notFound(),
+			AiFeatureServiceInterface::RESULT_BLOCKED => new JSONResponse(
+				['error' => 'Transition blocked: the DPO has not acknowledged this AI feature.'],
+				Http::STATUS_CONFLICT
+			),
+			default => new JSONResponse(
+				['error' => 'Transition not allowed from the current state.'],
+				Http::STATUS_UNPROCESSABLE_ENTITY
+			),
+		};
 
 	}//end mapTransition()
 
@@ -382,7 +502,7 @@ class AiFeatureController extends Controller {
 	 *
 	 * @return array<string, mixed> The response payload.
 	 *
-	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-2
+	 * @spec openspec/changes/archive/2026-09-06-ai-feature-governance-register/tasks.md#task-3-2
 	 */
 	private function shape(ObjectEntity $object): array {
 		$data = $object->getObject();

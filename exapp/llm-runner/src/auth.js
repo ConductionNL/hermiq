@@ -96,47 +96,49 @@ function secretFromAuthHeader(authApp) {
 function verify(headers, _rawBody) {
 	if (APP_SECRET === '') {
 		// Fail closed: an unconfigured secret must never accept traffic.
-		return {
-			ok: false,
-			status: 401,
-			reason: 'runner APP_SECRET is not configured',
-		}
+		return refusal(401, 'runner APP_SECRET is not configured')
 	}
 
 	const appId = headers['ex-app-id']
 	const authApp = headers['authorization-app-api']
 
 	if (!appId || !authApp) {
-		return {
-			ok: false,
-			status: 401,
-			reason: 'missing AppAPI authentication headers',
-		}
+		return refusal(401, 'missing AppAPI authentication headers')
 	}
 	if (appId !== APP_ID) {
-		return {
-			ok: false,
-			status: 403,
-			reason: 'EX-APP-ID does not match this runner',
-		}
+		return refusal(403, 'EX-APP-ID does not match this runner')
 	}
 
+	return secretVerdict(authApp)
+}
+
+/**
+ * The verdict on the AUTHORIZATION-APP-API header: it must decode to
+ * `user:secret` and its secret must equal APP_SECRET.
+ *
+ * @param {string} authApp The raw AUTHORIZATION-APP-API header.
+ * @return {{ok: boolean, status: number, reason: string}} Verdict.
+ */
+function secretVerdict(authApp) {
 	const secret = secretFromAuthHeader(authApp)
 	if (secret === null) {
-		return {
-			ok: false,
-			status: 403,
-			reason: 'AUTHORIZATION-APP-API is not valid base64 user:secret',
-		}
+		return refusal(403, 'AUTHORIZATION-APP-API is not valid base64 user:secret')
 	}
 	if (!timingSafeEqualStr(secret, APP_SECRET)) {
-		return {
-			ok: false,
-			status: 403,
-			reason: 'AUTHORIZATION-APP-API secret does not match',
-		}
+		return refusal(403, 'AUTHORIZATION-APP-API secret does not match')
 	}
 	return { ok: true, status: 200, reason: 'ok' }
+}
+
+/**
+ * A refused verdict.
+ *
+ * @param {number} status The HTTP status to answer.
+ * @param {string} reason Why the request is refused.
+ * @return {{ok: boolean, status: number, reason: string}} Verdict.
+ */
+function refusal(status, reason) {
+	return { ok: false, status, reason }
 }
 
 module.exports = { verify, timingSafeEqualStr, secretFromAuthHeader, APP_ID }

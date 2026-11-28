@@ -20,7 +20,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use OCP\Notification\UnknownNotificationException;
 /**
  * Parses Hermiq notifications into localised, rendered form.
  *
- * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+ * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
  */
 class Notifier implements INotifier {
 
@@ -65,6 +65,15 @@ class Notifier implements INotifier {
 		'schedule_paused_circuit_breaker',
 		'skill_published_behind',
 		'skill_rollback_suggested',
+		'session_participant_added',
+		'run_done',
+		'session_shared',
+		'goal_reached',
+		'goal_exhausted',
+		'restore_finished',
+		'report_due',
+		'handoff_result',
+		'eval_regression',
 	];
 
 	/**
@@ -84,7 +93,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
 	 */
 	public function getID(): string {
 		return self::APP_ID;
@@ -95,7 +104,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
 	 */
 	public function getName(): string {
 		return 'Hermiq';
@@ -111,7 +120,7 @@ class Notifier implements INotifier {
 	 *
 	 * @throws UnknownNotificationException When the notification is not a Hermiq one.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
 	 * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
 	 */
 	public function prepare(INotification $notification, string $languageCode): INotification {
@@ -135,6 +144,20 @@ class Notifier implements INotifier {
 			$this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(self::APP_ID, 'app-dark.svg'))
 		);
 
+		// Reuse-scheduled-bias-evals: a dropped scheduled eval opens on its dataset, where the run is listed.
+		if ($subjectKey === 'eval_regression') {
+			$this->linkEvalRegression(notification: $notification, subjectRaw: $subjectRaw);
+		}
+
+		// Chat-fork-and-share-link: a shared session opens on its read-only page.
+		if ($subjectKey === 'session_shared' && $notification->getObjectId() !== '') {
+			$notification->setLink(
+				$this->urlGenerator->getAbsoluteURL(
+					rtrim($this->urlGenerator->linkToRoute('hermiq.dashboard.page'), '/') . '/chat/shared/' . rawurlencode($notification->getObjectId())
+				)
+			);
+		}
+
 		return $notification;
 	}//end prepare()
 
@@ -156,32 +179,50 @@ class Notifier implements INotifier {
 	private function resolveSubjectAndMessage(string $subjectKey, array $subjectRaw, IL10N $l): array {
 		$name = (string)($subjectRaw['name'] ?? '');
 
-		if ($subjectKey === 'approval_requested') {
-			return $this->approvalRequestedText(name: $name, l: $l);
-		}
-
-		if ($subjectKey === 'budget_soft_threshold') {
-			return $this->budgetSoftThresholdText(subjectRaw: $subjectRaw, l: $l);
-		}
-
-		if ($subjectKey === 'run_dead_letter') {
-			return $this->runDeadLetterText(name: $name, l: $l);
-		}
-
-		if ($subjectKey === 'schedule_paused_circuit_breaker') {
-			return $this->circuitBreakerPausedText(name: $name, l: $l);
-		}
-
-		if ($subjectKey === 'skill_published_behind') {
-			return $this->skillPublishedBehindText(name: $name, l: $l);
-		}
-
-		if ($subjectKey === 'skill_rollback_suggested') {
-			return $this->skillRollbackSuggestedText(name: $name, l: $l);
-		}
-
-		return $this->runCompleteText(name: $name, l: $l);
+		return match ($subjectKey) {
+			'approval_requested' => $this->approvalRequestedText(name: $name, l: $l),
+			'budget_soft_threshold' => $this->budgetSoftThresholdText(subjectRaw: $subjectRaw, l: $l),
+			'run_dead_letter' => $this->runDeadLetterText(name: $name, l: $l),
+			'schedule_paused_circuit_breaker' => $this->circuitBreakerPausedText(name: $name, l: $l),
+			'skill_published_behind' => $this->skillPublishedBehindText(name: $name, l: $l),
+			'skill_rollback_suggested' => $this->skillRollbackSuggestedText(name: $name, l: $l),
+			'session_participant_added' => $this->sessionParticipantAddedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
+			'run_done' => $this->runDoneText(name: $name, succeeded: (($subjectRaw['result'] ?? '') === 'ok'), l: $l),
+			'session_shared' => $this->sessionSharedText(owner: (string)($subjectRaw['owner'] ?? ''), name: $name, l: $l),
+			'goal_reached' => $this->goalText(reached: true, name: $name, l: $l),
+			'goal_exhausted' => $this->goalText(reached: false, name: $name, l: $l),
+			'restore_finished' => $this->restoreFinishedText(subjectRaw: $subjectRaw, l: $l),
+			'report_due' => $this->reportDueText(subjectRaw: $subjectRaw, l: $l),
+			'handoff_result' => $this->handoffResultText(name: $name, l: $l),
+			'eval_regression' => $this->evalRegressionText(subjectRaw: $subjectRaw, l: $l),
+			default => $this->runCompleteText(name: $name, l: $l),
+		};
 	}//end resolveSubjectAndMessage()
+
+	/**
+	 * The `run_done` wording (personal-preferences): the agent and the result of a
+	 * run the recipient started, sent because they asked to be told.
+	 *
+	 * @param string $name      The agent's name, when known.
+	 * @param bool   $succeeded Whether the run succeeded.
+	 * @param IL10N  $l         The recipient-language localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	private function runDoneText(string $name, bool $succeeded, IL10N $l): array {
+		$subject = $l->t('Your agent run is done');
+		if ($name !== '') {
+			$subject = $l->t('%s is done', [$name]);
+		}
+
+		if ($succeeded === true) {
+			return [$subject, $l->t('The run finished successfully.')];
+		}
+
+		return [$subject, $l->t('The run ended with an error.')];
+	}//end runDoneText()
 
 	/**
 	 * The default `run_complete` wording (also the fallback for any subject key
@@ -192,7 +233,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return array{0:string,1:string} The [subject, message] pair.
 	 *
-	 * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+	 * @spec openspec/changes/archive/2026-09-06-talk-delivery/tasks.md#2-notifier-registration
 	 */
 	private function runCompleteText(string $name, IL10N $l): array {
 		$subject = $l->t('Scheduled agent run complete');
@@ -211,7 +252,7 @@ class Notifier implements INotifier {
 	 *
 	 * @return array{0:string,1:string} The [subject, message] pair.
 	 *
-	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+	 * @spec openspec/changes/archive/2026-09-06-human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
 	 */
 	private function approvalRequestedText(string $name, IL10N $l): array {
 		$subject = $l->t('Approval needed for an agent run');
@@ -329,4 +370,192 @@ class Notifier implements INotifier {
 
 		return [$subject, $message];
 	}//end skillRollbackSuggestedText()
+
+	/**
+	 * Text for `session_participant_added`: an owner invited the recipient into a session.
+	 *
+	 * @param string $owner The owner's display name.
+	 * @param string $name The session title.
+	 * @param IL10N $l The recipient's localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/specs/session-participants/spec.md#requirement-the-owner-invites-colleagues-into-a-session-req-spart-001
+	 */
+	private function sessionParticipantAddedText(string $owner, string $name, IL10N $l): array {
+		$subject = $l->t('You were invited to a chat session');
+		if ($owner !== '' && $name !== '') {
+			$subject = $l->t('%1$s invited you to the session %2$s', [$owner, $name]);
+		}
+
+		return [$subject, $l->t('Open Chat and find it under Shared with me. You can ask the agent questions in it.')];
+	}//end sessionParticipantAddedText()
+
+	/**
+	 * Text for `session_shared`: an owner shared a session read-only with the recipient.
+	 *
+	 * @param string $owner The owner's display name.
+	 * @param string $name  The session title.
+	 * @param IL10N  $l     The recipient's localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-chat-fork-and-share-link/specs/session-sharing/spec.md#requirement-the-owner-shares-a-session-with-named-users-or-groups-req-sshare-001
+	 */
+	private function sessionSharedText(string $owner, string $name, IL10N $l): array {
+		$subject = $l->t('A chat session was shared with you');
+		if ($owner !== '' && $name !== '') {
+			$subject = $l->t('%1$s shared the session \'%2$s\' with you', [$owner, $name]);
+		}
+
+		return [$subject, $l->t('You can read it in Chat under Shared with you. You cannot add to it.')];
+	}//end sessionSharedText()
+
+	/**
+	 * Text for `goal_reached` and `goal_exhausted`: a standing goal ended (agents-standing-goal).
+	 *
+	 * @param bool   $reached True when the check passed, false when the turn limit was used.
+	 * @param string $name    The goal's statement.
+	 * @param IL10N  $l       The recipient's localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
+	 */
+	private function goalText(bool $reached, string $name, IL10N $l): array {
+		if ($reached === true) {
+			return [
+				$l->t('Goal reached: %s', [$name]),
+				$l->t('The check passed, so the agent has stopped working on this goal. Open the session to see its turns.'),
+			];
+		}
+
+		return [
+			$l->t('Turn limit used: %s', [$name]),
+			$l->t('The agent used every turn without reaching the goal. Open the session to see how far it got.'),
+		];
+	}//end goalText()
+
+	/**
+	 * Text for `restore_finished`: a restore of an organisation ended
+	 * (operations-backup-and-restore). With failures the agents stay stopped,
+	 * and the message names the failed objects.
+	 *
+	 * @param array<string,mixed> $subjectRaw The stored parameters (`organisation`, `failures`, `failed`).
+	 * @param IL10N $l The recipient-language localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/specs/backup-restore/spec.md#requirement-a-restore-stops-the-organisations-agents-and-writes-through-the-audit-trail-req-bkup-003
+	 */
+	private function restoreFinishedText(array $subjectRaw, IL10N $l): array {
+		$organisation = (string)($subjectRaw['organisation'] ?? '');
+		$failures = (int)($subjectRaw['failures'] ?? 0);
+		if ($failures === 0) {
+			return [
+				$l->t('Restore of %s completed', [$organisation]),
+				$l->t('Every object was written back and the agents run again.'),
+			];
+		}
+
+		$failed = implode('; ', array_map('strval', (array)($subjectRaw['failed'] ?? [])));
+
+		return [
+			$l->n('Restore of %s completed with %n failure', 'Restore of %s completed with %n failures', $failures, [$organisation]),
+			$l->t('The agents stay stopped until an administrator releases the kill switch. Failed: %s', [$failed]),
+		];
+	}//end restoreFinishedText()
+
+	/**
+	 * Text for `report_due`: a subscribed report is ready for its week or month (reports-on-a-schedule).
+	 *
+	 * @param array<string,mixed> $subjectRaw The stored subject parameters (`report`, `from`, `to`).
+	 * @param IL10N               $l          The recipient's localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/specs/reports/spec.md#requirement-a-person-shall-receive-a-report-on-a-schedule-they-choose
+	 */
+	private function reportDueText(array $subjectRaw, IL10N $l): array {
+		$report = (string)($subjectRaw['report'] ?? '');
+		$label  = $report;
+		if ($report === 'AiOversight') {
+			$label = $l->t('AI oversight');
+		}
+
+		return [
+			$l->t('Your report is ready: %s', [$label]),
+			$l->t(
+				'It covers %1$s to %2$s. Open it to read what happened in that period.',
+				[(string)($subjectRaw['from'] ?? ''), (string)($subjectRaw['to'] ?? '')]
+			),
+		];
+	}//end reportDueText()
+
+	/**
+	 * The `handoff_result` wording: work an agent started has come back (flows-hand-off-and-wait).
+	 *
+	 * @param string $name The work's label, for example "Vergunningcheck".
+	 * @param IL10N  $l    The recipient-language localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/archive/2026-11-25-flows-hand-off-and-wait/specs/agent-handoffs/spec.md#requirement-a-finished-handoff-returns-its-result-as-a-new-turn-in-the-same-conversation-req-handoff-002
+	 */
+	private function handoffResultText(string $name, IL10N $l): array {
+		return [
+			$l->t('Your assistant has the result of “%s”.', [$name]),
+			$l->t('Open the conversation to read its answer.'),
+		];
+	}//end handoffResultText()
+
+	/**
+	 * The `eval_regression` wording: a scheduled eval run fell below its regression
+	 * threshold (reuse-scheduled-bias-evals), e.g. "Bias check for Permit intake helper
+	 * dropped from 95% to 80%".
+	 *
+	 * @param array<string,mixed> $subjectRaw The stored subject parameters (`name`, `dataset`, `previous`, `current`).
+	 * @param IL10N               $l          The recipient-language localisation.
+	 *
+	 * @return array{0:string,1:string} The [subject, message] pair.
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#scenario-the-monthly-bias-check-drops-and-the-owner-is-told
+	 */
+	private function evalRegressionText(array $subjectRaw, IL10N $l): array {
+		$dataset  = (string)($subjectRaw['dataset'] ?? '');
+		$agent    = (string)($subjectRaw['name'] ?? '');
+		$current  = (int)($subjectRaw['current'] ?? 0);
+		$previous = $subjectRaw['previous'] ?? null;
+		$message  = $l->t('Open the run to see which cases failed.');
+
+		if (is_int($previous) === false) {
+			return [$l->t('%1$s for %2$s fell below its threshold: %3$s%%', [$dataset, $agent, $current]), $message];
+		}
+
+		return [$l->t('%1$s for %2$s dropped from %3$s%% to %4$s%%', [$dataset, $agent, $previous, $current]), $message];
+	}//end evalRegressionText()
+
+	/**
+	 * Link an `eval_regression` notification to the dataset page that lists the run.
+	 *
+	 * @param INotification       $notification The notification being prepared.
+	 * @param array<string,mixed> $subjectRaw   The stored subject parameters (`datasetId`).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#scenario-the-monthly-bias-check-drops-and-the-owner-is-told
+	 */
+	private function linkEvalRegression(INotification $notification, array $subjectRaw): void {
+		$datasetId = (string)($subjectRaw['datasetId'] ?? '');
+		if ($datasetId === '') {
+			return;
+		}
+
+		$path = rtrim($this->urlGenerator->linkToRoute('hermiq.dashboard.page'), '/') . '/evals/' . rawurlencode($datasetId);
+		if ($notification->getObjectId() !== '') {
+			$path .= '?run=' . rawurlencode($notification->getObjectId());
+		}
+
+		$notification->setLink($this->urlGenerator->getAbsoluteURL($path));
+	}//end linkEvalRegression()
 }//end class

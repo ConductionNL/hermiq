@@ -34,7 +34,7 @@ use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolClassificationService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Mcp\Service\Mcp\ToolRegistryFacade;
 use OCP\IConfig;
 use PHPUnit\Framework\TestCase;
 
@@ -571,6 +571,32 @@ class FacadeToolInvokerTest extends TestCase {
 	}//end testAgentIdIsInjectedForMemoryToolsOnly()
 
 	/**
+	 * A browser tool gets the run's agent and its conversation, so each
+	 * conversation drives its own browser context (tools-browser-and-computer-use D1).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-browser-and-computer-use/specs/browser-use/spec.md#requirement-the-browser-reaches-only-what-the-egress-policy-allows-req-browse-001
+	 */
+	public function testBrowserToolsReceiveTheAgentAndTheConversation(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->expects($this->once())
+			->method('invokeTool')
+			->with('hermiq_browserOpen', ['url' => 'https://example.org/', 'agentId' => 'agent-1', 'conversationId' => 'conv-9'])
+			->willReturn(['result' => ['content' => ''], 'isError' => false]);
+
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			agentId: 'agent-1',
+			mcpIdByName: ['hermiq_browserOpen' => 'hermiq.browserOpen'],
+			conversationId: 'conv-9'
+		);
+
+		$invoker->hermiq_browserOpen(url: 'https://example.org/');
+
+	}//end testBrowserToolsReceiveTheAgentAndTheConversation()
+
+	/**
 	 * A NON-memory tool's arguments are never touched by the agentId injection —
 	 * every other tool's behaviour is byte-for-byte unchanged.
 	 *
@@ -705,6 +731,72 @@ class FacadeToolInvokerTest extends TestCase {
 	}//end testNonWebResearchToolStepCarriesNoTargetKey()
 
 	/**
+	 * A `hermiq.runCode` call's trace step carries the code run, its outputs
+	 * redacted (tools-code-sandbox D6).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-code-sandbox/specs/code-sandbox/spec.md#requirement-every-code-run-is-on-the-run-record-redacted-and-capped-req-sandbox-005
+	 */
+	public function testRunCodeTraceStepCarriesTheRedactedCodeRun(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('invokeTool')->willReturn(
+			['result' => ['exitCode' => 0, 'stdout' => "44940 voor jan@example.nl\n", 'stderr' => '', 'durationMs' => 30, 'timedOut' => false], 'isError' => false]
+		);
+		$redaction = $this->createMock(RedactionService::class);
+		$redaction->method('redact')->willReturnArgument(0);
+
+		$trace = new RunTraceCollector();
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			trace: $trace,
+			mcpIdByName: ['hermiq_runCode' => 'hermiq.runCode'],
+			redactionService: $redaction
+		);
+
+		$invoker->hermiq_runCode(language: 'python', code: 'print(round(1284000 * 0.035))');
+
+		$steps = $trace->toArray();
+		$this->assertCount(1, $steps);
+		$this->assertSame('print(round(1284000 * 0.035))', $steps[0]['codeRun']['code']);
+		$this->assertSame(0, $steps[0]['codeRun']['exitCode']);
+		$this->assertSame("44940 voor ***\n", $steps[0]['codeRun']['stdout']);
+
+	}//end testRunCodeTraceStepCarriesTheRedactedCodeRun()
+
+	/**
+	 * A `hermiq.installTool` call's trace step records the package, its version
+	 * and the layer's hash, and the layer as the artefact.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-workspace/spec.md#scenario-an-agent-installs-csvkit
+	 */
+	public function testInstallToolTraceStepRecordsThePackageVersionAndLayerHash(): void {
+		$hash = str_repeat('a', 64);
+		$facade = $this->createMock(originalClassName: ToolRegistryFacade::class);
+		$facade->method('invokeTool')->willReturn(
+			[
+				'result' => [
+					'manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0', 'sha256' => $hash, 'binaries' => ['csvstat'],
+					'artefact' => ['type' => 'toolLayer', 'id' => $hash],
+				],
+				'isError' => false,
+			]
+		);
+
+		$trace = new RunTraceCollector();
+		$invoker = new FacadeToolInvoker(facade: $facade, trace: $trace, mcpIdByName: ['hermiq_installTool' => 'hermiq.installTool']);
+
+		$invoker->hermiq_installTool(manager: 'pip', package: 'csvkit', version: '2.1.0');
+
+		$steps = $trace->toArray();
+		$this->assertSame(expected: ['manager' => 'pip', 'package' => 'csvkit', 'version' => '2.1.0', 'sha256' => $hash], actual: $steps[0]['toolInstall']);
+		$this->assertSame(expected: ['type' => 'toolLayer', 'id' => $hash], actual: $steps[0]['artefact']);
+
+	}//end testInstallToolTraceStepRecordsThePackageVersionAndLayerHash()
+
+	/**
 	 * ADR-088 §3: a write records the identity of the artefact it produced, so an
 	 * overseer can follow the record to the thing that changed. Without this the
 	 * trace can say `createNote` succeeded but not on what.
@@ -739,6 +831,57 @@ class FacadeToolInvokerTest extends TestCase {
 		$this->assertSame(['type' => 'note', 'id' => '4711'], $steps[0]['artefact']);
 
 	}//end testWriteStepRecordsTheArtefactIdentity()
+
+	/**
+	 * tools-nextcloud-tasks: the two task writes receive the run's agent id for
+	 * their mark, and their step records the list and uid, never the summary.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-task-tools-are-default-denied-never-delete-and-record-identity-without-content-req-nctask-004
+	 */
+	public function testTaskWritesGetTheAgentIdAndRecordListAndUidOnly(): void {
+		$seen = [];
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('invokeTool')->willReturnCallback(
+			function (string $toolId, array $arguments) use (&$seen): array {
+				$seen[$toolId] = ($arguments['agentId'] ?? null);
+				return [
+					'result' => [
+						'created' => true,
+						'summary' => 'Besluit bezwaar Kerkstraat 12 versturen',
+						'artefact' => ['type' => 'task', 'id' => 'werkvoorraad/t-1'],
+					],
+					'isError' => false,
+				];
+			}
+		);
+
+		$trace = new RunTraceCollector();
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			trace: $trace,
+			agentId: 'agent-1',
+			mcpIdByName: [
+				'hermiq_createTask' => 'hermiq.createTask',
+				'hermiq_completeTask' => 'hermiq.completeTask',
+				'hermiq_listTasks' => 'hermiq.listTasks',
+			]
+		);
+
+		$invoker->hermiq_createTask(summary: 'Besluit bezwaar Kerkstraat 12 versturen');
+		$invoker->hermiq_completeTask(uid: 't-1');
+		$invoker->hermiq_listTasks(status: 'open');
+
+		$this->assertSame(
+			['hermiq_createTask' => 'agent-1', 'hermiq_completeTask' => 'agent-1', 'hermiq_listTasks' => null],
+			$seen
+		);
+		$steps = $trace->toArray();
+		$this->assertSame(['type' => 'task', 'id' => 'werkvoorraad/t-1'], $steps[0]['artefact']);
+		$this->assertStringNotContainsString('Kerkstraat', (string)json_encode($steps));
+
+	}//end testTaskWritesGetTheAgentIdAndRecordListAndUidOnly()
 
 	/**
 	 * The artefact descriptor carries identity ONLY. A tool cannot smuggle content
@@ -802,4 +945,80 @@ class FacadeToolInvokerTest extends TestCase {
 		$this->assertArrayNotHasKey('artefact', $steps[0]);
 
 	}//end testNonArtefactToolStepCarriesNoArtefactKey()
+
+	/**
+	 * In a project session the memory tools get the run's project key.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testTheProjectKeyIsInjectedForMemoryTools(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->expects($this->once())
+			->method('invokeTool')
+			->with('hermiq_rememberMemory', ['content' => 'x', 'scope' => 'agent', 'agentId' => 'agent-1', 'projectKey' => 'omgevingsvisie-2040'])
+			->willReturn(['result' => ['remembered' => true], 'isError' => false]);
+
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			agentId: 'agent-1',
+			mcpIdByName: ['hermiq_rememberMemory' => 'hermiq.rememberMemory'],
+			projectKey: 'omgevingsvisie-2040'
+		);
+
+		$invoker->hermiq_rememberMemory(content: 'x', scope: 'agent');
+	}//end testTheProjectKeyIsInjectedForMemoryTools()
+
+	/**
+	 * A project key the model supplies is overwritten by the run's, and removed
+	 * when the session has no project.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testAModelSuppliedProjectKeyIsNeverTrusted(): void {
+		$seen = [];
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('invokeTool')->willReturnCallback(
+			function (string $toolId, array $arguments) use (&$seen): array {
+				$seen[] = $arguments;
+				return ['result' => [], 'isError' => false];
+			}
+		);
+		$names = ['hermiq_recallMemory' => 'hermiq.recallMemory'];
+
+		(new FacadeToolInvoker(facade: $facade, agentId: 'agent-1', mcpIdByName: $names, projectKey: 'mine'))
+			->hermiq_recallMemory(query: 'q', projectKey: 'someone-elses');
+		(new FacadeToolInvoker(facade: $facade, agentId: 'agent-1', mcpIdByName: $names))
+			->hermiq_recallMemory(query: 'q', projectKey: 'someone-elses');
+
+		$this->assertSame(['query' => 'q', 'agentId' => 'agent-1', 'projectKey' => 'mine'], $seen[0]);
+		$this->assertSame(['query' => 'q', 'agentId' => 'agent-1'], $seen[1]);
+	}//end testAModelSuppliedProjectKeyIsNeverTrusted()
+
+	/**
+	 * Another tool's arguments are not touched by the project key.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-writes-go-to-the-project-memory-unless-marked-shared-req-pmem-003
+	 */
+	public function testTheProjectKeyIsNotInjectedForOtherTools(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->expects($this->once())
+			->method('invokeTool')
+			->with('hermiq_listFiles', ['path' => '/', 'projectKey' => 'kept'])
+			->willReturn(['result' => ['entries' => []], 'isError' => false]);
+
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			agentId: 'agent-1',
+			mcpIdByName: ['hermiq_listFiles' => 'hermiq.listFiles'],
+			projectKey: 'omgevingsvisie-2040'
+		);
+
+		$invoker->hermiq_listFiles(path: '/', projectKey: 'kept');
+	}//end testTheProjectKeyIsNotInjectedForOtherTools()
 }//end class

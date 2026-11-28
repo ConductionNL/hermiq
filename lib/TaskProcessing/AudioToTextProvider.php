@@ -24,13 +24,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\TaskProcessing;
 
-use OCA\Hermiq\Service\Speech\SpeechClient;
-use OCP\Files\File;
-use OCP\Files\SimpleFS\ISimpleFile;
+use OCA\Hermiq\Kernel\Contracts\SpeechClientInterface;
 use OCP\TaskProcessing\EShapeType;
 use OCP\TaskProcessing\ISynchronousProvider;
 use OCP\TaskProcessing\ShapeDescriptor;
-use OCP\TaskProcessing\ShapeEnumValue;
 use OCP\TaskProcessing\TaskTypes\AudioToText;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -44,15 +41,16 @@ use RuntimeException;
  * @spec openspec/specs/nc-native-tools/spec.md#requirement-remote-systems-route-through-openconnector
  */
 class AudioToTextProvider implements ISynchronousProvider {
+	use EmptyOptionalShapesTrait;
 
 	/**
 	 * Constructor.
 	 *
-	 * @param SpeechClient $speech The sidecar transport.
+	 * @param SpeechClientInterface $speech The sidecar transport.
 	 * @param LoggerInterface $logger Diagnostics.
 	 */
 	public function __construct(
-		private readonly SpeechClient $speech,
+		private readonly SpeechClientInterface $speech,
 		private readonly LoggerInterface $logger,
 	) {
 
@@ -144,78 +142,6 @@ class AudioToTextProvider implements ISynchronousProvider {
 	}//end getOptionalOutputShape()
 
 	/**
-	 * Input enum values.
-	 *
-	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
-	 *
-	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
-	 */
-	public function getInputShapeEnumValues(): array {
-		return [];
-
-	}//end getInputShapeEnumValues()
-
-	/**
-	 * Input defaults.
-	 *
-	 * @return array<array-key, numeric|string> Empty.
-	 *
-	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
-	 */
-	public function getInputShapeDefaults(): array {
-		return [];
-
-	}//end getInputShapeDefaults()
-
-	/**
-	 * Optional input enum values.
-	 *
-	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
-	 *
-	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
-	 */
-	public function getOptionalInputShapeEnumValues(): array {
-		return [];
-
-	}//end getOptionalInputShapeEnumValues()
-
-	/**
-	 * Optional input defaults.
-	 *
-	 * @return array<array-key, numeric|string> Empty.
-	 *
-	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
-	 */
-	public function getOptionalInputShapeDefaults(): array {
-		return [];
-
-	}//end getOptionalInputShapeDefaults()
-
-	/**
-	 * Output enum values.
-	 *
-	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
-	 *
-	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
-	 */
-	public function getOutputShapeEnumValues(): array {
-		return [];
-
-	}//end getOutputShapeEnumValues()
-
-	/**
-	 * Optional output enum values.
-	 *
-	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
-	 *
-	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
-	 */
-	public function getOptionalOutputShapeEnumValues(): array {
-		return [];
-
-	}//end getOptionalOutputShapeEnumValues()
-
-	/**
 	 * Transcribe.
 	 *
 	 * @param string|null $userId The acting user, or null.
@@ -227,10 +153,11 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * @throws RuntimeException When the sidecar is unavailable.
 	 *
 	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-remote-systems-route-through-openconnector
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) TaskAudioInput is used through its static API (a pure helper or
+	 * named constructor) with no state to inject.
 	 */
 	public function process(?string $userId, array $input, callable $reportProgress): array {
-		$audio = ($input['input'] ?? null);
-
 		// 🔴 NEXTCLOUD HANDS AN `OCP\Files\File` NODE, NOT A RESOURCE AND NOT BYTES.
 		// This method used to accept only the latter two, so EVERY audio2text task
 		// failed with the message below — measured 2026-08-20 on task 3, the first
@@ -248,17 +175,7 @@ class AudioToTextProvider implements ISynchronousProvider {
 		// All three shapes are accepted rather than the one this version happens
 		// to pass: the ISimpleFile/File split differs by input source, and a
 		// provider that guesses is a provider that breaks on the next caller.
-		if ($audio instanceof File === true || $audio instanceof ISimpleFile === true) {
-			$audio = $audio->getContent();
-		}
-
-		if (is_resource($audio) === true) {
-			$audio = stream_get_contents($audio);
-		}
-
-		if (is_string($audio) === false || $audio === '') {
-			throw new RuntimeException('No audio was supplied to transcribe.');
-		}
+		$audio = TaskAudioInput::bytes(input: $input, purpose: 'transcribe');
 
 		$reportProgress(0.1);
 

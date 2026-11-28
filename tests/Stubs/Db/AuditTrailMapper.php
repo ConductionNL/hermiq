@@ -4,7 +4,7 @@
  * Test stub for OpenRegister AuditTrailMapper.
  *
  * Stands in for OCA\OpenRegister\Db\AuditTrailMapper when OpenRegister is not
- * installed (standalone CI). Exposes only createAuditTrailEntry, the public
+ * installed (standalone CI). Exposes recordObjectEvent, the public
  * app-writable audit seam Hermiq's ScheduleService calls to record an explicit
  * per-run entry. The real mapper ships with OpenRegister and chains the entry
  * into the hash-verified trail.
@@ -23,31 +23,47 @@ declare(strict_types=1);
 
 namespace OCA\OpenRegister\Db;
 
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCP\AppFramework\Db\Entity;
+
 /**
  * Minimal AuditTrailMapper stub for standalone unit runs.
  */
 class AuditTrailMapper {
 
 	/**
-	 * Create an explicit audit trail entry for an object.
+	 * Record a non-CRUD action on one object.
 	 *
-	 * @param ObjectEntity $object The object the entry is about.
-	 * @param string $action The audit action (e.g. 'run').
-	 * @param array<string,mixed> $context The changed/context payload.
+	 * @param ObjectAuditEvent $event The object, action and context.
 	 *
 	 * @return AuditTrail
 	 */
-	public function createAuditTrailEntry(
-		ObjectEntity $object,
-		string $action,
-		array $context = [],
-	): AuditTrail {
+	public function recordObjectEvent(ObjectAuditEvent $event): AuditTrail {
 		$entry = new AuditTrail();
 		$entry->setUuid('00000000-0000-0000-0000-000000000000');
-		$entry->setAction($action);
-		$entry->setChanged($context);
+		$entry->setAction($event->action);
+		$entry->setChanged($event->context);
 		return $entry;
-	}//end createAuditTrailEntry()
+	}//end recordObjectEvent()
+
+	/**
+	 * Persist a changed audit entry.
+	 *
+	 * Mirrors the real mapper's `update(Entity $entity): AuditTrail`, which
+	 * hermiq's retention cleanup calls to replace an expired run's payload with a
+	 * tombstone. The one deliberate divergence is the parameter type: the real
+	 * `AuditTrail` extends `OCP\AppFramework\Db\Entity` and this stub's does not,
+	 * so the union accepts both rather than making the stub unusable with itself.
+	 * Widening the type here is safe in the direction that matters — production
+	 * passes a real `AuditTrail`, which is an `Entity`.
+	 *
+	 * @param Entity|AuditTrail $entity The entry to persist.
+	 *
+	 * @return AuditTrail The persisted entry.
+	 */
+	public function update(Entity|AuditTrail $entity): AuditTrail {
+		return $entity;
+	}//end update()
 
 	/**
 	 * Find audit trail entries matching the given filters.

@@ -2,7 +2,8 @@
 
 ## 0. Sequencing and the blocking decision
 
-- [ ] Land `tool-scope-security-default` first
+- [x] Land `tool-scope-security-default` first
+  - 2026-11-27: landed; archived as `openspec/changes/archive/2026-11-17-tool-scope-security-default/`. The token strategy (D0.1) is still open and still blocks the pool.
 - [ ] Decide the token strategy (design D0.1) before writing any pool code
 
 Acceptance criteria:
@@ -48,7 +49,7 @@ Acceptance criteria:
 
 ## 4. Incidental, cheap, separate
 
-- [ ] Stop the CLI's `GET /apps/hermiq/api/mcp/run` → 401 round trip
+- [x] Stop the CLI's `GET /apps/hermiq/api/mcp/run` → 401 round trip (a GET route answers 405 `Allow: POST`, the MCP transport's "no stream here", instead of the SPA catch-all's login 401: `McpRunStreamController`)
 
 Acceptance criteria:
 - Every governed turn currently includes a `GET` to a POST-only endpoint whose 401 is discarded. It is small next to the 4 s, but it is pure waste on every turn and does not depend on any decision in task 0.

@@ -10,7 +10,8 @@ does not, onto an engine primitive:
 | `kind=cron`, 5-field expression, timezone-safe | `openregister.trigger-schedule` (`cron`, `runAs`) | 1 (this change) |
 | `kind=interval`, minutes divide 60, or whole hours dividing 24 | `openregister.trigger-schedule` with the derived cron (`*/N * * * *` or `0 */H * * *`) | 1 (this change) |
 | `kind=once` (`runAt`) | `FlowTimerService` one-shot timer: a deadline, which is exactly the timer service's primitive | staged |
-| `kind=cron`, 6-field or timezone-sensitive | none yet; the engine evaluates cron in the server timezone and takes 5 fields only | staged |
+| `kind=cron`, 5-field, timezone-sensitive | `openregister.trigger-schedule` with `timezone` = the owner's zone, when the installed OpenRegister reads that key (`TriggerScheduleNode::CONFIG_TIMEZONE`); local otherwise | 2.2 |
+| `kind=cron`, 6-field | none yet; the engine takes 5 fields only | staged |
 | `kind=interval`, inexpressible (for example 90 minutes) | none; would need timer re-arm chains | staged |
 | A pending retry attempt (`retryState.nextAttemptAt`) | none; retry backoff is domain bookkeeping, not a cadence | stays local |
 
@@ -40,9 +41,15 @@ cron is mirrored only when that difference cannot change its meaning:
 - the expression is a pure cadence: minute field `*` or `*/n`, every other
   field `*`.
 
-Anything else (a "09:00 daily" owned by someone in another timezone) stays on
-the local tick until the trigger node learns timezones. Shifting hour fields
-by an offset was rejected: DST makes the rewrite wrong twice a year, silently.
+Anything else (a "09:00 daily" owned by someone in another timezone) mirrors
+with the owner's zone on the trigger node's `timezone` key, which the engine
+reads the cron in (task 2.2). That needs an OpenRegister that defines
+`TriggerScheduleNode::CONFIG_TIMEZONE`, and a zone PHP knows (the engine reads
+an unknown zone as the server's, which is the shift this rule prevents); without
+either it stays on the local tick. Only sensitive crons carry the key, so mirrors
+made before it existed are not rewritten, and a change of the owner's zone
+refreshes the mirror. Shifting hour fields by an offset was rejected: DST makes
+the rewrite wrong twice a year, silently.
 
 ### Interval alignment
 

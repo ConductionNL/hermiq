@@ -24,11 +24,13 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\AgentVersionController;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AgentVersionService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
+use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -121,7 +123,8 @@ class AgentVersionControllerTest extends TestCase {
 			$this->objectService,
 			$this->agentVersionService,
 			$userSession,
-			$this->createMock(LoggerInterface::class)
+			$this->createMock(LoggerInterface::class),
+			new AgentAccessService($this->objectService, $this->createMock(LoggerInterface::class), $this->createMock(IGroupManager::class))
 		);
 
 	}//end controller()

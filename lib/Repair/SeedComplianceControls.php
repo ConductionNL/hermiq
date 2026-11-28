@@ -24,7 +24,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
+ * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
  */
 
 declare(strict_types=1);
@@ -32,6 +32,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Repair;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -42,7 +44,7 @@ use Throwable;
 /**
  * Seed the compliance-control-packs catalogue via ObjectService (idempotent).
  *
- * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
+ * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
  */
 class SeedComplianceControls implements IRepairStep {
 	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
@@ -85,7 +87,7 @@ class SeedComplianceControls implements IRepairStep {
 	 *
 	 * @return string
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
 	 */
 	public function getName(): string {
 		return 'Seed compliance-control-packs catalogue (EU AI Act, ISO/IEC 42001, NIST AI RMF)';
@@ -98,7 +100,7 @@ class SeedComplianceControls implements IRepairStep {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
+	 * @spec openspec/changes/archive/2026-07-13-compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -129,6 +131,8 @@ class SeedComplianceControls implements IRepairStep {
 	 * @param IOutput $output Progress reporting.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
 	 */
 	private function seedPacks(object $objectService, IOutput $output): void {
 		$frameworksSeeded = 0;
@@ -140,8 +144,7 @@ class SeedComplianceControls implements IRepairStep {
 
 				$objectService->saveObject(
 					object: $framework,
-					register: self::REGISTER_SLUG,
-					schema: self::FRAMEWORK_SCHEMA,
+					options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::FRAMEWORK_SCHEMA)),
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -153,7 +156,7 @@ class SeedComplianceControls implements IRepairStep {
 		}//end foreach
 
 		$controlsSeeded = 0;
-		foreach ($this->seedControls() as $control) {
+		foreach ([...$this->seedControls(), ...$this->biasTestingControls()] as $control) {
 			try {
 				$exists = $this->controlExists(
 					objectService: $objectService,
@@ -166,8 +169,7 @@ class SeedComplianceControls implements IRepairStep {
 
 				$objectService->saveObject(
 					object: $control,
-					register: self::REGISTER_SLUG,
-					schema: self::CONTROL_SCHEMA,
+					options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONTROL_SCHEMA)),
 					_rbac: false,
 					_multitenancy: false
 				);
@@ -220,7 +222,7 @@ class SeedComplianceControls implements IRepairStep {
 
 	/**
 	 * The seed Control rows (design.md Seed Data): 3 EU AI Act + 3 ISO/IEC 42001 + 4
-	 * NIST AI RMF, each mapped to exactly one of the six evidenceSource seams.
+	 * NIST AI RMF, each mapped to exactly one of the seven evidenceSource seams.
 	 *
 	 * @return array<int, array<string, mixed>> The seed objects.
 	 *
@@ -230,6 +232,17 @@ class SeedComplianceControls implements IRepairStep {
 	 */
 	private function seedControls(): array {
 		return [
+			[
+				'frameworkSlug' => 'eu-ai-act',
+				'controlId' => 'art.4',
+				'title' => 'AI literacy',
+				'description' => 'Providers and deployers of AI systems must ensure, to their best extent, a sufficient level '
+					. 'of AI literacy of their staff and other persons dealing with the operation and use of AI systems.',
+				'sourceUrl' => 'https://artificialintelligenceact.eu/article/4/',
+				'evidenceSource' => 'ai-literacy-completion',
+				'evidenceDescription' => 'Satisfied when every person who used an agent in the last 90 days completed '
+					. 'the current lessons of Working with AI; partial when some did.',
+			],
 			[
 				'frameworkSlug' => 'eu-ai-act',
 				'controlId' => 'art.12',
@@ -343,6 +356,41 @@ class SeedComplianceControls implements IRepairStep {
 		];
 
 	}//end seedControls()
+
+	/**
+	 * The two bias-testing controls (reuse-scheduled-bias-evals): ISO/IEC 42001
+	 * A.6.2.4 and NIST AI RMF MEASURE 2.11, both on `bias-eval-recency`.
+	 *
+	 * @return array<int, array<string, mixed>> The seed objects.
+	 *
+	 * @spec openspec/changes/archive/2026-11-24-reuse-scheduled-bias-evals/specs/agent-evals/spec.md#requirement-the-latest-bias-check-is-visible-as-evidence-req-biaseval-004
+	 */
+	private function biasTestingControls(): array {
+		$evidence = 'Satisfied when every agent with a scheduled bias check had a completed bias check in the last 45 days.';
+
+		return [
+			[
+				'frameworkSlug' => 'iso-42001',
+				'controlId' => 'A.6.2.4',
+				'title' => 'AI system verification and validation',
+				'description' => 'The organisation shall define and document verification and validation '
+					. 'measures for the AI system, including the test data and the criteria used.',
+				'sourceUrl' => 'https://www.iso.org/standard/81230.html',
+				'evidenceSource' => 'bias-eval-recency',
+				'evidenceDescription' => $evidence,
+			],
+			[
+				'frameworkSlug' => 'nist-ai-rmf',
+				'controlId' => 'MEASURE-2.11',
+				'title' => 'Fairness and bias evaluated',
+				'description' => 'Fairness and bias, as identified in the MAP function, are evaluated and '
+					. 'the results are documented.',
+				'sourceUrl' => 'https://www.nist.gov/itl/ai-risk-management-framework',
+				'evidenceSource' => 'bias-eval-recency',
+				'evidenceDescription' => $evidence,
+			],
+		];
+	}//end biasTestingControls()
 
 	/**
 	 * Whether a ControlFramework with the given slug already exists (system context,

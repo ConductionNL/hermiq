@@ -256,4 +256,32 @@ class SpeechProvidersTest extends TestCase {
 
 	}//end testNeitherProviderLogsContent()
 
+	/**
+	 * The shape accessors: transcription declares a `language` input and output,
+	 * synthesis a `voice` input with its `af_heart` default; every other enum,
+	 * default and optional slot is empty.
+	 *
+	 * @return void
+	 */
+	public function testShapeAccessorsDeclareOnlyTheLanguageAndVoiceSlots(): void {
+		$stt = new AudioToTextProvider($this->createMock(SpeechClient::class), $this->createMock(LoggerInterface::class));
+		$tts = new TextToSpeechProvider($this->createMock(SpeechClient::class), $this->createMock(LoggerInterface::class));
+
+		$this->assertSame(['language'], array_keys($stt->getOptionalInputShape()));
+		$this->assertSame(['language'], array_keys($stt->getOptionalOutputShape()));
+		$this->assertSame(['voice'], array_keys($tts->getOptionalInputShape()));
+		$this->assertSame([], $tts->getOptionalOutputShape());
+		$this->assertSame(['voice' => 'af_heart'], $tts->getOptionalInputShapeDefaults());
+		$this->assertSame([], $stt->getOptionalInputShapeDefaults());
+
+		foreach ([$stt, $tts] as $provider) {
+			$this->assertSame([], $provider->getInputShapeEnumValues());
+			$this->assertSame([], $provider->getInputShapeDefaults());
+			$this->assertSame([], $provider->getOptionalInputShapeEnumValues());
+			$this->assertSame([], $provider->getOutputShapeEnumValues());
+			$this->assertSame([], $provider->getOptionalOutputShapeEnumValues());
+		}
+
+	}//end testShapeAccessorsDeclareOnlyTheLanguageAndVoiceSlots()
+
 }//end class

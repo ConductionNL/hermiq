@@ -1,5 +1,12 @@
 [
   {
+    "slug": "api-contract",
+    "title": "API contract",
+    "summary": "How Hermiq's JSON API meets the NL API Design Rules that apply to every endpoint, whatever it does: each path carries the major version, each response says which version answered it, errors come back as RFC 9457 problem details, and the OpenAPI document that describes the API is published by the API itself.",
+    "status": "stable",
+    "docsUrl": "openspec/specs/api-contract/spec.md"
+  },
+  {
     "slug": "flow-authoring",
     "title": "Flow Authoring",
     "summary": "How hermiq names, stores and authors a flow: that a flow is called a flow, that its definition lives once in OpenRegister, and what the canvas puts on a node card, a connection and its ports.",

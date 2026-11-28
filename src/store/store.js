@@ -8,7 +8,7 @@ import { useSettingsStore } from './modules/settings.js'
  * through this createObjectStore — no bespoke Pinia store, no bespoke CRUD
  * backend (ADR-001, ADR-022).
  *
- * @spec openspec/changes/agent-management-ui/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-2-1
  */
 export const useScheduleStore = createObjectStore('schedule', {
 	register: 'hermiq',
@@ -32,7 +32,7 @@ export const useScheduleStore = createObjectStore('schedule', {
  * "same as every other Hermiq schema object" wins. No hermiq-side objects
  * proxy is added (it would trip gate-17 redundant-controller).
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-5-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-5-2
  */
 export const useAgentStore = createObjectStore('agent', {
 	register: 'hermiq',
@@ -95,3 +95,42 @@ export const useSkillStore = createObjectStore('agentskill', {
 })
 
 export { useSettingsStore }
+
+/**
+ * Canonical OpenRegister object store for the 'context' schema
+ * (hermiq-context-documents): ContextFormModal creates and edits Context bundles
+ * through the generic object write path.
+ *
+ * @spec openspec/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
+ */
+export const useContextStore = createObjectStore('context', {
+	register: 'hermiq',
+	schema: 'context',
+})
+
+/**
+ * Canonical OpenRegister object store for the 'agentpublicchannel' schema
+ * (delivery-public-web-chat): PublicChannelFormModal creates and edits public
+ * chat channels through the generic object write path; the save guard on the
+ * server refuses an agent with tools and gives a new channel its token.
+ *
+ * @spec openspec/changes/delivery-public-web-chat/specs/public-chat-channel/spec.md#requirement-an-organisation-admin-declares-a-public-chat-channel-req-pubchat-001
+ */
+export const usePublicChannelStore = createObjectStore('agentpublicchannel', {
+	register: 'hermiq',
+	schema: 'agentpublicchannel',
+})
+
+/**
+ * Canonical OpenRegister object store for the 'agentknowledgebase' schema
+ * (memory-knowledge-bases): the knowledge base pages and the agent form's
+ * knowledge base picker read and write knowledge bases through the generic
+ * object path. Uploads and the sources' state are Hermiq routes
+ * (src/api/knowledgeBases.js), because they touch Files.
+ *
+ * @spec openspec/changes/memory-knowledge-bases/specs/knowledge-bases/spec.md#requirement-an-owner-can-create-a-knowledge-base-and-fill-it-from-files-req-kb-001
+ */
+export const useKnowledgeBaseStore = createObjectStore('agentknowledgebase', {
+	register: 'hermiq',
+	schema: 'agentknowledgebase',
+})

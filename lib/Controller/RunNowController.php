@@ -28,18 +28,20 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
+ * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
-use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Kernel\AppIdentity;
+use OCA\Hermiq\Kernel\Contracts\LiteracyRequirementInterface;
+use OCA\Hermiq\Kernel\Contracts\ScheduleServiceInterface;
 use OCA\Hermiq\Service\EngineRequiredException;
-use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCA\Hermiq\Service\Schedule\OwnedSchedule;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -51,23 +53,9 @@ use Throwable;
 /**
  * Owner-scoped "Run now" endpoint that fires a schedule via ScheduleService.
  *
- * @spec openspec/changes/agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
+ * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
  */
 class RunNowController extends Controller {
-
-	/**
-	 * OpenRegister register slug that holds Hermiq schedule objects.
-	 *
-	 * @var string
-	 */
-	private const REGISTER_SLUG = 'hermiq';
-
-	/**
-	 * OpenRegister schema slug for schedule objects.
-	 *
-	 * @var string
-	 */
-	private const SCHEMA_SLUG = 'schedule';
 
 	/**
 	 * Constructor.
@@ -75,19 +63,21 @@ class RunNowController extends Controller {
 	 * @param IRequest $request The request object.
 	 * @param ObjectService $objectService OpenRegister object read (ownership check + status re-read).
 	 * @param IUserSession $userSession Resolves the requesting user for the owner guard.
-	 * @param ScheduleService $scheduleService Runs the schedule via the shared dispatch path.
+	 * @param ScheduleServiceInterface $scheduleService Runs the schedule via the shared dispatch path.
 	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param LiteracyRequirementInterface|null $literacy The course requirement for a run by hand (compliance-ai-literacy).
 	 *
-	 * @spec openspec/changes/agent-management-ui/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-1-2
 	 */
 	public function __construct(
 		IRequest $request,
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
-		private readonly ScheduleService $scheduleService,
+		private readonly ScheduleServiceInterface $scheduleService,
 		private readonly LoggerInterface $logger,
+		private readonly ?LiteracyRequirementInterface $literacy = null,
 	) {
-		parent::__construct(appName: Application::APP_ID, request: $request);
+		parent::__construct(appName: AppIdentity::APP_ID, request: $request);
 	}//end __construct()
 
 	/**
@@ -100,7 +90,7 @@ class RunNowController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/agent-management-ui/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-1-2
 	 */
 	public function run(string $scheduleId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -112,6 +102,13 @@ class RunNowController extends Controller {
 		if ($schedule === null) {
 			// 404 (not 403) so a non-owner cannot even confirm the schedule exists.
 			return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
+		}
+
+		// Compliance-ai-literacy: a run by hand needs the course first when the
+		// organisation requires it; the schedule's own clock never does.
+		$refusal = $this->literacy?->refusal(uid: $user->getUID());
+		if ($refusal !== null) {
+			return new JSONResponse(['error' => $refusal['message']] + $refusal, Http::STATUS_FORBIDDEN);
 		}
 
 		try {
@@ -160,7 +157,7 @@ class RunNowController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 *
-	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+	 * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
 	 */
 	public function dryRun(string $scheduleId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -217,36 +214,11 @@ class RunNowController extends Controller {
 	 *
 	 * @return ObjectEntity|null The owned schedule, or null when absent/not owned.
 	 *
-	 * @spec openspec/changes/agent-management-ui/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-management-ui/tasks.md#task-1-2
 	 */
 	private function loadOwnedSchedule(string $scheduleId, string $uid): ?ObjectEntity {
-		try {
-			$schedule = $this->objectService->find(
-				id: $scheduleId,
-				register: self::REGISTER_SLUG,
-				schema: self::SCHEMA_SLUG
-			);
-		} catch (Throwable $e) {
-			// `ObjectService::find()` throws when the object is absent, and
-			// `run()`/`dryRun()` call this helper OUTSIDE their own try block —
-			// so the throw would escape as a framework 500 with a stack trace on
-			// a #[NoAdminRequired] route. A schedule that cannot be loaded is, to
-			// a caller, not owned; null already carries that meaning.
-			$this->logger->warning(
-				'Hermiq schedule lookup failed for ' . $scheduleId . ': ' . $e->getMessage(),
-				['exception' => $e]
-			);
-			return null;
-		}//end try
-
-		if (($schedule instanceof ObjectEntity) === false) {
-			return null;
-		}
-
-		if ((string)($schedule->getOwner() ?? '') !== $uid) {
-			return null;
-		}
-
-		return $schedule;
+		// The guard lives in OwnedSchedule.
+		return (new OwnedSchedule(objectService: $this->objectService, logger: $this->logger))
+			->load(scheduleId: $scheduleId, uid: $uid);
 	}//end loadOwnedSchedule()
 }//end class

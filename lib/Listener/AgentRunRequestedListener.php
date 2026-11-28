@@ -31,7 +31,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/flow-agent-listener/tasks.md#1-listener-and-queued-job
+ * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#1-listener-and-queued-job
  */
 
 declare(strict_types=1);
@@ -51,7 +51,7 @@ use Throwable;
  *
  * @implements IEventListener<Event>
  *
- * @spec openspec/changes/flow-agent-listener/tasks.md#1-listener-and-queued-job
+ * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#1-listener-and-queued-job
  */
 class AgentRunRequestedListener implements IEventListener {
 	/**
@@ -73,7 +73,7 @@ class AgentRunRequestedListener implements IEventListener {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-flow-agent-listener/tasks.md#task-1-2
 	 */
 	public function handle(Event $event): void {
 		if ($event instanceof AgentRunRequestedEvent === false) {

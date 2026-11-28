@@ -2,7 +2,7 @@
 <!-- Copyright (C) 2026 Conduction B.V. -->
 
 <!--
-  ChatSettingsModal — per-conversation view/tool selection + RAG settings
+  ChatSettingsModal — per-session view/tool selection + RAG settings
   (agent-engine-port task 5.1; OR rendered this inline as an NcDialog in
   ChatIndex.vue, hermiq's modal-isolation gate requires an own file).
 
@@ -27,7 +27,7 @@
 				{{
 					t(
 						'hermiq',
-						'Control which views and tools the AI may use in this conversation. By default, all agent capabilities are enabled.',
+						'Control which views and tools the AI may use in this session. By default, all agent capabilities are enabled.',
 					)
 				}}
 			</p>
@@ -114,7 +114,7 @@
 			</section>
 
 			<div class="chat-settings__actions">
-				<NcButton type="primary" @click="$emit('close')">
+				<NcButton variant="primary" @click="$emit('close')">
 					{{ t('hermiq', 'Close') }}
 				</NcButton>
 			</div>

@@ -29,6 +29,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\Agent\AgentSwitchedOffException;
+use OCA\Hermiq\Service\AgentBuildService;
 use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\BudgetService;
@@ -36,19 +38,25 @@ use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\RedactionService;
+use OCA\Hermiq\Service\RunDoneNotifier;
 use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Service\TraceExport\TraceExportQueue;
 use OCA\Hermiq\Service\SkillVersionService;
-use OCA\OpenRegister\Db\Agent;
-use OCA\OpenRegister\Db\AgentMapper;
+use OCA\OpenRegister\Db\AuditTrail\ObjectAuditEvent;
+use OCA\OpenRegister\Mcp\Db\Agent;
+
+use OCA\Hermiq\Service\GuardrailBlockedException;
+use OCA\OpenRegister\Mcp\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
-use OCA\OpenRegister\Db\Conversation;
-use OCA\OpenRegister\Db\ConversationMapper;
+use OCA\OpenRegister\Mcp\Db\Conversation;
+use OCA\OpenRegister\Mcp\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Service\ChatService;
+use OCA\OpenRegister\Mcp\Service\ChatService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
@@ -59,6 +67,8 @@ use OCP\IUserSession;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectDeletion;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 
 /**
  * Tests for the agent-schedule-dispatcher ScheduleService.
@@ -66,6 +76,13 @@ use Psr\Log\LoggerInterface;
  * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
  */
 class ScheduleServiceTest extends TestCase {
+
+	/**
+	 * The trace export queue handed to the service; null leaves export out.
+	 *
+	 * @var TraceExportQueue|null
+	 */
+	private ?TraceExportQueue $traceExportQueue = null;
 
 	/**
 	 * Mock ObjectService.
@@ -138,7 +155,7 @@ class ScheduleServiceTest extends TestCase {
 	private RedactionService $redactionService;
 
 	/**
-	 * Recorded createAuditTrailEntry() calls: each ['action' => ..., 'context' => ...].
+	 * Recorded recordObjectEvent() calls: each ['action' => ..., 'context' => ...].
 	 *
 	 * @var array<int, array<string, mixed>>
 	 */
@@ -238,6 +255,9 @@ class ScheduleServiceTest extends TestCase {
 
 				$user = $this->createMock(IUser::class);
 				$user->method('getUID')->willReturn($uid);
+				// OCP 35 declares isEnabled(): bool, so an unconfigured mock
+				// would answer false (a disabled user) instead of null.
+				$user->method('isEnabled')->willReturn(true);
 				return $user;
 			}
 		);
@@ -263,12 +283,12 @@ class ScheduleServiceTest extends TestCase {
 		// Capture every explicit per-run audit entry the dispatcher writes.
 		$this->auditCalls = [];
 		$this->auditTrailMapper = $this->createMock(AuditTrailMapper::class);
-		$this->auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
-			function (ObjectEntity $object, string $action, array $context = []): AuditTrail {
-				$this->auditCalls[] = ['action' => $action, 'context' => $context];
+		$this->auditTrailMapper->method('recordObjectEvent')->willReturnCallback(
+			function (ObjectAuditEvent $event): AuditTrail {
+				$this->auditCalls[] = ['action' => $event->action, 'context' => $event->context];
 				$entry = new AuditTrail();
-				$entry->setAction($action);
-				$entry->setChanged($context);
+				$entry->setAction($event->action);
+				$entry->setChanged($event->context);
 				return $entry;
 			}
 		);
@@ -322,9 +342,11 @@ class ScheduleServiceTest extends TestCase {
 	/**
 	 * Build a ScheduleService wired to the current mocks.
 	 *
+	 * @param AgentBuildService|null $agentBuilds The build service, when the test needs it.
+	 *
 	 * @return ScheduleService
 	 */
-	private function makeService(): ScheduleService {
+	private function makeService(?AgentBuildService $agentBuilds = null): ScheduleService {
 		return new ScheduleService(
 			objectService: $this->objectService,
 			agentMapper: $this->agentMapper,
@@ -346,6 +368,8 @@ class ScheduleServiceTest extends TestCase {
 			skillVersionService: $this->createMock(SkillVersionService::class),
 			delegationContext: $this->delegationContext,
 			jobList: $this->createMock(IJobList::class),
+			traceExportQueue: $this->traceExportQueue,
+			agentBuilds: $agentBuilds,
 		);
 
 	}//end makeService()
@@ -560,7 +584,11 @@ class ScheduleServiceTest extends TestCase {
 		$errorStatuses = [];
 		$okStatuses = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], $register = null, $schema = null, ?string $uuid = null) use (&$errorStatuses, &$okStatuses): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$errorStatuses, &$okStatuses): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				if (($object['lastStatus'] ?? '') === 'error') {
 					$errorStatuses[] = $uuid;
 				}
@@ -686,7 +714,8 @@ class ScheduleServiceTest extends TestCase {
 
 		$deleted = [];
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid) use (&$deleted): bool {
+			function (ObjectDeletion $deletion) use (&$deleted): bool {
+				$uuid = $deletion->uuid;
 				$deleted[] = $uuid;
 				return true;
 			}
@@ -811,7 +840,8 @@ class ScheduleServiceTest extends TestCase {
 			}
 		);
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid) use (&$deleted): bool {
+			function (ObjectDeletion $deletion) use (&$deleted): bool {
+				$uuid = $deletion->uuid;
 				$deleted[] = $uuid;
 				return true;
 			}
@@ -975,6 +1005,51 @@ class ScheduleServiceTest extends TestCase {
 	}//end testSuccessfulDeliveryClearsLastDeliveryError()
 
 	/**
+	 * A finished scheduled run is handed to trace export once, with the audited context and its organisation.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/trace-export/spec.md#requirement-export-never-slows-or-changes-a-run-req-trex-003
+	 */
+	public function testAFinishedScheduledRunIsEnqueuedForTraceExport(): void {
+		$this->objectService->method('findAll')->willReturn(
+			[
+				$this->schedule(
+					[
+						'kind' => 'interval',
+						'intervalMinutes' => 60,
+						'agentId' => 'agent-uuid',
+						'prompt' => 'go',
+						'deliver' => 'none',
+						'enabled' => true,
+						'nextRun' => '2020-01-01T00:00:00+00:00',
+						'repeat' => ['times' => 0, 'completed' => 0],
+					]
+				),
+			]
+		);
+		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+		$enqueued = [];
+		$this->traceExportQueue = $this->createMock(TraceExportQueue::class);
+		$this->traceExportQueue->expects($this->once())->method('enqueueRun')->willReturnCallback(
+			function (array $context, string $trigger, string $organisation = '') use (&$enqueued): bool {
+				$enqueued[] = [$context, $trigger, $organisation];
+				return true;
+			}
+		);
+
+		$this->makeService()->run();
+
+		$this->assertCount(1, $this->auditCalls);
+		$this->assertSame('schedule', $enqueued[0][1]);
+		$this->assertSame($this->auditCalls[0]['context'], $enqueued[0][0]);
+		$this->assertSame((string)($this->auditCalls[0]['context']['organisation'] ?? ''), $enqueued[0][2]);
+		$this->assertSame('ok', $enqueued[0][0]['status']);
+
+	}//end testAFinishedScheduledRunIsEnqueuedForTraceExport()
+
+	/**
 	 * A successful run writes an explicit action='run' audit entry with owner status.
 	 *
 	 * @return void
@@ -1013,6 +1088,42 @@ class ScheduleServiceTest extends TestCase {
 		$this->assertSame('version-1', $context['agentVersion'], 'agent-versioning: the executing agent version must be pinned.');
 
 	}//end testSuccessfulRunWritesRunAuditEntry()
+
+	/**
+	 * The run entry names the build the agent pinned, next to the version, and
+	 * null when the agent pins none.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tools-agent-workspace-and-installed-tools/specs/agent-versioning/spec.md#requirement-runs-of-a-published-agent-start-from-its-pinned-build-req-build-002
+	 */
+	public function testTheRunEntryNamesThePinnedBuild(): void {
+		$this->objectService->method('findAll')->willReturn(
+			[
+				$this->schedule(
+					[
+						'kind' => 'interval',
+						'intervalMinutes' => 60,
+						'agentId' => 'agent-uuid',
+						'prompt' => 'go',
+						'deliver' => 'none',
+						'enabled' => true,
+						'nextRun' => '2020-01-01T00:00:00+00:00',
+						'repeat' => ['times' => 0, 'completed' => 0],
+					]
+				),
+			]
+		);
+		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+		$builds = $this->createMock(AgentBuildService::class);
+		$builds->expects($this->once())->method('pinnedBuildIdOf')->with('agent-uuid')->willReturn('build-3');
+
+		$this->makeService(agentBuilds: $builds)->run();
+
+		$this->assertCount(1, $this->auditCalls);
+		$this->assertSame('build-3', $this->auditCalls[0]['context']['buildId']);
+		$this->assertSame('version-1', $this->auditCalls[0]['context']['agentVersion']);
+	}//end testTheRunEntryNamesThePinnedBuild()
 
 	/**
 	 * agent-versioning: the pinned agentVersion is looked up for the SCHEDULE's
@@ -1101,7 +1212,7 @@ class ScheduleServiceTest extends TestCase {
 	public function testAuditWriteFailureDoesNotFailTheTick(): void {
 		// A mapper that throws on every audit write.
 		$this->auditTrailMapper = $this->createMock(AuditTrailMapper::class);
-		$this->auditTrailMapper->method('createAuditTrailEntry')->willThrowException(
+		$this->auditTrailMapper->method('recordObjectEvent')->willThrowException(
 			new \RuntimeException('audit backend down')
 		);
 		$this->service = $this->makeService();
@@ -1301,6 +1412,50 @@ class ScheduleServiceTest extends TestCase {
 		$this->assertFalse($this->service->isOrganisationEngaged(organisation: ''));
 
 	}//end testIsOrganisationEngagedReflectsTenantControl()
+
+	/**
+	 * isOrganisationEngaged() only counts TenantControl objects that are real
+	 * entities, carry `engaged === true` and name an organisation; a read
+	 * failure is logged and treated as "no organisation engaged" (fail open on
+	 * the read, never a silent halt of every tenant).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+	 */
+	public function testIsOrganisationEngagedIgnoresUnengagedAndUnnamedControls(): void {
+		$released = new ObjectEntity();
+		$released->setOrganisation('org-released');
+		$released->setObject(['engaged' => 'yes']);
+
+		$unnamed = new ObjectEntity();
+		$unnamed->setObject(['engaged' => true]);
+
+		$engaged = new ObjectEntity();
+		$engaged->setOrganisation('org-halted');
+		$engaged->setObject(['engaged' => true]);
+
+		$this->objectService->method('findAll')->willReturn(['not-an-entity', $released, $unnamed, $engaged]);
+
+		$this->assertTrue($this->service->isOrganisationEngaged(organisation: 'org-halted'));
+		$this->assertFalse($this->service->isOrganisationEngaged(organisation: 'org-released'));
+
+	}//end testIsOrganisationEngagedIgnoresUnengagedAndUnnamedControls()
+
+	/**
+	 * A TenantControl read failure is logged and leaves every organisation
+	 * un-halted (fail open on the read).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+	 */
+	public function testIsOrganisationEngagedFailsOpenWhenTenantControlUnreadable(): void {
+		$this->objectService->method('findAll')->willThrowException(new \RuntimeException('register down'));
+
+		$this->assertFalse($this->service->isOrganisationEngaged(organisation: 'org-x'));
+
+	}//end testIsOrganisationEngagedFailsOpenWhenTenantControlUnreadable()
 
 	/**
 	 * A schedule requiring approval does NOT run its agent: the gate ensures a pending
@@ -1733,10 +1888,13 @@ class ScheduleServiceTest extends TestCase {
 		// Capture the conversation write; run-state persists share the same mock.
 		$savedConversations = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null) use (&$savedConversations): ObjectEntity {
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$savedConversations): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$entity = new ObjectEntity();
 				$entity->setUuid('saved-' . count($savedConversations));
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					$savedConversations[] = $object;
 					$entity->setUuid('conv-uuid-1');
 				}
@@ -1787,6 +1945,143 @@ class ScheduleServiceTest extends TestCase {
 	}//end testEngineFlagOnUsesInAppEngine()
 
 	/**
+	 * Agents-instruction-variables: a schedule's own start values travel onto the
+	 * session its run creates, limited to the fields the agent declares, so the
+	 * engine fills {{field.<key>}} from them; a field the schedule leaves out is
+	 * not written and falls back to its default at turn time.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-an-agent-can-ask-for-fields-before-a-conversation-starts-req-agvar-002
+	 */
+	public function testAScheduledRunCarriesTheSchedulesStartValues(): void {
+		$this->appConfig = $this->createMock(IAppConfig::class);
+		$this->appConfig->method('getValueString')->willReturn('true');
+		$this->engine = $this->createMock(Engine::class);
+		$this->engine->method('processMessage')->willReturn(['message' => 'engine output', 'usage' => []]);
+		$this->service = $this->makeService();
+
+		$agentObject = new ObjectEntity();
+		$agentObject->setUuid('agent-uuid');
+		$agentObject->setObject(
+			[
+				'name' => 'Vergunningen helper',
+				'startFields' => [
+					['key' => 'department', 'label' => 'Department', 'type' => 'select', 'options' => ['Permits', 'Taxes'], 'default' => 'Permits'],
+					['key' => 'channel', 'label' => 'Channel', 'type' => 'text', 'default' => 'counter'],
+				],
+			]
+		);
+		$this->objectService->method('find')->willReturn($agentObject);
+		$this->objectService->method('findAll')->willReturn([]);
+
+		$savedSessions = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$savedSessions): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$entity = new ObjectEntity();
+				$entity->setUuid('saved-' . count($savedSessions));
+				if ($schema === 'agentsession') {
+					$savedSessions[] = $object;
+					$entity->setUuid('conv-uuid-1');
+				}
+
+				return $entity;
+			}
+		);
+
+		$this->service->runNow(
+			$this->schedule(
+				[
+					'kind' => 'interval',
+					'intervalMinutes' => 60,
+					'agentId' => 'agent-uuid',
+					'prompt' => 'go',
+					'deliver' => 'none',
+					'enabled' => true,
+					'nextRun' => '2020-01-01T00:00:00+00:00',
+					'repeat' => ['times' => 0, 'completed' => 0],
+					'startValues' => ['department' => 'Taxes', 'undeclared' => 'dropped'],
+				],
+				'vars-sched'
+			)
+		);
+
+		$this->assertCount(1, $savedSessions);
+		$this->assertSame(['department' => 'Taxes'], ($savedSessions[0]['startValues'] ?? null));
+
+	}//end testAScheduledRunCarriesTheSchedulesStartValues()
+
+	/**
+	 * Agents-standing-goal: a goal turn continues the goal's own session, so the
+	 * engine sees the earlier turns, instead of opening a new one; a session
+	 * that is not the owner's is never continued, a new one is opened instead.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agents-standing-goal/specs/agent-schedule/spec.md#requirement-goal-turns-continue-the-same-session-through-the-scheduled-run-gates-req-aggoal-002
+	 */
+	public function testAGoalTurnContinuesTheGoalsSession(): void {
+		$this->appConfig = $this->createMock(IAppConfig::class);
+		$this->appConfig->method('getValueString')->willReturn('true');
+		$conversations = [];
+		$this->engine = $this->createMock(Engine::class);
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (string $conversationId) use (&$conversations): array {
+				$conversations[] = $conversationId;
+				return ['message' => 'engine output', 'usage' => []];
+			}
+		);
+		$this->service = $this->makeService();
+
+		$agentObject = new ObjectEntity();
+		$agentObject->setUuid('agent-uuid');
+		$agentObject->setObject(['name' => 'Permit reminder']);
+		$ownSession = new ObjectEntity();
+		$ownSession->setUuid('goal-session');
+		$ownSession->setObject(['userId' => 'alice', 'agentId' => 'agent-uuid']);
+		$otherSession = new ObjectEntity();
+		$otherSession->setUuid('bob-session');
+		$otherSession->setObject(['userId' => 'bob', 'agentId' => 'agent-uuid']);
+		$this->objectService->method('find')->willReturnCallback(
+			static fn (int|string $id): ObjectEntity => match ($id) {
+				'goal-session' => $ownSession,
+				'bob-session' => $otherSession,
+				default => $agentObject,
+			}
+		);
+		$this->objectService->method('findAll')->willReturn([]);
+
+		$created = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$created): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$entity = new ObjectEntity();
+				$entity->setUuid('saved-' . count($created));
+				if ($schema === 'agentsession') {
+					$created[] = $object;
+					$entity->setUuid('new-session');
+				}
+
+				return $entity;
+			}
+		);
+
+		$this->service->runAgentAsOwner(owner: 'alice', agentId: 'agent-uuid', prompt: 'Continue working on the goal', continueSessionUuid: 'goal-session');
+		$this->assertSame([], $created, 'a goal turn opens no new session');
+		$this->assertSame(['goal-session'], $conversations);
+
+		$this->service->runAgentAsOwner(owner: 'alice', agentId: 'agent-uuid', prompt: 'Continue working on the goal', continueSessionUuid: 'bob-session');
+		$this->assertCount(1, $created, 'another person\'s session is never continued');
+		$this->assertSame(['goal-session', 'new-session'], $conversations);
+
+	}//end testAGoalTurnContinuesTheGoalsSession()
+
+	/**
 	 * run-trace-observability (TC-1): on the in-app Engine path, the persisted
 	 * run audit entry's `changed.steps` includes the tool step the Engine's
 	 * RunTraceCollector recorded (threaded in via the `trace` argument
@@ -1832,7 +2127,10 @@ class ScheduleServiceTest extends TestCase {
 		$this->objectService->method('find')->willReturn($agentObject);
 		$this->objectService->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturnCallback(
-			static function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null): ObjectEntity {
+			static function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$entity = new ObjectEntity();
 				$entity->setUuid('conv-uuid-1');
 				return $entity;
@@ -1867,6 +2165,89 @@ class ScheduleServiceTest extends TestCase {
 		$this->assertSame('ok', $context['steps'][0]['outcome']);
 
 	}//end testEngineFlagOnCapturesToolStepsFromCollector()
+
+	/**
+	 * models-no-training-guarantee: the provider disclosure the run's collector
+	 * recorded, data-use term included, is written onto the run record, so a
+	 * later change to the declaration does not change what this run shows.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/provider-data-use/spec.md#requirement-every-run-records-the-data-use-term-in-force-req-notrain-003
+	 */
+	public function testTheRunRecordKeepsTheProviderDisclosure(): void {
+		$this->appConfig = $this->createMock(IAppConfig::class);
+		$this->appConfig->method('getValueString')->willReturn('true');
+
+		$this->engine = $this->createMock(Engine::class);
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (
+				string $conversationId,
+				string $userId,
+				string $userMessage,
+				array $selectedViews = [],
+				array $selectedTools = [],
+				array $ragSettings = [],
+				array $context = [],
+				$channel = null,
+				$trace = null,
+			): array {
+				$trace?->recordProviderDisclosure(
+					disclosure: [
+						'feature' => '',
+						'provider' => 'anthropic',
+						'model' => 'claude-sonnet-5',
+						'residency' => 'eu',
+						'location' => 'Frankfurt',
+						'dataUse' => 'no-training',
+						'termsReference' => 'Anthropic commercial terms, checked 2026-09-01',
+					]
+				);
+
+				return ['message' => 'engine output', 'usage' => []];
+			}
+		);
+		$this->service = $this->makeService();
+
+		$agentObject = new ObjectEntity();
+		$agentObject->setUuid('agent-uuid');
+		$agentObject->setObject(['name' => 'Scheduled agent']);
+		$this->objectService->method('find')->willReturn($agentObject);
+		$this->objectService->method('findAll')->willReturn([]);
+		$this->objectService->method('saveObject')->willReturnCallback(
+			static function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$entity = new ObjectEntity();
+				$entity->setUuid('conv-uuid-1');
+				return $entity;
+			}
+		);
+
+		$this->service->runNow(
+			$this->schedule(
+				[
+					'kind' => 'interval',
+					'intervalMinutes' => 60,
+					'agentId' => 'agent-uuid',
+					'prompt' => 'go',
+					'deliver' => 'none',
+					'enabled' => true,
+					'nextRun' => '2020-01-01T00:00:00+00:00',
+					'repeat' => ['times' => 0, 'completed' => 0],
+				],
+				'disclosure-sched'
+			)
+		);
+
+		$this->assertCount(1, $this->auditCalls);
+		$disclosure = $this->auditCalls[0]['context']['providerDisclosure'];
+		$this->assertSame('anthropic', $disclosure['provider']);
+		$this->assertSame('no-training', $disclosure['dataUse']);
+		$this->assertSame('Anthropic commercial terms, checked 2026-09-01', $disclosure['termsReference']);
+
+	}//end testTheRunRecordKeepsTheProviderDisclosure()
 
 	/**
 	 * run-trace-observability (TC-2): on the default OpenRegister `ChatService`
@@ -2118,10 +2499,13 @@ class ScheduleServiceTest extends TestCase {
 
 		$savedConversations = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null) use (&$savedConversations): ObjectEntity {
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$savedConversations): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$entity = new ObjectEntity();
 				$entity->setUuid('saved-' . count($savedConversations));
-				if ($schema === 'conversation') {
+				if ($schema === 'agentsession') {
 					$savedConversations[] = $object;
 					$entity->setUuid('conv-uuid-1');
 				}
@@ -2232,13 +2616,18 @@ class ScheduleServiceTest extends TestCase {
 	/**
 	 * agent-capability-profile: actingUser is never consulted on the flag-off (legacy
 	 * ChatService) path — a set actingUser has zero effect until the engine flag is on.
+	 * The agent itself IS read on this path since agents-switch-off-and-stop (is it
+	 * switched on?), so the proof is that its declared actingUser is not used.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-1
 	 */
 	public function testActingUserIgnoredOnFlagOffPath(): void {
-		$this->objectService->expects($this->never())->method('find');
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-uuid');
+		$agent->setObject(['name' => 'Digest', 'active' => true, 'actingUser' => 'bob']);
+		$this->objectService->method('find')->willReturn($agent);
 		$this->chatService->method('processMessage')->willReturn(['message' => 'or output', 'usage' => []]);
 		$this->objectService->method('findAll')->willReturn([]);
 		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
@@ -2884,7 +3273,11 @@ class ScheduleServiceTest extends TestCase {
 
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = ['object' => $object, 'schema' => (string)$schema];
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'x');
@@ -2943,7 +3336,11 @@ class ScheduleServiceTest extends TestCase {
 
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = ['object' => $object, 'schema' => (string)$schema];
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'x');
@@ -3008,7 +3405,11 @@ class ScheduleServiceTest extends TestCase {
 
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = ['object' => $object, 'schema' => (string)$schema];
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'x');
@@ -3056,7 +3457,11 @@ class ScheduleServiceTest extends TestCase {
 
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$saved): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$saved[] = ['object' => $object, 'schema' => (string)$schema];
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'x');
@@ -3140,7 +3545,10 @@ class ScheduleServiceTest extends TestCase {
 
 		$saved = [];
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (mixed $object, ?array $extend = null, mixed $register = null, mixed $schema = null) use (&$saved): ObjectEntity {
+			function (mixed $object, ObjectSaveOptions $options = new ObjectSaveOptions()) use (&$saved): ObjectEntity {
+				$extend = $options->extend;
+				$register = $options->target->register;
+				$schema = $options->target->schema;
 				$saved[] = ['object' => $object, 'schema' => (string)$schema];
 				$entity = new ObjectEntity();
 				$entity->setUuid('conv-uuid-1');
@@ -3279,7 +3687,10 @@ class ScheduleServiceTest extends TestCase {
 
 		$deleted = [];
 		$this->objectService->method('deleteObject')->willReturnCallback(
-			function (string $uuid, mixed $register = null, mixed $schema = null) use (&$deleted): bool {
+			function (ObjectDeletion $deletion) use (&$deleted): bool {
+				$uuid = $deletion->uuid;
+				$register = $deletion->target->register;
+				$schema = $deletion->target->schema;
 				$deleted[] = ['uuid' => $uuid, 'schema' => (string)$schema];
 				return true;
 			}
@@ -3288,7 +3699,7 @@ class ScheduleServiceTest extends TestCase {
 
 		$this->service->dryRunNow(schedule: $this->engineEnabledSchedule());
 
-		$conversationDeletes = array_filter($deleted, static fn (array $d): bool => $d['schema'] === 'conversation');
+		$conversationDeletes = array_filter($deleted, static fn (array $d): bool => $d['schema'] === 'agentsession');
 		$this->assertCount(1, $conversationDeletes);
 
 	}//end testDryRunNowDeletesScratchConversation()
@@ -3427,7 +3838,11 @@ class ScheduleServiceTest extends TestCase {
 		];
 		$this->objectService->method('findAll')->willReturn($due);
 		$this->objectService->method('saveObject')->willReturnCallback(
-			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null): ObjectEntity {
+			function (array $object, ObjectSaveOptions $options = new ObjectSaveOptions()): ObjectEntity {
+				$extend = $options->extend ?? [];
+				$register = $options->target->register;
+				$schema = $options->target->schema;
+				$uuid = $options->uuid;
 				$entity = new ObjectEntity();
 				$entity->setUuid($uuid ?? 'x');
 				$entity->setObject($object);
@@ -3557,4 +3972,659 @@ class ScheduleServiceTest extends TestCase {
 		$this->assertSame('', $saved[1]['engineFlowId'], 'Clearing must empty the marker.');
 
 	}//end testMarkAndClearEngineDelegationPersistTheMarker()
+
+	/**
+	 * A due schedule of a switched-off agent is skipped: no model is called, the
+	 * occurrence is recorded as `skipped_agent_off` and its next run advances.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 */
+	public function testScheduleOfASwitchedOffAgentIsSkippedAndAdvances(): void {
+		$this->chatService = $this->createMock(ChatService::class);
+		$this->chatService->expects($this->never())->method('processMessage');
+		$this->engine->expects($this->never())->method('processMessage');
+		$this->service = $this->makeService();
+
+		$due = $this->schedule(
+			[
+				'kind' => 'interval',
+				'intervalMinutes' => 60,
+				'agentId' => 'agent-off',
+				'prompt' => 'go',
+				'deliver' => 'none',
+				'enabled' => true,
+				'nextRun' => '2000-01-01T00:00:00+00:00',
+				'repeat' => ['times' => 0, 'completed' => 0],
+			],
+			'off-sched'
+		);
+
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-off');
+		$agent->setObject(['name' => 'Weekly supplier digest', 'active' => false]);
+		$this->objectService->method('find')->willReturn($agent);
+		$this->objectService->method('findAll')->willReturnOnConsecutiveCalls([$due], []);
+
+		$saved = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				return new ObjectEntity();
+			}
+		);
+
+		$this->service->run();
+
+		$this->assertNotEmpty($saved, 'The skip must be persisted.');
+		$final = end($saved);
+		$this->assertSame('skipped_agent_off', $final['lastStatus']);
+		$this->assertNotSame('2000-01-01T00:00:00+00:00', $final['nextRun'], 'The next run must move to the following due time.');
+		$this->assertGreaterThan(time(), strtotime((string)$final['nextRun']));
+		$this->assertCount(1, $this->auditCalls);
+		$this->assertSame('skipped_agent_off', $this->auditCalls[0]['context']['status']);
+
+	}//end testScheduleOfASwitchedOffAgentIsSkippedAndAdvances()
+
+	/**
+	 * The shared entry of run now, webhooks, flows and delegation refuses a
+	 * switched-off agent before it impersonates anyone or calls a model, on the
+	 * legacy branch too.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-management-ui/spec.md#requirement-a-switched-off-agent-does-not-run-on-any-path-req-agoff-002
+	 */
+	public function testRunAgentAsOwnerRefusesASwitchedOffAgent(): void {
+		$this->chatService = $this->createMock(ChatService::class);
+		$this->chatService->expects($this->never())->method('processMessage');
+		$this->userSession->expects($this->never())->method('setUser');
+		$this->service = $this->makeService();
+
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-off');
+		$agent->setObject(['name' => 'Permit reminder', 'active' => false]);
+		$this->objectService->method('find')->willReturn($agent);
+
+		$this->expectException(AgentSwitchedOffException::class);
+
+		$this->service->runAgentAsOwner(owner: 'alice', agentId: 'agent-off', prompt: 'go');
+
+	}//end testRunAgentAsOwnerRefusesASwitchedOffAgent()
+
+	/**
+	 * Call one of ScheduleService's private record-normalisation steps.
+	 *
+	 * @param string $method The private method name.
+	 * @param array<string, mixed> $arguments Its named arguments.
+	 *
+	 * @return mixed The method's return value.
+	 */
+	private function callPrivate(string $method, array $arguments): mixed {
+		$reflection = new \ReflectionMethod(ScheduleService::class, $method);
+		$reflection->setAccessible(true);
+		return $reflection->invokeArgs($this->service, $arguments);
+	}//end callPrivate()
+
+	/**
+	 * Golden: the record written on every persist normalises its dates to
+	 * ISO-8601 UTC, drops a repeat that is not a positive finite count, keeps
+	 * the completed count at 0 or more, and keeps only a well-formed retry state
+	 * (attempt + nextAttemptAt, the date normalised when it parses).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-reliability/design.md
+	 */
+	public function testSanitizeForSaveNormalisesTheStoredRecord(): void {
+		$cases = [
+			'dates normalised, empty and missing left' => [
+				['nextRun' => '2026-03-01T10:00:00+02:00', 'runAt' => '', 'title' => 't'],
+				['nextRun' => '2026-03-01T08:00:00+00:00', 'runAt' => '', 'title' => 't'],
+			],
+			'unparseable date kept, null date kept' => [
+				['nextRun' => 'not a date', 'runAt' => null],
+				['nextRun' => 'not a date', 'runAt' => null],
+			],
+			'finite repeat kept, negative completed clamped' => [
+				['repeat' => ['times' => '3', 'completed' => -2, 'extra' => 1]],
+				['repeat' => ['times' => 3, 'completed' => 0]],
+			],
+			'repeat completed kept when numeric' => [
+				['repeat' => ['times' => 5, 'completed' => '2']],
+				['repeat' => ['times' => 5, 'completed' => 2]],
+			],
+			'repeat completed defaults to 0' => [
+				['repeat' => ['times' => 5, 'completed' => 'x']],
+				['repeat' => ['times' => 5, 'completed' => 0]],
+			],
+			'infinite repeat dropped' => [
+				['repeat' => ['times' => 0]],
+				['repeat' => null],
+			],
+			'malformed repeat dropped' => [
+				['repeat' => ['times' => 'many']],
+				['repeat' => null],
+			],
+			'non-array repeat dropped' => [
+				['repeat' => 'daily'],
+				['repeat' => null],
+			],
+			'well-formed retry state kept and dated' => [
+				['retryState' => ['attempt' => '2', 'nextAttemptAt' => '2026-03-01T10:00:00+02:00', 'x' => 1]],
+				['retryState' => ['attempt' => 2, 'nextAttemptAt' => '2026-03-01T08:00:00+00:00']],
+			],
+			'retry state with unparseable date kept as given' => [
+				['retryState' => ['attempt' => 1, 'nextAttemptAt' => 'soon']],
+				['retryState' => ['attempt' => 1, 'nextAttemptAt' => 'soon']],
+			],
+			'malformed retry state dropped' => [
+				['retryState' => ['attempt' => 'x', 'nextAttemptAt' => '2026-03-01']],
+				['retryState' => null],
+			],
+			'retry state without next attempt dropped' => [
+				['retryState' => ['attempt' => 1, 'nextAttemptAt' => '']],
+				['retryState' => null],
+			],
+			'non-array retry state dropped' => [
+				['retryState' => 'pending'],
+				['retryState' => null],
+			],
+			'absent repeat and retry state untouched' => [
+				['enabled' => true],
+				['enabled' => true],
+			],
+		];
+
+		foreach ($cases as $name => [$input, $expected]) {
+			$this->assertSame($expected, $this->callPrivate('sanitizeForSave', ['data' => $input]), $name);
+		}
+	}//end testSanitizeForSaveNormalisesTheStoredRecord()
+
+	/**
+	 * Golden: the shared date and retry-state readers the due check and the
+	 * attempt counter use.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-reliability/design.md
+	 */
+	public function testDateAndRetryStateReaders(): void {
+		$this->assertNull($this->callPrivate('parseDate', ['value' => '']));
+		$this->assertNull($this->callPrivate('parseDate', ['value' => 'not a date']));
+		$this->assertSame(
+			'2026-03-01T08:00:00+00:00',
+			$this->callPrivate('parseDate', ['value' => '2026-03-01T10:00:00+02:00'])->format('c')
+		);
+
+		$this->assertNull($this->callPrivate('normaliseRetryState', ['raw' => 'x']));
+		$this->assertNull($this->callPrivate('normaliseRetryState', ['raw' => ['attempt' => 1]]));
+		$this->assertNull($this->callPrivate('normaliseRetryState', ['raw' => ['attempt' => 'one', 'nextAttemptAt' => 'a']]));
+		$this->assertSame(
+			['attempt' => 3, 'nextAttemptAt' => '7'],
+			$this->callPrivate('normaliseRetryState', ['raw' => ['attempt' => '3', 'nextAttemptAt' => 7]])
+		);
+	}//end testDateAndRetryStateReaders()
+
+	/**
+	 * Call one of ScheduleService's private run-step helpers.
+	 *
+	 * @param string $method The private method name.
+	 * @param array<string, mixed> $arguments Its named arguments.
+	 *
+	 * @return mixed The method's return value.
+	 */
+	private function callStepHelper(string $method, array $arguments): mixed {
+		$reflection = new \ReflectionMethod(ScheduleService::class, $method);
+		$reflection->setAccessible(true);
+		return $reflection->invokeArgs($this->service, $arguments);
+	}//end callStepHelper()
+
+	/**
+	 * Golden: the coarse context/history/llm timeline is chained backward from
+	 * the anchor at millisecond precision, skips legs that are absent or do not
+	 * parse as `<number>s`, and numbers the steps in call order.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+	 */
+	public function testCoarseStepTimelineFromTimings(): void {
+		$anchor = new \DateTimeImmutable('2026-01-01T00:00:10.000+00:00');
+
+		$this->assertSame(
+			[
+				[
+					'type' => 'context',
+					'name' => 'Context retrieval',
+					'startedAt' => '2026-01-01T00:00:06+00:00',
+					'endedAt' => '2026-01-01T00:00:07+00:00',
+					'durationMs' => 500,
+					'outcome' => 'ok',
+					'seq' => 0,
+				],
+				[
+					'type' => 'llm',
+					'name' => 'LLM generation',
+					'startedAt' => '2026-01-01T00:00:07+00:00',
+					'endedAt' => '2026-01-01T00:00:10+00:00',
+					'durationMs' => 2750,
+					'outcome' => 'ok',
+					'seq' => 1,
+				],
+			],
+			$this->callStepHelper(
+				'buildCoarseStepsFromTimings',
+				['timings' => ['context' => '0.5s', 'history' => '12ms', 'llm' => '2.75s', 'total' => '9s'], 'anchorEnd' => $anchor]
+			)
+		);
+		$this->assertSame([], $this->callStepHelper('buildCoarseStepsFromTimings', ['timings' => [], 'anchorEnd' => $anchor]));
+		$this->assertSame(
+			[['type' => 'history', 'name' => 'History build', 'startedAt' => '2026-01-01T00:00:09+00:00', 'endedAt' => '2026-01-01T00:00:10+00:00', 'durationMs' => 1000, 'outcome' => 'ok', 'seq' => 0]],
+			$this->callStepHelper('buildCoarseStepsFromTimings', ['timings' => ['history' => '1s', 'llm' => 3], 'anchorEnd' => $anchor])
+		);
+
+		$chained = $this->callStepHelper(
+			'buildCoarseStepsFromTimings',
+			['timings' => ['context' => '0.6s', 'history' => '0.6s', 'llm' => '0.6s'], 'anchorEnd' => $anchor]
+		);
+		$this->assertSame(
+			['2026-01-01T00:00:08+00:00', '2026-01-01T00:00:08+00:00', '2026-01-01T00:00:09+00:00'],
+			array_column($chained, 'startedAt'),
+			'Legs chain at millisecond precision, not at the formatted second.'
+		);
+	}//end testCoarseStepTimelineFromTimings()
+
+	/**
+	 * Golden: a step list counts as having tool steps only when one is typed `tool`.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+	 */
+	public function testToolStepDetection(): void {
+		$this->assertFalse($this->callStepHelper('stepsIncludeToolCall', ['steps' => []]));
+		$this->assertFalse($this->callStepHelper('stepsIncludeToolCall', ['steps' => [['type' => 'llm'], ['name' => 'x']]]));
+		$this->assertTrue($this->callStepHelper('stepsIncludeToolCall', ['steps' => [['type' => 'llm'], ['type' => 'tool']]]));
+	}//end testToolStepDetection()
+	/**
+	 * Agent-guardrails on the legacy (flag-off) branch: an input filter that
+	 * blocks refuses the run before any conversation exists or the chat service
+	 * is called.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
+	 */
+	public function testABlockingInputFilterRefusesTheLegacyRunBeforeAnyConversation(): void {
+		$this->guardrailPolicyService = $this->createMock(GuardrailPolicyService::class);
+		$this->guardrailPolicyService->method('effectivePolicyFor')->willReturn(['inputFilters' => [], 'outputFilters' => [], 'toolPolicy' => []]);
+		$this->guardrailPolicyService->method('filterInput')->willReturn(['text' => 'go', 'blocked' => true, 'reason' => 'prompt injection']);
+		$this->chatService = $this->createMock(ChatService::class);
+		$this->chatService->expects($this->never())->method('processMessage');
+		$this->conversationMapper = $this->createMock(ConversationMapper::class);
+		$this->conversationMapper->expects($this->never())->method('insert');
+		$this->service = $this->makeService();
+		$this->objectService->method('findAll')->willReturn([]);
+
+		$this->expectException(GuardrailBlockedException::class);
+
+		$this->service->runAgentAsOwner(owner: 'alice', agentId: 'agent-uuid', prompt: 'go');
+
+	}//end testABlockingInputFilterRefusesTheLegacyRunBeforeAnyConversation()
+
+	/**
+	 * Agent-guardrails on the legacy (flag-off) branch: a redacting input filter's
+	 * masked text is what the chat service receives, in a conversation owned by
+	 * the run's owner.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
+	 */
+	public function testARedactingInputFilterSendsTheMaskedPromptOnTheLegacyRun(): void {
+		$this->guardrailPolicyService = $this->createMock(GuardrailPolicyService::class);
+		$this->guardrailPolicyService->method('effectivePolicyFor')->willReturn(['inputFilters' => [], 'outputFilters' => [], 'toolPolicy' => []]);
+		$this->guardrailPolicyService->method('filterInput')->willReturn(['text' => 'mail [REDACTED]', 'blocked' => false, 'reason' => null]);
+		$this->guardrailPolicyService->method('filterOutput')->willReturnCallback(
+			static fn (array $policy, string $text): array => ['text' => $text, 'blocked' => false, 'reason' => null]
+		);
+		$this->chatService = $this->createMock(ChatService::class);
+		$this->chatService->expects($this->once())->method('processMessage')->with(
+			$this->anything(),
+			'alice',
+			'mail [REDACTED]'
+		)->willReturn(['message' => 'done']);
+		$this->service = $this->makeService();
+		$this->objectService->method('findAll')->willReturn([]);
+
+		$output = $this->service->runAgentAsOwner(owner: 'alice', agentId: 'agent-uuid', prompt: 'mail jan@example.nl');
+
+		$this->assertSame('done', $output);
+
+	}//end testARedactingInputFilterSendsTheMaskedPromptOnTheLegacyRun()
+
+	/**
+	 * A due schedule's payload for the oversight-ask-and-hold tests.
+	 *
+	 * @param array<string, mixed> $extra Fields to add.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function dueReport(array $extra = []): array {
+		return $extra + [
+			'kind' => 'interval',
+			'intervalMinutes' => 60,
+			'agentId' => 'agent-uuid',
+			'prompt' => 'Write the weekly report.',
+			'deliver' => 'email',
+			'enabled' => true,
+			'nextRun' => '2020-01-01T00:00:00+00:00',
+			'repeat' => ['times' => 0, 'completed' => 0],
+		];
+	}//end dueReport()
+
+	/**
+	 * Switch the run onto the engine path with an engine that answers through a callback.
+	 *
+	 * @param callable $answer Receives the prompt and the run trace, returns the message.
+	 *
+	 * @return void
+	 */
+	private function engineAnswers(callable $answer): void {
+		$this->appConfig = $this->createMock(IAppConfig::class);
+		$this->appConfig->method('getValueString')->willReturn('true');
+		$this->engine = $this->createMock(Engine::class);
+		$this->engine->method('processMessage')->willReturnCallback(
+			static function (string $conversationId, string $userId, string $userMessage, array $views = [], array $tools = [], array $rag = [], array $context = [], mixed $channel = null, ?RunTraceCollector $trace = null) use ($answer): array {
+				return ['message' => $answer($userMessage, $trace), 'usage' => []];
+			}
+		);
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-uuid');
+		$agent->setObject(['name' => 'Reporter']);
+		$this->objectService->method('find')->willReturn($agent);
+		$this->objectService->method('saveObject')->willReturnCallback(
+			static function (): ObjectEntity {
+				$entity = new ObjectEntity();
+				$entity->setUuid('saved');
+				return $entity;
+			}
+		);
+	}//end engineAnswers()
+
+	/**
+	 * A schedule with holdOutput delivers nothing: its output becomes a draft.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	public function testAHeldSchedulesOutputBecomesADraftInsteadOfAMail(): void {
+		$this->deliveryService = $this->createMock(DeliveryService::class);
+		$this->deliveryService->expects($this->never())->method('deliver');
+		$this->approvalService = $this->createMock(ApprovalService::class);
+		$this->approvalService->expects($this->once())->method('ensurePendingDraft')
+			->with($this->isInstanceOf(ObjectEntity::class), 'email', 'agent output', null);
+		$this->service = $this->makeService();
+		$this->objectService->method('findAll')->willReturn([$this->schedule($this->dueReport(['holdOutput' => true]))]);
+		$saved = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				return new ObjectEntity();
+			}
+		);
+
+		$this->service->run();
+
+		$this->assertSame('ok', end($saved)['lastStatus']);
+
+	}//end testAHeldSchedulesOutputBecomesADraftInsteadOfAMail()
+
+	/**
+	 * A draft that cannot be created sends nothing and records why.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-written-output-can-be-held-until-a-reviewer-releases-it-req-askhold-003
+	 */
+	public function testAHoldThatCannotBeStoredSendsNothing(): void {
+		$this->deliveryService = $this->createMock(DeliveryService::class);
+		$this->deliveryService->expects($this->never())->method('deliver');
+		$this->approvalService = $this->createMock(ApprovalService::class);
+		$this->approvalService->method('ensurePendingDraft')->willThrowException(new \RuntimeException('register down'));
+		$this->service = $this->makeService();
+		$this->objectService->method('findAll')->willReturn([$this->schedule($this->dueReport(['holdOutput' => true]))]);
+		$saved = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				return new ObjectEntity();
+			}
+		);
+
+		$this->service->run();
+
+		$this->assertSame('The output could not be held for review, so nothing was sent.', end($saved)['lastDeliveryError']);
+
+	}//end testAHoldThatCannotBeStoredSendsNothing()
+
+	/**
+	 * A run that asks a question delivers nothing and the question goes to the reviewer.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function testARunThatAsksAQuestionSendsItToTheReviewer(): void {
+		$question = ['text' => 'Close the three duplicate reports?', 'options' => ['Yes, close them', 'No, keep them'], 'allowOther' => false];
+		$this->engineAnswers(
+			static function (string $prompt, ?RunTraceCollector $trace) use ($question): string {
+				$trace?->recordQuestion(question: $question);
+				return 'I asked the team lead.';
+			}
+		);
+		$this->deliveryService = $this->createMock(DeliveryService::class);
+		$this->deliveryService->expects($this->never())->method('deliver');
+		$this->approvalService = $this->createMock(ApprovalService::class);
+		$this->approvalService->expects($this->once())->method('ensurePendingQuestion')
+			->with($this->isInstanceOf(ObjectEntity::class), $question, $this->isType('string'));
+		$this->approvalService->expects($this->never())->method('ensurePendingDraft');
+		$this->service = $this->makeService();
+
+		$this->service->runNow($this->schedule($this->dueReport(['holdOutput' => true])));
+
+	}//end testARunThatAsksAQuestionSendsItToTheReviewer()
+
+	/**
+	 * An answered question runs again with the answered prompt instead of the schedule's own.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function testAnAnsweredRunUsesTheAnsweredPrompt(): void {
+		$prompts = [];
+		$this->engineAnswers(
+			static function (string $prompt) use (&$prompts): string {
+				$prompts[] = $prompt;
+				return 'Closed them.';
+			}
+		);
+		$this->service = $this->makeService();
+
+		$this->service->runNow($this->schedule($this->dueReport()), true, "Write the weekly report.\n\nThe person answered: Yes");
+		$this->service->runNow($this->schedule($this->dueReport()));
+
+		$this->assertSame(["Write the weekly report.\n\nThe person answered: Yes", 'Write the weekly report.'], $prompts);
+
+	}//end testAnAnsweredRunUsesTheAnsweredPrompt()
+
+	/**
+	 * Every tick expires the questions nobody answered in 7 days.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/human-approval-gate/spec.md#requirement-a-question-in-an-unattended-run-goes-to-the-reviewer-and-the-run-continues-with-the-answer-req-askhold-002
+	 */
+	public function testATickExpiresUnansweredQuestions(): void {
+		$this->approvalService = $this->createMock(ApprovalService::class);
+		$this->approvalService->expects($this->once())->method('expireUnansweredQuestions')->willReturn(2);
+		$this->service = $this->makeService();
+		$this->objectService->method('findAll')->willReturn([]);
+
+		$this->service->run();
+
+	}//end testATickExpiresUnansweredQuestions()
+	/**
+	 * The service as setUp() builds it, plus a run-done notifier double.
+	 *
+	 * @param RunDoneNotifier $notifier The notifier.
+	 *
+	 * @return ScheduleService
+	 */
+	private function serviceWithRunDoneNotifier(RunDoneNotifier $notifier): ScheduleService {
+		return new ScheduleService(
+			objectService: $this->objectService,
+			agentMapper: $this->agentMapper,
+			conversationMapper: $this->conversationMapper,
+			chatService: $this->chatService,
+			userSession: $this->userSession,
+			userManager: $this->userManager,
+			config: $this->config,
+			logger: $this->createMock(LoggerInterface::class),
+			deliveryService: $this->deliveryService,
+			auditTrailMapper: $this->auditTrailMapper,
+			redactionService: $this->redactionService,
+			approvalService: $this->approvalService,
+			appConfig: $this->appConfig,
+			engine: $this->engine,
+			budgetService: $this->budgetService,
+			guardrailPolicyService: $this->guardrailPolicyService,
+			agentVersionService: $this->agentVersionService,
+			skillVersionService: $this->createMock(SkillVersionService::class),
+			delegationContext: $this->delegationContext,
+			jobList: $this->createMock(IJobList::class),
+			runDoneNotifier: $notifier,
+		);
+	}//end serviceWithRunDoneNotifier()
+
+	/**
+	 * A schedule to run now, delivering on the given channel.
+	 *
+	 * @param string $deliver The delivery channel.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function runDoneSchedule(string $deliver = 'none'): ObjectEntity {
+		return $this->schedule(
+			[
+				'name' => 'Weekly Woo digest',
+				'kind' => 'interval',
+				'intervalMinutes' => 60,
+				'agentId' => 'agent-uuid',
+				'prompt' => 'run me now',
+				'deliver' => $deliver,
+				'enabled' => true,
+				'nextRun' => '2030-01-01T00:00:00+00:00',
+				'repeat' => ['times' => 0, 'completed' => 0],
+			],
+			'done-sched',
+			'pieter'
+		);
+	}//end runDoneSchedule()
+
+	/**
+	 * A finished run tells its owner, naming the agent and that it succeeded
+	 * (personal-preferences task 2.4).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	public function testAFinishedRunCallsTheRunDoneNotifier(): void {
+		$this->objectService->method('findAll')->willReturn([]);
+		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+		$this->agentMapper->findByUuid('agent-uuid')->setName('Hulp bij Woo-besluit');
+
+		$notifier = $this->createMock(RunDoneNotifier::class);
+		$notifier->expects($this->once())->method('notifyScheduledRun')->with(
+			'pieter',
+			'Hulp bij Woo-besluit',
+			'done-sched',
+			true,
+			'none'
+		)->willReturn(true);
+
+		$this->serviceWithRunDoneNotifier(notifier: $notifier)->runNow($this->runDoneSchedule());
+	}//end testAFinishedRunCallsTheRunDoneNotifier()
+
+	/**
+	 * A failed run tells its owner it failed, under the schedule's name when the
+	 * agent's own name cannot be read.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	public function testAFailedRunCallsTheRunDoneNotifierWithTheFailure(): void {
+		$this->objectService->method('findAll')->willReturn([]);
+		$this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+		$this->chatService->method('processMessage')->willThrowException(new \RuntimeException('boom'));
+
+		$notifier = $this->createMock(RunDoneNotifier::class);
+		$notifier->expects($this->once())->method('notifyScheduledRun')->with(
+			'pieter',
+			'Weekly Woo digest',
+			'done-sched',
+			false,
+			'talk'
+		)->willReturn(true);
+
+		$this->serviceWithRunDoneNotifier(notifier: $notifier)->runNow($this->runDoneSchedule(deliver: 'talk'));
+		$this->assertSame('error', $this->auditCalls[0]['context']['status']);
+	}//end testAFailedRunCallsTheRunDoneNotifierWithTheFailure()
+
+	/**
+	 * A failed attempt that waits for a retry is not done yet: no notification.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/personal-preferences/spec.md#requirement-the-voorkeuren-section-offers-the-drawn-preferences-req-pref-002
+	 */
+	public function testARunWaitingForARetryIsNotReportedDone(): void {
+		$schedule = $this->schedule(
+			[
+				'kind' => 'interval',
+				'intervalMinutes' => 60,
+				'agentId' => 'agent-uuid',
+				'prompt' => 'flaky',
+				'deliver' => 'none',
+				'enabled' => true,
+				'retryEnabled' => true,
+				'retryMaxAttempts' => 3,
+				'nextRun' => '2030-01-01T00:00:00+00:00',
+				'repeat' => ['times' => 0, 'completed' => 0],
+			],
+			'retry-sched',
+			'pieter'
+		);
+		$saved = [];
+		$this->objectService->method('findAll')->willReturn([]);
+		$this->objectService->method('saveObject')->willReturnCallback(
+			static function (array $object) use (&$saved): ObjectEntity {
+				$saved[] = $object;
+				return new ObjectEntity();
+			}
+		);
+		$this->chatService->method('processMessage')->willThrowException(new \RuntimeException('transient'));
+
+		$notifier = $this->createMock(RunDoneNotifier::class);
+		$notifier->expects($this->never())->method('notifyScheduledRun');
+
+		$this->serviceWithRunDoneNotifier(notifier: $notifier)->runNow($schedule);
+		$this->assertSame('retry_pending', end($saved)['lastStatus'] ?? null);
+	}//end testARunWaitingForARetryIsNotReportedDone()
 }//end class

@@ -12,7 +12,7 @@
   add-a-fact input, and the entry list. All reads/writes go through the tenant-scoped
   MemoryController endpoints (src/api/memory.js).
 
-  @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+  @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 -->
 <template>
 	<div class="agent-memory-panel">
@@ -57,7 +57,7 @@
 						)
 					}}</span>
 					<NcButton
-						type="secondary"
+						variant="secondary"
 						:disabled="busy"
 						:aria-label="t('hermiq', 'Consolidate memory')"
 						@click="consolidate">
@@ -77,7 +77,7 @@
 					:disabled="busy"
 					@keydown.enter="addFact" />
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="busy || !newEntry.trim()"
 					:aria-label="t('hermiq', 'Add fact')"
 					@click="addFact">
@@ -88,10 +88,23 @@
 			<!-- Memory entries -->
 			<section class="agent-memory-panel__section">
 				<h3 class="agent-memory-panel__subhead">
-					{{ t('hermiq', 'Memory entries') }} ({{ entries.length }})
+					{{ t('hermiq', 'Memory entries') }} ({{ activeEntries.length }})
 				</h3>
+				<NcCheckboxRadioSwitch
+					v-if="forgottenCount > 0"
+					v-model="showForgotten"
+					type="switch">
+					{{
+						n(
+							'hermiq',
+							'Show %n forgotten fact',
+							'Show %n forgotten facts',
+							forgottenCount,
+						)
+					}}
+				</NcCheckboxRadioSwitch>
 				<NcEmptyContent
-					v-if="entries.length === 0"
+					v-if="visibleEntries.length === 0"
 					:name="t('hermiq', 'No memory yet')"
 					:description="
 						t('hermiq', 'Facts the agent remembers will appear here.')
@@ -102,36 +115,105 @@
 				</NcEmptyContent>
 				<ul v-else class="agent-memory-panel__entries">
 					<li
-						v-for="(entry, i) in entries"
-						:key="i"
+						v-for="(entry, i) in visibleEntries"
+						:key="entry.id || i"
 						class="agent-memory-panel__entry"
 						:class="{
 							'agent-memory-panel__entry--forgotten':
 								isForgotten(entry),
 						}">
-						<span class="agent-memory-panel__entry-text">{{
-							entry.text
-						}}</span>
-						<span
-							v-if="isForgotten(entry)"
-							class="agent-memory-panel__entry-forgotten"
-							:title="
-								t(
-									'hermiq',
-									'The agent retracted this fact — it is excluded from recall but kept for audit history.',
-								)
-							">
-							<EyeOffIcon :size="14" />
-							{{ t('hermiq', 'Forgotten') }}
-						</span>
-						<span class="agent-memory-panel__entry-date">{{
-							/**
-							 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
-							 */
-							formatDate(entry.createdAt)
-						}}</span>
+						<template v-if="editingId && editingId === entry.id">
+							<NcTextField
+								v-model="editText"
+								class="agent-memory-panel__edit"
+								:label="t('hermiq', 'Corrected fact')"
+								:disabled="busy"
+								@keydown.enter="saveCorrection(entry)" />
+							<NcButton
+								variant="primary"
+								:disabled="busy || !editText.trim()"
+								@click="saveCorrection(entry)">
+								{{ t('hermiq', 'Save') }}
+							</NcButton>
+							<NcButton
+								variant="tertiary"
+								:disabled="busy"
+								@click="cancelCorrection">
+								{{ t('hermiq', 'Cancel') }}
+							</NcButton>
+						</template>
+						<template v-else>
+							<span class="agent-memory-panel__entry-text">{{
+								entry.text
+							}}</span>
+							<span
+								v-if="isForgotten(entry)"
+								class="agent-memory-panel__entry-forgotten"
+								:title="
+									t(
+										'hermiq',
+										'Forgotten facts are left out of recall and kept for the history.',
+									)
+								">
+								<EyeOffIcon :size="14" />
+								{{ t('hermiq', 'Forgotten') }}
+							</span>
+							<span class="agent-memory-panel__entry-date">{{
+								/**
+								 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+								 */
+								formatDate(entry.createdAt)
+							}}</span>
+							<span
+								v-if="entry.id && !isForgotten(entry)"
+								class="agent-memory-panel__entry-actions">
+								<NcButton
+									variant="tertiary"
+									:disabled="busy"
+									:aria-label="t('hermiq', 'Correct this fact')"
+									@click="startCorrection(entry)">
+									{{ t('hermiq', 'Correct') }}
+								</NcButton>
+								<NcButton
+									variant="tertiary"
+									:disabled="busy"
+									:aria-label="t('hermiq', 'Forget this fact')"
+									@click="forgetTarget = entry">
+									{{ t('hermiq', 'Forget') }}
+								</NcButton>
+								<NcButton
+									v-if="project"
+									variant="tertiary"
+									:disabled="busy"
+									data-testid="memory-move-to-shared"
+									@click="moveEntry(entry, '')">
+									{{ t('hermiq', 'Move to shared') }}
+								</NcButton>
+								<NcButton
+									v-else-if="projects.length > 0"
+									variant="tertiary"
+									:disabled="busy"
+									data-testid="memory-move-to-project"
+									@click="moveTarget = entry">
+									{{ t('hermiq', 'Move to project…') }}
+								</NcButton>
+							</span>
+						</template>
 					</li>
 				</ul>
+				<ForgetMemoryDialog
+					v-if="forgetTarget"
+					:text="forgetTarget.text"
+					:busy="busy"
+					@close="forgetTarget = null"
+					@confirm="confirmForget" />
+				<MoveMemoryEntryDialog
+					v-if="moveTarget"
+					:text="moveTarget.text"
+					:projects="projects"
+					:busy="busy"
+					@close="moveTarget = null"
+					@confirm="(to) => moveEntry(moveTarget, to)" />
 			</section>
 		</template>
 	</div>
@@ -140,6 +222,7 @@
 <script>
 import {
 	NcButton,
+	NcCheckboxRadioSwitch,
 	NcEmptyContent,
 	NcLoadingIcon,
 	NcNoteCard,
@@ -148,7 +231,18 @@ import {
 import AlertIcon from 'vue-material-design-icons/AlertOutline.vue'
 import BrainIcon from 'vue-material-design-icons/Brain.vue'
 import EyeOffIcon from 'vue-material-design-icons/EyeOffOutline.vue'
-import { addMemory, consolidateMemory, getMemory } from '../api/memory.js'
+import ForgetMemoryDialog from '../dialogs/ForgetMemoryDialog.vue'
+import MoveMemoryEntryDialog from '../dialogs/MoveMemoryEntryDialog.vue'
+import {
+	addMemory,
+	consolidateMemory,
+	correctMemoryEntry,
+	forgetMemoryEntry,
+	getMemory,
+	moveMemoryEntry,
+} from '../api/memory.js'
+import { BUSY_FIELDS, busyAction } from '../utils/busyAction.js'
+import { errorMessage } from '../utils/errorMessage.js'
 
 export default {
 	name: 'AgentMemoryPanel',
@@ -157,7 +251,10 @@ export default {
 		AlertIcon,
 		BrainIcon,
 		EyeOffIcon,
+		ForgetMemoryDialog,
+		MoveMemoryEntryDialog,
 		NcButton,
+		NcCheckboxRadioSwitch,
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
@@ -170,7 +267,24 @@ export default {
 			type: String,
 			default: '',
 		},
+
+		/**
+		 * The project whose memory this panel shows (memory-project-scopes);
+		 * '' for the shared memory.
+		 */
+		project: {
+			type: String,
+			default: '',
+		},
+
+		/** The agent's projects, the targets of "Move to project…". */
+		projects: {
+			type: Array,
+			default: () => [],
+		},
 	},
+
+	emits: ['moved'],
 
 	data() {
 		return {
@@ -179,6 +293,11 @@ export default {
 			loading: false,
 			busy: false,
 			error: '',
+			showForgotten: false,
+			editingId: '',
+			editText: '',
+			forgetTarget: null,
+			moveTarget: null,
 		}
 	},
 
@@ -187,10 +306,40 @@ export default {
 		 * The current memory entries.
 		 *
 		 * @return {Array<object>} The entry list.
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		entries() {
 			return Array.isArray(this.memory.entries) ? this.memory.entries : []
+		},
+
+		/**
+		 * The entries the agent still uses.
+		 *
+		 * @return {Array<object>} The entries without a deletedAt.
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+		 */
+		activeEntries() {
+			return this.entries.filter((e) => !this.isForgotten(e))
+		},
+
+		/**
+		 * How many entries were forgotten.
+		 *
+		 * @return {number} The count.
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+		 */
+		forgottenCount() {
+			return this.entries.length - this.activeEntries.length
+		},
+
+		/**
+		 * The entries the list shows: forgotten ones only when asked for.
+		 *
+		 * @return {Array<object>} The visible entries.
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+		 */
+		visibleEntries() {
+			return this.showForgotten ? this.entries : this.activeEntries
 		},
 
 		/**
@@ -199,7 +348,7 @@ export default {
 		 * excludes soft-deleted entries from the budget.
 		 *
 		 * @return {number} The summed length.
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		charCount() {
 			return this.entries
@@ -211,7 +360,7 @@ export default {
 		 * The configured character budget.
 		 *
 		 * @return {number} The budget.
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		charBudget() {
 			return Number(this.memory.charBudget) || 8000
@@ -221,7 +370,7 @@ export default {
 		 * The budget-bar fill percentage (capped at 100).
 		 *
 		 * @return {number} The percentage.
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		budgetPct() {
 			if (this.charBudget <= 0) {
@@ -235,10 +384,19 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * Reload the entries when the shown layer (shared or a project) changes.
+		 *
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 */
+		project() {
+			this.load()
+		},
+
 		agentId: {
 			immediate: true,
 			/**
-			 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+			 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 			 */
 			handler() {
 				this.load()
@@ -251,7 +409,7 @@ export default {
 		 * Load the agent's memory.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		async load() {
 			if (!this.agentId) {
@@ -265,17 +423,14 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
-				const memory = await getMemory(this.agentId)
+				const memory = await getMemory(this.agentId, ...this.layerArgs())
 				this.memory = memory || {
 					entries: [],
 					charBudget: 8000,
 					needsConsolidation: false,
 				}
 			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
+				this.error = errorMessage(e, this.t('hermiq', 'Unknown error'))
 			} finally {
 				this.loading = false
 			}
@@ -285,50 +440,130 @@ export default {
 		 * Append a fact to the agent's memory.
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		async addFact() {
 			const text = this.newEntry.trim()
 			if (!text || !this.agentId) {
 				return
 			}
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				this.memory = await addMemory(this.agentId, text)
 				this.newEntry = ''
-			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
-			} finally {
-				this.busy = false
-			}
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
 		 * Consolidate the agent's memory (server de-duplicates when no strategy supplied).
 		 *
 		 * @return {Promise<void>}
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		async consolidate() {
 			if (!this.agentId) {
 				return
 			}
-			this.busy = true
-			this.error = ''
-			try {
+			await busyAction(this, BUSY_FIELDS)(async () => {
 				this.memory = await consolidateMemory(this.agentId)
-			} catch (e) {
-				this.error =
-					e?.response?.data?.error
-					|| e?.message
-					|| this.t('hermiq', 'Unknown error')
-			} finally {
-				this.busy = false
+			}, () => this.t('hermiq', 'Unknown error'))
+		},
+
+		/**
+		 * Open the inline correction field for one entry.
+		 *
+		 * @param {object} entry The entry to correct.
+		 * @return {void}
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+		 */
+		startCorrection(entry) {
+			this.editingId = entry.id
+			this.editText = entry.text
+		},
+
+		/**
+		 * Close the correction field without saving.
+		 *
+		 * @return {void}
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+		 */
+		cancelCorrection() {
+			this.editingId = ''
+			this.editText = ''
+		},
+
+		/**
+		 * Save the corrected text of one entry.
+		 *
+		 * @param {object} entry The entry being corrected.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-correct-a-remembered-fact-req-memedit-001
+		 */
+		async saveCorrection(entry) {
+			const text = this.editText.trim()
+			if (!text || !this.agentId) {
+				return
 			}
+			await busyAction(this, BUSY_FIELDS)(async () => {
+				this.memory = await correctMemoryEntry(
+					this.agentId,
+					entry.id,
+					text,
+					...this.layerArgs(),
+				)
+				this.cancelCorrection()
+			}, () => this.t('hermiq', 'Unknown error'))
+		},
+
+		/**
+		 * Forget the entry the confirmation dialog was opened for.
+		 *
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-can-make-an-agent-forget-a-fact-req-memedit-002
+		 */
+		async confirmForget() {
+			if (!this.forgetTarget || !this.agentId) {
+				return
+			}
+			await busyAction(this, BUSY_FIELDS)(async () => {
+				this.memory = await forgetMemoryEntry(
+					this.agentId,
+					this.forgetTarget.id,
+					...this.layerArgs(),
+				)
+				this.forgetTarget = null
+			}, () => this.t('hermiq', 'Unknown error'))
+		},
+
+		/**
+		 * The trailing project argument of the memory API calls: none for the
+		 * shared memory, so those calls stay exactly as they were.
+		 *
+		 * @return {Array<string>} `[]` or `[project]`.
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 */
+		layerArgs() {
+			return this.project ? [this.project] : []
+		},
+
+		/**
+		 * Move one entry to the shared memory (`to` '') or to a project. The
+		 * entry leaves this layer; the panel reloads it and tells the page.
+		 *
+		 * @param {object} entry The entry to move.
+		 * @param {string} to The target project key, or '' for the shared memory.
+		 * @return {Promise<void>}
+		 * @spec openspec/specs/agent-memory/spec.md#requirement-an-owner-sees-and-moves-entries-between-layers-req-pmem-004
+		 */
+		async moveEntry(entry, to) {
+			if (!entry?.id || !this.agentId || (to || '') === this.project) {
+				return
+			}
+			await busyAction(this, BUSY_FIELDS)(async () => {
+				await moveMemoryEntry(this.agentId, entry.id, this.project, to || '')
+				this.moveTarget = null
+				this.memory = await getMemory(this.agentId, ...this.layerArgs())
+				this.$emit('moved', { entryId: entry.id, to: to || '' })
+			}, () => this.t('hermiq', 'Unknown error'))
 		},
 
 		/**
@@ -336,7 +571,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or a dash.
-		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+		 * @spec openspec/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		formatDate(value) {
 			if (!value) {
@@ -462,6 +697,16 @@ export default {
 	gap: 12px;
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--color-border);
+}
+
+.agent-memory-panel__entry-actions {
+	display: flex;
+	flex: 0 0 auto;
+	gap: 4px;
+}
+
+.agent-memory-panel__edit {
+	flex: 1 1 auto;
 }
 
 .agent-memory-panel__entry-text {

@@ -385,7 +385,7 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 		// WAIT for the first row rather than counting straight away: the list is
 		// fetched async, so a bare count() raced it and failed in a full-suite run
 		// while passing when the test ran alone.
-		const conversations = page.getByTestId('chat-conversation-row')
+		const conversations = page.getByTestId('chat-session-row')
 		await expect(
 			conversations.first(),
 			'no conversation rows rendered — the avatar assertions below would be vacuous',

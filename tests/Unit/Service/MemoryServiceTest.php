@@ -36,6 +36,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Exception\NotAuthorizedException;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IConfig;
 use OCP\IUser;
@@ -288,12 +289,14 @@ class MemoryServiceTest extends TestCase {
 		$this->assertNotNull($capturedConfig);
 		$this->assertSame('agent-1', $capturedConfig['filters']['agentId']);
 		$this->assertArrayHasKey(
-			'@self.owner',
+			'@self',
 			$capturedConfig['filters'],
 			'listSessions() must scope by the OpenRegister object-owner meta-filter, never just agentId — '
 			. 'otherwise every authenticated user sees every other user\'s sessions for this agent.'
 		);
-		$this->assertSame('alice', $capturedConfig['filters']['@self.owner']);
+		// OpenRegister reads only the nested form; a flat `@self.owner` key is a schema field and matches nothing.
+		$this->assertSame(expected: ['owner' => 'alice'], actual: $capturedConfig['filters']['@self']);
+		$this->assertArrayNotHasKey(key: '@self.owner', array: $capturedConfig['filters']);
 
 	}//end testListSessionsScopesToCallerOwnedSessionsOnly()
 
@@ -355,12 +358,14 @@ class MemoryServiceTest extends TestCase {
 		$this->assertSame('agent-9', $capturedConfig['filters']['agentId']);
 		$this->assertSame('budget report', $capturedConfig['search']);
 		$this->assertArrayHasKey(
-			'@self.owner',
+			'@self',
 			$capturedConfig['filters'],
 			'recallSessions() must scope by the OpenRegister object-owner meta-filter, never just agentId — '
 			. 'otherwise any authenticated user can full-text search every other user\'s SessionTurns for this agent.'
 		);
-		$this->assertSame('admin', $capturedConfig['filters']['@self.owner']);
+		// OpenRegister reads only the nested form; a flat `@self.owner` key is a schema field and matches nothing.
+		$this->assertSame(expected: ['owner' => 'admin'], actual: $capturedConfig['filters']['@self']);
+		$this->assertArrayNotHasKey(key: '@self.owner', array: $capturedConfig['filters']);
 
 	}//end testRecallPassesAgentFilterAndSearch()
 
@@ -662,10 +667,126 @@ class MemoryServiceTest extends TestCase {
 		$result = $memory->recallEntries(agentId: 'agent-1', subjectUid: null, query: 'budget');
 
 		$this->assertSame('agent-1', $capturedConfig['filters']['agentId']);
-		$this->assertSame('budget', $capturedConfig['search']);
+		// The layer's object is found by its filters; the term is matched on the entries,
+		// because OpenRegister's search never reads the text inside `entries`.
+		$this->assertArrayNotHasKey(key: 'search', array: $capturedConfig);
 		$this->assertCount(1, $result['memoryEntries'], 'The soft-deleted entry must be excluded from the result.');
 		$this->assertSame('e1', $result['memoryEntries'][0]['id']);
 		$this->assertSame([], $result['userProfileEntries'], 'No subjectUid was supplied — userprofile is never searched.');
 
 	}//end testRecallEntriesReusesSearchSubstrateAndExcludesSoftDeleted()
+
+	/**
+	 * An entry answers a recall when every word of the query is in it, in any order and case.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-memory/spec.md#requirement-recall-in-a-project-reads-the-project-and-the-shared-memory-only-req-pmem-002
+	 */
+	public function testAnEntryMatchesWhenEveryWordOfTheQueryIsInIt(): void {
+		$text = 'De sleutelkast van project Alpha heeft code KIWI-7731.';
+
+		$this->assertTrue(condition: MemoryService::entryMatches(text: $text, query: 'sleutelkast'));
+		$this->assertTrue(condition: MemoryService::entryMatches(text: $text, query: 'Code Sleutelkast'));
+		$this->assertTrue(condition: MemoryService::entryMatches(text: $text, query: 'kiwi-7731'));
+		$this->assertTrue(condition: MemoryService::entryMatches(text: $text, query: ''));
+		$this->assertFalse(condition: MemoryService::entryMatches(text: $text, query: 'sleutelkast Beta'));
+		$this->assertFalse(condition: MemoryService::entryMatches(text: $text, query: 'fietsenstalling'));
+	}//end testAnEntryMatchesWhenEveryWordOfTheQueryIsInIt()
+	/**
+	 * Golden: every read path (sessions, profiles, turn recall, entry recall, the
+	 * memory lookup) asks OpenRegister with exactly the recorded schema, filters,
+	 * search term and limit, scoped to the session user and failing closed without
+	 * one, and returns exactly what was recorded. GOLDEN_RECORD=1 rewrites the fixture.
+	 *
+	 * @return void
+	 */
+	public function testEveryReadPathMatchesTheRecordedFixture(): void {
+		$fixture = __DIR__ . '/../../Fixtures/Golden/memory-read-paths.json';
+		$actual = [];
+		foreach (['alice', null] as $uid) {
+			$calls = [];
+			$schema = '';
+			$stored = $this->memory(
+				[
+					'agentId' => 'agent-1',
+					'entries' => [
+						['id' => 'e1', 'text' => 'Prefers tea', 'createdAt' => '2026-01-01T00:00:00+00:00'],
+						['id' => 'e2', 'text' => 'Prefers coffee', 'createdAt' => '2026-01-02T00:00:00+00:00', 'deletedAt' => '2026-01-03T00:00:00+00:00'],
+					],
+				]
+			);
+			$service = $this->createMock(ObjectService::class);
+			$service->method('setRegister')->willReturnSelf();
+			$service->method('setSchema')->willReturnCallback(
+				function (mixed $value) use (&$schema, $service): ObjectService {
+					$schema = (string)$value;
+					return $service;
+				}
+			);
+			$service->method('findAll')->willReturnCallback(
+				function (array $config = []) use (&$calls, &$schema, $stored): array {
+					$calls[] = [$schema, $config];
+					return [$stored, 'not-an-entity'];
+				}
+			);
+
+			$memory = new MemoryService($service, $this->redactionService(), $this->userSession($uid));
+			$reads = [
+				'sessions' => count($memory->listSessions(agentId: 'agent-1')),
+				'profiles' => count($memory->listUserProfiles(agentId: 'agent-1')),
+				'turns' => count($memory->recallSessions(agentId: 'agent-1', query: 'tea', limit: 5)),
+				'turnsNoQuery' => count($memory->recallSessions(agentId: 'agent-1', query: '')),
+				'entries' => $memory->recallEntries(agentId: 'agent-1', subjectUid: 'bob', query: 'tea', limit: 7),
+				'entriesNoSubject' => $memory->recallEntries(agentId: 'agent-1', subjectUid: '', query: ''),
+				'entriesNullSubject' => $memory->recallEntries(agentId: 'agent-1', subjectUid: null, query: 'coffee'),
+				'memory' => $memory->getMemory(agentId: 'agent-1')->getUuid(),
+			];
+			$actual[(string)json_encode($uid)] = ['reads' => $reads, 'calls' => $calls];
+		}//end foreach
+
+		$actual = json_decode(json_encode($actual, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+		if (getenv('GOLDEN_RECORD') === '1') {
+			file_put_contents($fixture, json_encode($actual, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
+			$this->markTestSkipped('Fixture recorded.');
+		}
+
+		$expected = json_decode((string)file_get_contents($fixture), true, 512, JSON_THROW_ON_ERROR);
+		$this->assertSame($expected, $actual);
+
+	}//end testEveryReadPathMatchesTheRecordedFixture()
+
+	/**
+	 * A reader OpenRegister will not let create the Memory gets an empty one, not an error.
+	 *
+	 * @return void
+	 */
+	public function testGetMemoryForAReaderWithoutCreateRightIsEmpty(): void {
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('setRegister')->willReturnSelf();
+		$objects->method('setSchema')->willReturnSelf();
+		$objects->method('findAll')->willReturn([]);
+		$objects->method('saveObject')->willThrowException(new NotAuthorizedException());
+
+		$memory = (new MemoryService($objects, $this->redactionService(), $this->userSession('reader')))->getMemory(agentId: 'agent-shared');
+
+		$this->assertSame('agent-shared', $memory->getObject()['agentId']);
+		$this->assertSame([], $memory->getObject()['entries']);
+	}//end testGetMemoryForAReaderWithoutCreateRightIsEmpty()
+
+	/**
+	 * Any other failure to create the Memory still surfaces.
+	 *
+	 * @return void
+	 */
+	public function testGetMemoryRethrowsOtherFailures(): void {
+		$objects = $this->createMock(ObjectService::class);
+		$objects->method('setRegister')->willReturnSelf();
+		$objects->method('setSchema')->willReturnSelf();
+		$objects->method('findAll')->willReturn([]);
+		$objects->method('saveObject')->willThrowException(new \RuntimeException('schema missing'));
+
+		$this->expectException(\RuntimeException::class);
+		(new MemoryService($objects, $this->redactionService(), $this->userSession('reader')))->getMemory(agentId: 'agent-shared');
+	}//end testGetMemoryRethrowsOtherFailures()
 }//end class

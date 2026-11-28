@@ -26,14 +26,18 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-chat-bridge/tasks.md#3-room-conversation-resolution
+ * @spec openspec/changes/archive/2026-07-30-talk-chat-bridge/tasks.md#3-room-conversation-resolution
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
+use OCA\Hermiq\Kernel\Contracts\TalkRoomBindingInterface;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -43,9 +47,12 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) carried in with chat-carry-a-conversation-across-
+ * channels; splitting it is follow-up work, not part of this merge.
  */
-class TalkRoomBinding {
+class TalkRoomBinding implements TalkRoomBindingInterface {
 
 	/**
 	 * OpenRegister register slug.
@@ -59,7 +66,7 @@ class TalkRoomBinding {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * `talkRoomOrigin` for a room Hermiq created for a session.
@@ -76,6 +83,13 @@ class TalkRoomBinding {
 	 * @var string
 	 */
 	public const ORIGIN_BOUND = 'bound';
+
+	/**
+	 * The title of a bound session when the room's name is unknown.
+	 *
+	 * @var string
+	 */
+	public const DEFAULT_BOUND_TITLE = 'Talk conversation';
 
 	/**
 	 * Constructor.
@@ -101,7 +115,7 @@ class TalkRoomBinding {
 	 *
 	 * @return ObjectEntity|null The bound conversation, or null when unbound.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
 	 */
 	public function findByRoomToken(string $roomToken): ?ObjectEntity {
 		if ($roomToken === '') {
@@ -109,38 +123,170 @@ class TalkRoomBinding {
 		}
 
 		try {
-			$matches = $this->objectService
-				->setRegister(self::REGISTER_SLUG)
-				->setSchema(self::CONVERSATION_SCHEMA)
-				->findAll(
-					config: [
-						'filters' => ['talkRoomToken' => $roomToken],
-						'sort' => ['created' => 'DESC'],
-						'limit' => 1,
-					]
-				);
-
-			foreach ($matches as $match) {
-				if ($match instanceof ObjectEntity) {
-					return $match;
-				}
-			}
-
-			return null;
+			return $this->firstEntity(objects: $this->sessionsBoundTo(roomToken: $roomToken));
 		} catch (Throwable $e) {
-			$this->logger->warning(
-				message: '[TalkRoomBinding] Could not resolve the conversation bound to the room',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
-			);
+			$this->logRoomLookupFailure(roomToken: $roomToken, error: $e);
 			return null;
-		}//end try
+		}
 
 	}//end findByRoomToken()
+
+	/**
+	 * The session of one agent in a room: sessions are per (room, agent).
+	 *
+	 * The newest session bound to the room for this agent. A session bound
+	 * before sessions were per agent may carry no agent; the agent that next
+	 * takes a turn in the room adopts it, so a single-agent room keeps its
+	 * session, now keyed with its agent. A session of ANOTHER agent is never
+	 * returned: each agent has its own thread of the room.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 * @param string $agentId   The agent uuid.
+	 *
+	 * @return ObjectEntity|null The agent's session in the room, or null.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-sessions-are-per-room-per-agent-and-ordered
+	 */
+	public function findByRoomAndAgent(string $roomToken, string $agentId): ?ObjectEntity {
+		if ($roomToken === '' || $agentId === '') {
+			return null;
+		}
+
+		try {
+			$keyed = $this->firstEntity(objects: $this->sessionsBoundTo(roomToken: $roomToken, agentId: $agentId));
+			if ($keyed !== null) {
+				return $keyed;
+			}
+
+			$legacy = $this->firstEntity(objects: $this->sessionsBoundTo(roomToken: $roomToken));
+			if ($legacy === null || (string)(($legacy->getObject())['agentId'] ?? '') !== '') {
+				return null;
+			}
+
+			return $this->adopt(conversation: $legacy, agentId: $agentId);
+		} catch (Throwable $e) {
+			$this->logRoomLookupFailure(roomToken: $roomToken, error: $e);
+			return null;
+		}
+
+	}//end findByRoomAndAgent()
+
+	/**
+	 * Key a session that carries no agent with the agent now taking its turn.
+	 *
+	 * @param ObjectEntity $conversation The session without an agent.
+	 * @param string       $agentId      The agent adopting it.
+	 *
+	 * @return ObjectEntity The session, now carrying the agent.
+	 *
+	 * @spec openspec/changes/instant-talk/specs/instant-talk/spec.md#requirement-sessions-are-per-room-per-agent-and-ordered
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
+	 */
+	private function adopt(ObjectEntity $conversation, string $agentId): ObjectEntity {
+		// The saveObject call is PUT-semantic — carry every existing field forward.
+		$data = $conversation->getObject();
+		$data['agentId'] = $agentId;
+
+		$this->saveSession(conversation: $conversation, data: $data);
+
+		$this->logger->info(
+			message: '[TalkRoomBinding] A room session without an agent is now keyed with its agent',
+			context: ['file' => __FILE__, 'line' => __LINE__, 'conversation' => (string)$conversation->getUuid(), 'agentId' => $agentId]
+		);
+
+		$conversation->setObject($data);
+		return $conversation;
+	}//end adopt()
+
+	/**
+	 * Save a session's payload back onto it. The save is PUT-semantic, so the
+	 * caller passes every existing field forward with its change.
+	 *
+	 * @param ObjectEntity        $conversation The session.
+	 * @param array<string,mixed> $data         Its complete payload.
+	 *
+	 * @return ObjectEntity The saved session.
+	 *
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
+	 */
+	private function saveSession(ObjectEntity $conversation, array $data): ObjectEntity {
+		return $this->objectService->saveObject(
+			object: $data,
+			options: new ObjectSaveOptions(
+				target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+				uuid: (string)$conversation->getUuid()
+			)
+		);
+	}//end saveSession()
+
+	/**
+	 * The newest session bound to a room.
+	 *
+	 * _rbac false: the room token is the key, not the caller. The Session read rule
+	 * (hermiq#976) admits only the owner and listed participants, so a room member not
+	 * yet on the roster would find nothing here and the listener would bind a second
+	 * session to the room. Every caller runs the participation check on the session it
+	 * gets back.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 * @param string $agentId   Narrow to this agent's session, or '' for any.
+	 *
+	 * @return array<int, mixed> The matching sessions (at most one).
+	 */
+	private function sessionsBoundTo(string $roomToken, string $agentId = ''): array {
+		$filters = ['talkRoomToken' => $roomToken];
+		if ($agentId !== '') {
+			$filters['agentId'] = $agentId;
+		}
+
+		return $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::CONVERSATION_SCHEMA)
+			->findAll(
+				config: [
+					'filters' => $filters,
+					'sort' => ['_created' => 'DESC'],
+					'limit' => 1,
+				],
+				_rbac: false
+			);
+
+	}//end sessionsBoundTo()
+
+	/**
+	 * The first object entity of a read.
+	 *
+	 * @param array<int, mixed> $objects The read results.
+	 *
+	 * @return ObjectEntity|null The first entity, or null.
+	 */
+	private function firstEntity(array $objects): ?ObjectEntity {
+		foreach ($objects as $object) {
+			if ($object instanceof ObjectEntity) {
+				return $object;
+			}
+		}
+
+		return null;
+
+	}//end firstEntity()
+
+	/**
+	 * Log a failed room lookup.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 * @param Throwable $error The failure.
+	 *
+	 * @return void
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
+	 */
+	private function logRoomLookupFailure(string $roomToken, Throwable $error): void {
+		$this->logger->warning(
+			message: '[TalkRoomBinding] Could not resolve the conversation bound to the room',
+			context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'error' => $error->getMessage()]
+		);
+
+	}//end logRoomLookupFailure()
 
 	/**
 	 * Whether Hermiq created this room for a session, rather than being invited into it.
@@ -159,7 +305,7 @@ class TalkRoomBinding {
 	 *
 	 * @return bool True when Hermiq created the room.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
 	 */
 	public function isCreatedRoom(string $roomToken): bool {
 		$conversation = $this->findByRoomToken(roomToken: $roomToken);
@@ -184,7 +330,8 @@ class TalkRoomBinding {
 	 *
 	 * @return bool True when the binding was persisted.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-delivery/spec.md#requirement-talk-delivery-binds-the-delivered-for-conversation-to-the-room
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-talk-delivery-binds-the-delivered-for-conversation-to-the-room
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function bind(ObjectEntity $conversation, string $roomToken): bool {
 		if ($roomToken === '') {
@@ -201,12 +348,7 @@ class TalkRoomBinding {
 			// or the omitted ones are nulled.
 			$data['talkRoomToken'] = $roomToken;
 
-			$this->objectService->saveObject(
-				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: (string)$conversation->getUuid()
-			);
+			$this->saveSession(conversation: $conversation, data: $data);
 
 			return true;
 		} catch (Throwable $e) {
@@ -237,7 +379,8 @@ class TalkRoomBinding {
 	 *
 	 * @return bool True when the binding was persisted.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-delivery/spec.md#requirement-talk-delivery-binds-the-delivered-for-conversation-to-the-room
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-talk-delivery-binds-the-delivered-for-conversation-to-the-room
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function bindByUuid(string $conversationUuid, string $roomToken): bool {
 		if ($conversationUuid === '' || $roomToken === '') {
@@ -247,8 +390,7 @@ class TalkRoomBinding {
 		try {
 			$conversation = $this->objectService->find(
 				id: $conversationUuid,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
 			);
 
 			if (($conversation instanceof ObjectEntity) === false) {
@@ -259,12 +401,7 @@ class TalkRoomBinding {
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[TalkRoomBinding] Could not load the conversation to bind (delivery is unaffected)',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'conversation' => $conversationUuid,
-					'error' => $e->getMessage(),
-				]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'conversation' => $conversationUuid, 'error' => $e->getMessage()]
 			);
 			return false;
 		}//end try
@@ -281,7 +418,7 @@ class TalkRoomBinding {
 	 *
 	 * @return ObjectEntity|null The created conversation, or null on failure.
 	 *
-	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
 	 */
 
 	/**
@@ -306,7 +443,8 @@ class TalkRoomBinding {
 	 *
 	 * @return ObjectEntity The session, with its roster updated when it changed.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-room-participants-become-session-participants
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-room-participants-become-session-participants
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
 	public function syncParticipants(ObjectEntity $conversation, array $participants): ObjectEntity {
 		try {
@@ -333,21 +471,11 @@ class TalkRoomBinding {
 			// the fields not mentioned here are deleted.
 			$payload['participants'] = $roster;
 
-			return $this->objectService->saveObject(
-				object: $payload,
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: (string)$conversation->getUuid()
-			);
+			return $this->saveSession(conversation: $conversation, data: $payload);
 		} catch (Throwable $e) {
 			$this->logger->warning(
 				message: '[TalkRoomBinding] Could not sync the session roster (the turn is unaffected)',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'conversation' => (string)$conversation->getUuid(),
-					'error' => $e->getMessage(),
-				]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'conversation' => (string)$conversation->getUuid(), 'error' => $e->getMessage()]
 			);
 			return $conversation;
 		}//end try
@@ -370,12 +498,21 @@ class TalkRoomBinding {
 	 * @param string $agentId The agent bound to this room.
 	 * @param string $ownerUid The session owner's uid.
 	 * @param array<int, string> $participants Additional invited uids.
+	 * @param string|null $roomName The room's display name, the session's title; the default title without one.
 	 *
 	 * @return ObjectEntity|null The stored conversation, or null when it could not be written.
 	 *
-	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+	 * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-a-session-begun-in-talk-can-be-continued-on-the-chat-page-req-schan-001
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
 	 */
-	public function createBound(string $roomToken, string $agentId, string $ownerUid, array $participants = []): ?ObjectEntity {
+	public function createBound(
+		string $roomToken,
+		string $agentId,
+		string $ownerUid,
+		array $participants = [],
+		?string $roomName = null,
+	): ?ObjectEntity {
 		try {
 			$roster = [];
 			foreach ($participants as $participant) {
@@ -384,16 +521,25 @@ class TalkRoomBinding {
 				}
 			}
 
+			$session = [
+				'title' => self::boundTitle(roomName: $roomName),
+				'userId' => $ownerUid,
+				'agentId' => $agentId,
+				'talkRoomToken' => $roomToken,
+				'participants' => $roster,
+			];
+
+			// Sessions are per (room, agent), the room's origin is per room: a
+			// second agent's session in a room Hermiq created keeps it created,
+			// or isCreatedRoom() would read the newest session and flip.
+			$origin = (string)(($this->findByRoomToken(roomToken: $roomToken)?->getObject() ?? [])['talkRoomOrigin'] ?? '');
+			if ($origin !== '') {
+				$session['talkRoomOrigin'] = $origin;
+			}
+
 			$created = $this->objectService->saveObject(
-				object: [
-					'title' => 'Talk conversation',
-					'userId' => $ownerUid,
-					'agentId' => $agentId,
-					'talkRoomToken' => $roomToken,
-					'participants' => $roster,
-				],
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA
+				object: $session,
+				options: new ObjectSaveOptions(target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA))
 			);
 
 			$this->logger->info(
@@ -411,15 +557,119 @@ class TalkRoomBinding {
 		} catch (Throwable $e) {
 			$this->logger->error(
 				message: '[TalkRoomBinding] Could not open a conversation for the room',
-				context: [
-					'file' => __FILE__,
-					'line' => __LINE__,
-					'roomToken' => $roomToken,
-					'error' => $e->getMessage(),
-				]
+				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'error' => $e->getMessage()]
 			);
 			return null;
 		}//end try
 
 	}//end createBound()
+
+	/**
+	 * Follow a rename of a bound room onto its session's title.
+	 *
+	 * Only a session whose title is still the room's old name (or the default
+	 * title) follows: a title the owner chose is never overwritten. A room
+	 * Hermiq created for a session is named after the session, not the other
+	 * way round, so it never follows. Best-effort: a failure is logged.
+	 *
+	 * @param string $roomToken The renamed room.
+	 * @param string $oldName   The room's name before the rename.
+	 * @param string $newName   The room's new name.
+	 *
+	 * @return bool True when the session's title was changed.
+	 *
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/specs/session-channel-continuity/spec.md#requirement-a-session-begun-in-talk-can-be-continued-on-the-chat-page-req-schan-001
+	 * @spec openspec/changes/instant-talk/tasks.md#7-verify
+	 */
+	public function followRoomRename(string $roomToken, string $oldName, string $newName): bool {
+		$newName = trim($newName);
+		$conversation = $this->findByRoomToken(roomToken: $roomToken);
+		if ($newName === '' || ($conversation instanceof ObjectEntity) === false) {
+			return false;
+		}
+
+		$data = $conversation->getObject();
+		$title = (string)($data['title'] ?? '');
+		if ((string)($data['talkRoomOrigin'] ?? '') === self::ORIGIN_CREATED
+			|| $title === $newName
+			|| in_array($title, [trim($oldName), self::DEFAULT_BOUND_TITLE], true) === false
+		) {
+			return false;
+		}
+
+		try {
+			// PUT-semantic: carry every existing field forward.
+			$data['title'] = $newName;
+			$this->saveSession(conversation: $conversation, data: $data);
+			return true;
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[TalkRoomBinding] Could not follow the room rename onto the session title',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'error' => $e->getMessage()]
+			);
+			return false;
+		}//end try
+	}//end followRoomRename()
+
+	/**
+	 * Claim the agent's first answer in a room, for the link to the session.
+	 *
+	 * The first claim on a session marks `talkLinkPosted` and answers the
+	 * session's uuid; every later claim answers null, so only the first answer
+	 * in the room carries the link. A failure to mark is logged and answers
+	 * null: a missing link is the safe outcome, a repeated one is noise.
+	 *
+	 * @param string $roomToken The room the agent answers in.
+	 *
+	 * @return string|null The session's uuid on the first claim, else null.
+	 *
+	 * @spec openspec/changes/chat-carry-a-conversation-across-channels/tasks.md#task-4-the-doors-on-the-chat-page-and-in-the-room
+	 */
+	public function claimFirstAnswerLink(string $roomToken): ?string {
+		$session = $this->findByRoomToken(roomToken: $roomToken);
+		if (($session instanceof ObjectEntity) === false) {
+			return null;
+		}
+
+		$data = $session->getObject();
+		if (($data['talkLinkPosted'] ?? false) === true) {
+			return null;
+		}
+
+		try {
+			// PUT-semantic: carry every existing field forward.
+			$data['talkLinkPosted'] = true;
+			$this->objectService->saveObject(
+				object: $data,
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: (string)$session->getUuid()
+				)
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[TalkRoomBinding] Could not mark the first answer in the room',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'roomToken' => $roomToken, 'error' => $e->getMessage()]
+			);
+			return null;
+		}
+
+		return (string)$session->getUuid();
+	}//end claimFirstAnswerLink()
+
+	/**
+	 * The title of a session bound to a room: the room's name, or the default.
+	 *
+	 * @param string|null $roomName The room's display name.
+	 *
+	 * @return string The title.
+	 */
+	private static function boundTitle(?string $roomName): string {
+		$name = trim((string)$roomName);
+		if ($name === '') {
+			return self::DEFAULT_BOUND_TITLE;
+		}
+
+		return $name;
+	}//end boundTitle()
 }//end class

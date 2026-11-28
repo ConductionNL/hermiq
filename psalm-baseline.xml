@@ -1,11 +1,1279 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-Per-app psalm lint debt baseline.
-Regenerate with the psalm "set-baseline" CLI flag against this file.
-Apps without lint debt ship this file empty.
-Tracked-debt entries here MUST have an open GitHub issue. The directive for
-the Conduction fleet is "no per-app validation rules; if we need exceptions
-then they are for all apps." A baseline entry is acceptable only as a
-temporary tracked-debt marker with a removal timeline.
--->
-<files psalm-version=""/>
+<files psalm-version="7.11.0@9e0d0f88bc0a4233357a9aeb4b32da060644e196">
+  <file src="lib/Controller/ApprovalController.php">
+    <UndefinedMethod>
+      <code><![CDATA[$data]]></code>
+      <code><![CDATA[$data]]></code>
+      <code><![CDATA[$data]]></code>
+      <code><![CDATA[$data]]></code>
+      <code><![CDATA[$data]]></code>
+    </UndefinedMethod>
+  </file>
+  <file src="lib/Controller/ChatStreamController.php">
+    <TaintedHtml>
+      <code><![CDATA[echo 'data: ' . json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n\n";]]></code>
+      <code><![CDATA[echo 'data: ' . json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n\n";]]></code>
+      <code><![CDATA[echo 'data: ' . json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n\n";]]></code>
+      <code><![CDATA[echo 'data: ' . json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n\n";]]></code>
+    </TaintedHtml>
+    <TaintedTextWithQuotes>
+      <code><![CDATA[echo 'data: ' . json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n\n";]]></code>
+      <code><![CDATA[echo 'data: ' . json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n\n";]]></code>
+      <code><![CDATA[echo 'data: ' . json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n\n";]]></code>
+      <code><![CDATA[echo 'data: ' . json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n\n";]]></code>
+    </TaintedTextWithQuotes>
+  </file>
+  <file src="lib/Controller/KnowledgeBaseController.php">
+    <UndefinedMethod>
+      <code><![CDATA[$response->getData()]]></code>
+    </UndefinedMethod>
+  </file>
+  <file src="lib/Controller/McpRunController.php">
+    <InvalidOperand>
+      <code><![CDATA[(microtime(true) - $startedAt) * 1000]]></code>
+      <code><![CDATA[(microtime(true) - $startedAt) * 1000]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Middleware/Support/ApiPathAliases.php">
+    <UnusedMethod>
+      <code><![CDATA[key]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ActionSeed.php">
+    <UnusedMethod>
+      <code><![CDATA[seed]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Agent/AgentAvailabilityService.php">
+    <UnusedMethod>
+      <code><![CDATA[audit]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Agent/AgentContextBuilder.php">
+    <UnusedMethod>
+      <code><![CDATA[applyCaps]]></code>
+      <code><![CDATA[hasValue]]></code>
+      <code><![CDATA[normaliseAllowlist]]></code>
+      <code><![CDATA[normaliseEntry]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Agent/AgentDraftService.php">
+    <UnusedMethod>
+      <code><![CDATA[allowedModel]]></code>
+      <code><![CDATA[closest]]></code>
+      <code><![CDATA[groupFindings]]></code>
+      <code><![CDATA[modelFindings]]></code>
+      <code><![CDATA[read]]></code>
+      <code><![CDATA[scheduleFindings]]></code>
+      <code><![CDATA[scheduleOf]]></code>
+      <code><![CDATA[sharingOf]]></code>
+      <code><![CDATA[strings]]></code>
+      <code><![CDATA[toolFindings]]></code>
+      <code><![CDATA[validCron]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Agent/AgentGitService.php">
+    <UnusedMethod>
+      <code><![CDATA[changes]]></code>
+      <code><![CDATA[pulledFields]]></code>
+      <code><![CDATA[stampedAgent]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Agent/AppAssistantService.php">
+    <UnusedMethod>
+      <code><![CDATA[otherAssistant]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Agent/InstructionVariablesService.php">
+    <UnusedMethod>
+      <code><![CDATA[agentData]]></code>
+      <code><![CDATA[filtered]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Agent/StartFields.php">
+    <UnusedMethod>
+      <code><![CDATA[isDate]]></code>
+      <code><![CDATA[problemWith]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/AgentBuildService.php">
+    <UnusedMethod>
+      <code><![CDATA[changedSince]]></code>
+      <code><![CDATA[findBuild]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/AgentFeedbackStats.php">
+    <UnusedMethod>
+      <code><![CDATA[feedbackQuery]]></code>
+      <code><![CDATA[loadFeedback]]></code>
+      <code><![CDATA[visibleRow]]></code>
+      <code><![CDATA[visibleRows]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/AgentTemplateService.php">
+    <UnusedMethod>
+      <code><![CDATA[offeringApp]]></code>
+      <code><![CDATA[resolveModel]]></code>
+      <code><![CDATA[resolveSkillRefs]]></code>
+      <code><![CDATA[scheduleHintOrEmpty]]></code>
+      <code><![CDATA[shapeAgent]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/AgentVersionService.php">
+    <UnusedMethod>
+      <code><![CDATA[findEntryIndex]]></code>
+      <code><![CDATA[liveAgentData]]></code>
+      <code><![CDATA[reconstructAsOf]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/AiFeature/AiFeatureBindingService.php">
+    <UnusedMethod>
+      <code><![CDATA[assertWithinPolicy]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/AiFeatureService.php">
+    <UnusedMethod>
+      <code><![CDATA[ackKey]]></code>
+      <code><![CDATA[resolveTenant]]></code>
+      <code><![CDATA[transition]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/AiLabelStatsService.php">
+    <UnusedMethod>
+      <code><![CDATA[readable]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/AiOversightService.php">
+    <UnusedMethod>
+      <code><![CDATA[isAbout]]></code>
+      <code><![CDATA[searchSubject]]></code>
+      <code><![CDATA[toArray]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/AlgoritmekaderMapper.php">
+    <UnusedMethod>
+      <code><![CDATA[gateFailures]]></code>
+      <code><![CDATA[hasValue]]></code>
+      <code><![CDATA[isDpoAcknowledged]]></code>
+      <code><![CDATA[missingFields]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/AnalyticsService.php">
+    <InvalidOperand>
+      <code><![CDATA[($numerator / $denominator) * 100]]></code>
+    </InvalidOperand>
+    <UnusedMethod>
+      <code><![CDATA[agentRow]]></code>
+      <code><![CDATA[computerActions]]></code>
+      <code><![CDATA[computerFacts]]></code>
+      <code><![CDATA[countRun]]></code>
+      <code><![CDATA[displayName]]></code>
+      <code><![CDATA[entryStamps]]></code>
+      <code><![CDATA[labelRows]]></code>
+      <code><![CDATA[latency]]></code>
+      <code><![CDATA[loadVisibleAgents]]></code>
+      <code><![CDATA[newestFirst]]></code>
+      <code><![CDATA[rate]]></code>
+      <code><![CDATA[runFacts]]></code>
+      <code><![CDATA[runRows]]></code>
+      <code><![CDATA[runUsage]]></code>
+      <code><![CDATA[tallyRuns]]></code>
+      <code><![CDATA[toRunRow]]></code>
+      <code><![CDATA[tokens]]></code>
+      <code><![CDATA[visibleAgentsOn]]></code>
+      <code><![CDATA[visibleRuns]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/AppAssistantResolver.php">
+    <UnusedMethod>
+      <code><![CDATA[usable]]></code>
+      <code><![CDATA[usableAgents]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Approval/ApprovalVerdictService.php">
+    <UnusedMethod>
+      <code><![CDATA[agentIdentities]]></code>
+      <code><![CDATA[approvalData]]></code>
+      <code><![CDATA[decisionFields]]></code>
+      <code><![CDATA[decisionRefusal]]></code>
+      <code><![CDATA[disclosedDecision]]></code>
+      <code><![CDATA[expiryOf]]></code>
+      <code><![CDATA[identityRefusal]]></code>
+      <code><![CDATA[instant]]></code>
+      <code><![CDATA[reason]]></code>
+      <code><![CDATA[requestFields]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Approval/ApprovalVerdictSigner.php">
+    <UnusedMethod>
+      <code><![CDATA[isPair]]></code>
+      <code><![CDATA[newSecret]]></code>
+      <code><![CDATA[secretKey]]></code>
+      <code><![CDATA[storedSecret]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Approval/QuestionAnswer.php">
+    <UnusedMethod>
+      <code><![CDATA[options]]></code>
+      <code><![CDATA[trimmed]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ApprovalService.php">
+    <UnusedMethod>
+      <code><![CDATA[answeredPrompt]]></code>
+      <code><![CDATA[approvalsOfSource]]></code>
+      <code><![CDATA[findPendingApprovalForToolInvocation]]></code>
+      <code><![CDATA[isConsumed]]></code>
+      <code><![CDATA[isWithinToolCallTtl]]></code>
+      <code><![CDATA[notifyDraftReviewer]]></code>
+      <code><![CDATA[recordAnswer]]></code>
+      <code><![CDATA[redactedArguments]]></code>
+      <code><![CDATA[runAnsweredSchedule]]></code>
+      <code><![CDATA[summarizeArguments]]></code>
+      <code><![CDATA[toolCallApprovals]]></code>
+      <code><![CDATA[toolInvocationApprovals]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Assistant/AssistantPromptLibrary.php">
+    <UnusedMethod>
+      <code><![CDATA[recordDisableAll]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Assistant/AssistantService.php">
+    <UnusedMethod>
+      <code><![CDATA[cnAiContextFor]]></code>
+      <code><![CDATA[detectPiiSystemPrompt]]></code>
+      <code><![CDATA[findOrCreateAgent]]></code>
+      <code><![CDATA[findOrCreateDetectorAgent]]></code>
+      <code><![CDATA[parseDetectPiiReply]]></code>
+      <code><![CDATA[provisionAgent]]></code>
+      <code><![CDATA[renderContextData]]></code>
+      <code><![CDATA[resolveConversation]]></code>
+      <code><![CDATA[resolveGuardrailPolicy]]></code>
+      <code><![CDATA[validateContext]]></code>
+      <code><![CDATA[validateDetectText]]></code>
+      <code><![CDATA[validateMessage]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Assistant/RecordSummaryService.php">
+    <UnusedMethod>
+      <code><![CDATA[answeringAgent]]></code>
+      <code><![CDATA[featureOn]]></code>
+      <code><![CDATA[isCurrent]]></code>
+      <code><![CDATA[prompt]]></code>
+      <code><![CDATA[readRecord]]></code>
+      <code><![CDATA[sortKeys]]></code>
+      <code><![CDATA[storedFor]]></code>
+      <code><![CDATA[view]]></code>
+      <code><![CDATA[writeSummary]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Backup/BackupFiles.php">
+    <UnusedMethod>
+      <code><![CDATA[stamp]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/BudgetLimits.php">
+    <InvalidOperand>
+      <code><![CDATA[$tokensUsed * $rate]]></code>
+      <code><![CDATA[($eurUsed / $this->eurLimit) * 100]]></code>
+      <code><![CDATA[($tokensUsed * $rate) / 1000]]></code>
+      <code><![CDATA[($used / $this->tokenLimit) * 100]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/BudgetService.php">
+    <InvalidOperand>
+      <code><![CDATA[$avgTotal * $rate]]></code>
+      <code><![CDATA[($avgTotal * $rate) / 1000]]></code>
+    </InvalidOperand>
+    <UnusedMethod>
+      <code><![CDATA[findBudgetTenantScoped]]></code>
+      <code><![CDATA[tenantBudgets]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/BundleSelection.php">
+    <UnusedMethod>
+      <code><![CDATA[capOrDuplicate]]></code>
+      <code><![CDATA[refusal]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Chat/AttachmentStore.php">
+    <UnusedMethod>
+      <code><![CDATA[acceptedType]]></code>
+      <code><![CDATA[cleanName]]></code>
+      <code><![CDATA[folderIn]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Chat/SessionLinks.php">
+    <UnusedMethod>
+      <code><![CDATA[fileLabel]]></code>
+      <code><![CDATA[indexOf]]></code>
+      <code><![CDATA[now]]></code>
+      <code><![CDATA[objectLink]]></code>
+      <code><![CDATA[orNull]]></code>
+      <code><![CDATA[save]]></code>
+      <code><![CDATA[text]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Chat/SessionPendingApprovals.php">
+    <UnusedMethod>
+      <code><![CDATA[card]]></code>
+      <code><![CDATA[toolCalls]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Chat/SessionSubject.php">
+    <UnusedMethod>
+      <code><![CDATA[lastActivity]]></code>
+      <code><![CDATA[orNull]]></code>
+      <code><![CDATA[readAsCaller]]></code>
+      <code><![CDATA[readableSubject]]></code>
+      <code><![CDATA[reference]]></code>
+      <code><![CDATA[text]]></code>
+      <code><![CDATA[writtenSubject]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ComplianceService.php">
+    <InvalidOperand>
+      <code><![CDATA[($satisfied / $total) * 100]]></code>
+    </InvalidOperand>
+    <UnusedMethod>
+      <code><![CDATA[computeControlStatus]]></code>
+      <code><![CDATA[coveragePercent]]></code>
+      <code><![CDATA[evidenceFromAccessReview]]></code>
+      <code><![CDATA[evidenceFromAiFeatures]]></code>
+      <code><![CDATA[evidenceFromApprovals]]></code>
+      <code><![CDATA[evidenceFromAuditTrail]]></code>
+      <code><![CDATA[evidenceFromKillSwitch]]></code>
+      <code><![CDATA[evidenceFromModelPolicy]]></code>
+      <code><![CDATA[factsheetAiFeature]]></code>
+      <code><![CDATA[isReviewedWithinWindow]]></code>
+      <code><![CDATA[loadControls]]></code>
+      <code><![CDATA[loadFrameworks]]></code>
+      <code><![CDATA[loadIncidentsForAgent]]></code>
+      <code><![CDATA[normaliseArray]]></code>
+      <code><![CDATA[shapeApprovalForFactsheet]]></code>
+      <code><![CDATA[shapeIncidentForFactsheet]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ComputerUse/ComputerRunGrant.php">
+    <UnusedMethod>
+      <code><![CDATA[isApprovedAction]]></code>
+      <code><![CDATA[moment]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Connection/LlmConnectionReport.php">
+    <UnusedMethod>
+      <code><![CDATA[describeProvider]]></code>
+      <code><![CDATA[describeRunner]]></code>
+      <code><![CDATA[providerName]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Credential/SubscriptionLoginService.php">
+    <UnusedMethod>
+      <code><![CDATA[cache]]></code>
+      <code><![CDATA[cacheKey]]></code>
+      <code><![CDATA[runnerAvailable]]></code>
+      <code><![CDATA[runnerJson]]></code>
+      <code><![CDATA[storeInBroker]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/DashboardPageState.php">
+    <UnusedMethod>
+      <code><![CDATA[provideActingUserCapability]]></code>
+      <code><![CDATA[provideKillSwitchCapability]]></code>
+      <code><![CDATA[provideVectorSearchCapability]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/DeliveryService.php">
+    <InvalidOperand>
+      <code><![CDATA[$webhook->backoffBase * (2 ** ($attempt - 2))]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/DemoDataService.php">
+    <UnusedMethod>
+      <code><![CDATA[configurationService]]></code>
+      <code><![CDATA[descriptorPath]]></code>
+      <code><![CDATA[logImported]]></code>
+      <code><![CDATA[objectCountOf]]></code>
+      <code><![CDATA[readDescriptor]]></code>
+      <code><![CDATA[shippedObjectCount]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/DepartmentEvidence.php">
+    <UnusedMethod>
+      <code><![CDATA[agentsByDepartment]]></code>
+      <code><![CDATA[parseTime]]></code>
+      <code><![CDATA[runEntries]]></code>
+      <code><![CDATA[runSummary]]></code>
+      <code><![CDATA[switchEvents]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/DepartmentSwitch.php">
+    <UnusedMethod>
+      <code><![CDATA[department]]></code>
+      <code><![CDATA[departments]]></code>
+      <code><![CDATA[recordSwitch]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/EffectiveModelPolicy.php">
+    <ImplementedReturnTypeMismatch>
+      <code><![CDATA[array{source:string,allowed:list<array{provider:string,models:list<string>}>,defaultModel:array{provider:string,model:string}|null,fallbackChain?:list<array{provider:string,model:string}>}]]></code>
+    </ImplementedReturnTypeMismatch>
+  </file>
+  <file src="lib/Service/Engine/AnswerProvenanceWriter.php">
+    <UnusedMethod>
+      <code><![CDATA[filterSentence]]></code>
+      <code><![CDATA[filterSentences]]></code>
+      <code><![CDATA[modelSentence]]></code>
+      <code><![CDATA[outcomeWord]]></code>
+      <code><![CDATA[place]]></code>
+      <code><![CDATA[refusalReason]]></code>
+      <code><![CDATA[sourceName]]></code>
+      <code><![CDATA[sourcesSentence]]></code>
+      <code><![CDATA[toolSentences]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Engine/Engine.php">
+    <InvalidOperand>
+      <code><![CDATA[round($timings['context'], 2)]]></code>
+      <code><![CDATA[round($timings['history'], 3)]]></code>
+      <code><![CDATA[round($timings['llm'], 2)]]></code>
+      <code><![CDATA[round($totalTime, 2)]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/Engine/EnsembleUsage.php">
+    <InvalidOperand>
+      <code><![CDATA[($total[$key] ?? 0) + $value]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/Engine/ProviderFallbackLoop.php">
+    <InvalidOperand>
+      <code><![CDATA[($this->now() - $startedAt) * 1000]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/Engine/ReferenceAnswerRound.php">
+    <InvalidOperand>
+      <code><![CDATA[(microtime(true) - $startedAt) * 1000]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/Engine/ResponseGenerationHandler.php">
+    <InvalidOperand>
+      <code><![CDATA[(microtime(true) - $startedAt) * 1000]]></code>
+    </InvalidOperand>
+    <InvalidPropertyAssignmentValue>
+      <code><![CDATA[ComputerToolDescriptors::forDriver(
+				functions: $run->progress->functions,
+				provider: $run->progress->driver->provider,
+				executionMode: $run->progress->driver->executionMode
+			)]]></code>
+      <code><![CDATA[ComputerToolDescriptors::forDriver(
+			functions: $run->progress->functions,
+			provider: $driver->provider,
+			executionMode: $driver->executionMode
+		)]]></code>
+    </InvalidPropertyAssignmentValue>
+  </file>
+  <file src="lib/Service/Engine/RunStepBus.php">
+    <UnusedMethod>
+      <code><![CDATA[entry]]></code>
+      <code><![CDATA[key]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Engine/RunTraceCollector.php">
+    <InvalidOperand>
+      <code><![CDATA[(microtime(true) - $entry['startedAtMicro']) * 1000]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/Engine/StreamYieldChannel.php">
+    <UnusedMethod>
+      <code><![CDATA[screenToolDetail]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Engine/TurnPerformanceLog.php">
+    <InvalidOperand>
+      <code><![CDATA[round($run->progress->llmTime, 2)]]></code>
+      <code><![CDATA[round($run->progress->toolsTime, 3)]]></code>
+      <code><![CDATA[round($totalTime - $run->progress->llmTime - $run->progress->toolsTime, 3)]]></code>
+      <code><![CDATA[round($totalTime, 2)]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/Eval/BiasCheckEvidence.php">
+    <UnusedMethod>
+      <code><![CDATA[biasDatasetIds]]></code>
+      <code><![CDATA[latestAmong]]></code>
+      <code><![CDATA[now]]></code>
+      <code><![CDATA[parse]]></code>
+      <code><![CDATA[rows]]></code>
+      <code><![CDATA[runsOf]]></code>
+      <code><![CDATA[scheduledAgentIds]]></code>
+      <code><![CDATA[statusOf]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Eval/EvalScheduleEditor.php">
+    <UnusedMethod>
+      <code><![CDATA[scheduleFields]]></code>
+      <code><![CDATA[view]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/EvalRegressionNotifier.php">
+    <InvalidOperand>
+      <code><![CDATA[(float)$passRate * 100]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/EvalRunService.php">
+    <InvalidOperand>
+      <code><![CDATA[($previousPassRate - $passRate) * 100]]></code>
+      <code><![CDATA[(float)$passedCount / $totalCases]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/FormFillEngine.php">
+    <UnusedMethod>
+      <code><![CDATA[boolean]]></code>
+      <code><![CDATA[date]]></code>
+      <code><![CDATA[decode]]></code>
+      <code><![CDATA[fit]]></code>
+      <code><![CDATA[fitting]]></code>
+      <code><![CDATA[logCall]]></code>
+      <code><![CDATA[number]]></code>
+      <code><![CDATA[option]]></code>
+      <code><![CDATA[prompt]]></code>
+      <code><![CDATA[text]]></code>
+      <code><![CDATA[unavailable]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/GitHubArchiveExtractor.php">
+    <UnusedMethod>
+      <code><![CDATA[cleanup]]></code>
+      <code><![CDATA[collect]]></code>
+      <code><![CDATA[removeDirectoryRecursive]]></code>
+      <code><![CDATA[resolveRoot]]></code>
+      <code><![CDATA[temporaryPaths]]></code>
+      <code><![CDATA[unpack]]></code>
+      <code><![CDATA[unpackedRoot]]></code>
+      <code><![CDATA[workspaceFor]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/GitHubCommitWriter.php">
+    <UnusedMethod>
+      <code><![CDATA[requiredBlobSha]]></code>
+      <code><![CDATA[uploadBlobs]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/GitHubTemplateCatalogService.php">
+    <UnusedMethod>
+      <code><![CDATA[auxFilesOf]]></code>
+      <code><![CDATA[collectBlob]]></code>
+      <code><![CDATA[collectTreeBlobs]]></code>
+      <code><![CDATA[fetchArchiveBlobs]]></code>
+      <code><![CDATA[fetchBundlePerFile]]></code>
+      <code><![CDATA[fetchGet]]></code>
+      <code><![CDATA[fetchTree]]></code>
+      <code><![CDATA[isEngineFile]]></code>
+      <code><![CDATA[treeEntries]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/GitHubTemplatePushService.php">
+    <UnusedMethod>
+      <code><![CDATA[bundleRepository]]></code>
+      <code><![CDATA[logBundlePublished]]></code>
+      <code><![CDATA[publishBundleTree]]></code>
+      <code><![CDATA[republishToExistingRepository]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/GoalService.php">
+    <UnusedMethod>
+      <code><![CDATA[activeGoalOf]]></code>
+      <code><![CDATA[clamp]]></code>
+      <code><![CDATA[cleanCheck]]></code>
+      <code><![CDATA[cleanJudgeCheck]]></code>
+      <code><![CDATA[cleanObjectCountCheck]]></code>
+      <code><![CDATA[mayStop]]></code>
+      <code><![CDATA[view]]></code>
+    </UnusedMethod>
+    <UnusedReturnValue>
+      <code><![CDATA[ObjectEntity]]></code>
+    </UnusedReturnValue>
+  </file>
+  <file src="lib/Service/Handoff/FlowHandoffs.php">
+    <UnusedMethod>
+      <code><![CDATA[labelOf]]></code>
+      <code><![CDATA[runUuidOf]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Handoff/WebhookHandoffs.php">
+    <UnusedMethod>
+      <code><![CDATA[waitsWithToken]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Intake/IntakeService.php">
+    <UnusedMethod>
+      <code><![CDATA[abstentionReason]]></code>
+      <code><![CDATA[classified]]></code>
+      <code><![CDATA[concludeConversation]]></code>
+      <code><![CDATA[concluded]]></code>
+      <code><![CDATA[file]]></code>
+      <code><![CDATA[filedEntry]]></code>
+      <code><![CDATA[find]]></code>
+      <code><![CDATA[handOver]]></code>
+      <code><![CDATA[newConversation]]></code>
+      <code><![CDATA[openConversationFor]]></code>
+      <code><![CDATA[receiveMessage]]></code>
+      <code><![CDATA[record]]></code>
+      <code><![CDATA[reviewConversation]]></code>
+      <code><![CDATA[reviewEntry]]></code>
+      <code><![CDATA[reviewerFrom]]></code>
+      <code><![CDATA[save]]></code>
+      <code><![CDATA[shape]]></code>
+      <code><![CDATA[withMessage]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Intake/IntakeSettings.php">
+    <UnusedMethod>
+      <code><![CDATA[storedThreshold]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/KnowledgeBase/KnowledgeBaseScopeResolver.php">
+    <UnusedMethod>
+      <code><![CDATA[objectScope]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/KnowledgeBase/KnowledgeBaseService.php">
+    <UnusedMethod>
+      <code><![CDATA[cleanName]]></code>
+      <code><![CDATA[folderIn]]></code>
+      <code><![CDATA[segments]]></code>
+      <code><![CDATA[sourcesOf]]></code>
+      <code><![CDATA[usable]]></code>
+      <code><![CDATA[write]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/KnowledgeBase/SourceSharingInspector.php">
+    <UnusedMethod>
+      <code><![CDATA[isShared]]></code>
+      <code><![CDATA[onlyOwnerReads]]></code>
+      <code><![CDATA[open]]></code>
+      <code><![CDATA[parentBelow]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/KnowledgeBase/VectorFacadeProbe.php">
+    <UnusedMethod>
+      <code><![CDATA[knownStates]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/LessonAuthoringEngine.php">
+    <UnusedMethod>
+      <code><![CDATA[bulletList]]></code>
+      <code><![CDATA[cleanTitles]]></code>
+      <code><![CDATA[coveredIndexes]]></code>
+      <code><![CDATA[execute]]></code>
+      <code><![CDATA[fence]]></code>
+      <code><![CDATA[goalSuggestionPrompt]]></code>
+      <code><![CDATA[logCall]]></code>
+      <code><![CDATA[noneAnswer]]></code>
+      <code><![CDATA[outline]]></code>
+      <code><![CDATA[outlinePrompt]]></code>
+      <code><![CDATA[parseGoalIndexes]]></code>
+      <code><![CDATA[parseQuestions]]></code>
+      <code><![CDATA[parseText]]></code>
+      <code><![CDATA[questionPrompt]]></code>
+      <code><![CDATA[questions]]></code>
+      <code><![CDATA[sizes]]></code>
+      <code><![CDATA[suggestedGoals]]></code>
+      <code><![CDATA[unavailable]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Literacy/LiteracyCourse.php">
+    <UnusedMethod>
+      <code><![CDATA[completedVersions]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Literacy/LiteracyReport.php">
+    <UnusedMethod>
+      <code><![CDATA[completionsByUser]]></code>
+      <code><![CDATA[csvField]]></code>
+      <code><![CDATA[inOrganisation]]></code>
+      <code><![CDATA[recentAgentUsers]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Llm/AnthropicCliRunner.php">
+    <UnusedMethod>
+      <code><![CDATA[warmupParams]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Llm/LlmSettingsHandler.php">
+    <UnusedMethod>
+      <code><![CDATA[mergeSettings]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Llm/ModelCapabilityRegistry.php">
+    <UnusedMethod>
+      <code><![CDATA[validCapabilities]]></code>
+      <code><![CDATA[validKey]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Llm/ModelContextWindows.php">
+    <UnusedMethod>
+      <code><![CDATA[validKey]]></code>
+      <code><![CDATA[validWindow]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Llm/ProviderFactory.php">
+    <TaintedSSRF>
+      <code><![CDATA[$loop->url]]></code>
+      <code><![CDATA[$url]]></code>
+      <code><![CDATA[$url]]></code>
+    </TaintedSSRF>
+    <UnusedMethod>
+      <code><![CDATA[warmCliProcess]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Llm/RunTokenService.php">
+    <UnusedMethod>
+      <code><![CDATA[bindingOf]]></code>
+      <code><![CDATA[decodedRecord]]></code>
+      <code><![CDATA[liveRecord]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/MemoryService.php">
+    <UnusedMethod>
+      <code><![CDATA[liveEntryText]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/MessageTranslationEngine.php">
+    <UnusedMethod>
+      <code><![CDATA[buildPrompt]]></code>
+      <code><![CDATA[detectLanguage]]></code>
+      <code><![CDATA[machineTranslation]]></code>
+      <code><![CDATA[modelLabel]]></code>
+      <code><![CDATA[translatedResult]]></code>
+      <code><![CDATA[unavailableResult]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/NcNative/MarkedObjectCounter.php">
+    <UnusedMethod>
+      <code><![CDATA[calendarObjects]]></code>
+      <code><![CDATA[cards]]></code>
+      <code><![CDATA[carries]]></code>
+      <code><![CDATA[tally]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/OrganisationOpsService.php">
+    <UnusedMethod>
+      <code><![CDATA[appendIncidentRecords]]></code>
+      <code><![CDATA[appendRecords]]></code>
+      <code><![CDATA[lastRunAt]]></code>
+      <code><![CDATA[loadAgents]]></code>
+      <code><![CDATA[loadApprovals]]></code>
+      <code><![CDATA[loadIncidents]]></code>
+      <code><![CDATA[loadObjects]]></code>
+      <code><![CDATA[loadSchedules]]></code>
+      <code><![CDATA[loadTenantControl]]></code>
+      <code><![CDATA[normaliseStringArray]]></code>
+      <code><![CDATA[shapeAgentForReview]]></code>
+      <code><![CDATA[shapeIncident]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/PublicChat/PublicChannelStore.php">
+    <UnusedMethod>
+      <code><![CDATA[firstChannel]]></code>
+      <code><![CDATA[read]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/PublicChat/PublicChatGate.php">
+    <UnusedMethod>
+      <code><![CDATA[agentRefusal]]></code>
+      <code><![CDATA[channelRefusal]]></code>
+      <code><![CDATA[counter]]></code>
+      <code><![CDATA[featureEnabled]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/PublicChat/PublicChatService.php">
+    <UnusedMethod>
+      <code><![CDATA[contextOf]]></code>
+      <code><![CDATA[historyOf]]></code>
+      <code><![CDATA[policyFor]]></code>
+      <code><![CDATA[validQuestion]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/PublicChat/PublicRetrievalService.php">
+    <UnusedMethod>
+      <code><![CDATA[anonymously]]></code>
+      <code><![CDATA[excerptOf]]></code>
+      <code><![CDATA[firstString]]></code>
+      <code><![CDATA[linkOf]]></code>
+      <code><![CDATA[narrower]]></code>
+      <code><![CDATA[rowsOf]]></code>
+      <code><![CDATA[sourceOf]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Redaction/AssignmentRedactor.php">
+    <NullableReturnStatement>
+      <code><![CDATA[preg_replace_callback(
+			$regex,
+			fn (array $matches): string => $this->envAssignReplacement(matches: $matches),
+			$text
+		)]]></code>
+      <code><![CDATA[preg_replace_callback(
+			self::JSON_RE,
+			function (array $matches): string {
+				return $matches[1] . ': "' . $this->masker->mask(token: $matches[2]) . '"';
+			},
+			$text
+		)]]></code>
+      <code><![CDATA[preg_replace_callback(
+			self::YAML_RE,
+			function (array $matches): string {
+				return $matches[1] . $matches[2] . $this->masker->mask(token: $matches[3]);
+			},
+			$text
+		)]]></code>
+    </NullableReturnStatement>
+  </file>
+  <file src="lib/Service/Redaction/CredentialRedactor.php">
+    <NullableReturnStatement>
+      <code><![CDATA[preg_replace(
+			'~-----BEGIN[A-Z ]*PRIVATE KEY-----[\s\S]*?-----END[A-Z ]*PRIVATE KEY-----~',
+			'[REDACTED PRIVATE KEY]',
+			$text
+		)]]></code>
+      <code><![CDATA[preg_replace_callback(
+			'~(' . $names . '\s*:\s*)(\S+)~i',
+			function (array $matches): string {
+				return $matches[1] . $this->masker->mask(token: $matches[2]);
+			},
+			$text
+		)]]></code>
+      <code><![CDATA[preg_replace_callback(
+			'~((?:Proxy-)?Authorization:\s*)([A-Za-z][\w.+-]*\s+)?([^\s"\']+)~i',
+			function (array $matches): string {
+				return $matches[1] . $matches[2] . $this->masker->mask(token: $matches[3]);
+			},
+			$text
+		)]]></code>
+      <code><![CDATA[preg_replace_callback(
+			'~((?:https?|wss?|git|ssh|ftp|ftps|sftp)://)([^\s:@/]{8,})(@[^\s]+)~i',
+			function (array $matches): string {
+				return $matches[1] . $this->masker->mask(token: $matches[2]) . $matches[3];
+			},
+			$text
+		)]]></code>
+      <code><![CDATA[preg_replace_callback(
+			'~((?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp)://[^:\s]+:)([^@\s]+)(@)~i',
+			fn (array $matches): string => $this->dbPasswordReplacement(matches: $matches, codeFile: $codeFile),
+			$text
+		)]]></code>
+      <code><![CDATA[preg_replace_callback(
+			'~(bot)?(\d{8,}):([-A-Za-z0-9_]{30,})~',
+			function (array $matches): string {
+				return $matches[1] . $matches[2] . ':***';
+			},
+			$text
+		)]]></code>
+      <code><![CDATA[preg_replace_callback(
+			'~eyJ[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_=-]{4,}){0,2}~',
+			function (array $matches): string {
+				return $this->masker->mask(token: $matches[0]);
+			},
+			$text
+		)]]></code>
+    </NullableReturnStatement>
+  </file>
+  <file src="lib/Service/Redaction/PhoneRedactor.php">
+    <NullableReturnStatement>
+      <code><![CDATA[preg_replace_callback(
+			'~(\+[1-9]\d{6,14})(?![A-Za-z0-9])~',
+			fn (array $matches): string => $this->maskPhone(phone: $matches[1]),
+			$text
+		)]]></code>
+    </NullableReturnStatement>
+  </file>
+  <file src="lib/Service/Redaction/VendorKeyRedactor.php">
+    <NullableReturnStatement>
+      <code><![CDATA[preg_replace_callback(
+			$this->prefixRegex,
+			function (array $matches) use ($fileRead): string {
+				if ($fileRead === true) {
+					return $this->maskTokenNonReusable(token: $matches[1]);
+				}
+
+				return $this->masker->mask(token: $matches[1]);
+			},
+			$text
+		)]]></code>
+    </NullableReturnStatement>
+    <UnusedMethod>
+      <code><![CDATA[extractLiteralPrefix]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/RemoteAgent/RemoteAgentService.php">
+    <UnusedMethod>
+      <code><![CDATA[cardSnapshot]]></code>
+      <code><![CDATA[slugOf]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ReportSimilarity/ReportSimilarityService.php">
+    <UnusedMethod>
+      <code><![CDATA[answerFor]]></code>
+      <code><![CDATA[beats]]></code>
+      <code><![CDATA[bestMatch]]></code>
+      <code><![CDATA[evaluateReport]]></code>
+      <code><![CDATA[find]]></code>
+      <code><![CDATA[groupText]]></code>
+      <code><![CDATA[groupsOfType]]></code>
+      <code><![CDATA[isOpenGroup]]></code>
+      <code><![CDATA[joinGroup]]></code>
+      <code><![CDATA[joinGroupFor]]></code>
+      <code><![CDATA[judgementContext]]></code>
+      <code><![CDATA[judgementEvent]]></code>
+      <code><![CDATA[keyMatch]]></code>
+      <code><![CDATA[keyedMatch]]></code>
+      <code><![CDATA[lastJoinedAt]]></code>
+      <code><![CDATA[openGroups]]></code>
+      <code><![CDATA[record]]></code>
+      <code><![CDATA[scoredMatch]]></code>
+      <code><![CDATA[scoredMatchOf]]></code>
+      <code><![CDATA[shape]]></code>
+      <code><![CDATA[startGroup]]></code>
+      <code><![CDATA[startGroupFor]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ReportSimilarity/ReportSimilaritySettings.php">
+    <UnusedMethod>
+      <code><![CDATA[assertThresholds]]></code>
+      <code><![CDATA[cleanWindows]]></code>
+      <code><![CDATA[score]]></code>
+      <code><![CDATA[stored]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ReportSimilarity/TermOverlapScorer.php">
+    <UnusedMethod>
+      <code><![CDATA[isSignificant]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ReportSubscriptions.php">
+    <UnusedMethod>
+      <code><![CDATA[find]]></code>
+      <code><![CDATA[row]]></code>
+      <code><![CDATA[save]]></code>
+      <code><![CDATA[subscriptionTo]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Research/CitationCheck.php">
+    <UnusedMethod>
+      <code><![CDATA[noun]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Research/ResearchStarter.php">
+    <UnusedMethod>
+      <code><![CDATA[ownRun]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/RetrievalScope/FileSearchComparison.php">
+    <LessSpecificImplementedReturnType>
+      <code><![CDATA[string|int|bool|\DateTime|array]]></code>
+    </LessSpecificImplementedReturnType>
+  </file>
+  <file src="lib/Service/RetrievalScope/FileSearchQuery.php">
+    <LessSpecificImplementedReturnType>
+      <code><![CDATA[array]]></code>
+      <code><![CDATA[array]]></code>
+    </LessSpecificImplementedReturnType>
+  </file>
+  <file src="lib/Service/RunComparator.php">
+    <UnusedMethod>
+      <code><![CDATA[align]]></code>
+      <code><![CDATA[alignedRows]]></code>
+      <code><![CDATA[lcsTable]]></code>
+      <code><![CDATA[mark]]></code>
+      <code><![CDATA[replayPairs]]></code>
+      <code><![CDATA[stepAt]]></code>
+      <code><![CDATA[toolSteps]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/RunHistoryService.php">
+    <UnusedMethod>
+      <code><![CDATA[buildScheduleLink]]></code>
+      <code><![CDATA[firstGateIndex]]></code>
+      <code><![CDATA[gateWaitStep]]></code>
+      <code><![CDATA[hasToolStep]]></code>
+      <code><![CDATA[indexOfRun]]></code>
+      <code><![CDATA[olderFirst]]></code>
+      <code><![CDATA[reconstructGateWait]]></code>
+      <code><![CDATA[renumberSteps]]></code>
+      <code><![CDATA[replayMarks]]></code>
+      <code><![CDATA[runEntries]]></code>
+      <code><![CDATA[runEntriesOldestFirst]]></code>
+      <code><![CDATA[runOutline]]></code>
+      <code><![CDATA[runRecordsNewestFirst]]></code>
+      <code><![CDATA[runStartedAt]]></code>
+      <code><![CDATA[toRunRecord]]></code>
+      <code><![CDATA[traceFields]]></code>
+      <code><![CDATA[traceSteps]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Schedule/CoarseStepTimeline.php">
+    <InvalidOperand>
+      <code><![CDATA[((float)$matches[1]) * 1000]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/Schedule/ScheduleListService.php">
+    <UnusedMethod>
+      <code><![CDATA[all]]></code>
+      <code><![CDATA[matches]]></code>
+      <code><![CDATA[maySee]]></code>
+      <code><![CDATA[readback]]></code>
+      <code><![CDATA[row]]></code>
+      <code><![CDATA[sortKey]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ScheduleService.php">
+    <UnusedMethod>
+      <code><![CDATA[diffTrace]]></code>
+      <code><![CDATA[evaluateGates]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ScheduleWebhookSecretService.php">
+    <UnusedMethod>
+      <code><![CDATA[generateSecret]]></code>
+      <code><![CDATA[isConfigured]]></code>
+      <code><![CDATA[persist]]></code>
+      <code><![CDATA[storeNewSecret]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ScheduleWhenParser.php">
+    <UnusedMethod>
+      <code><![CDATA[clockTime]]></code>
+      <code><![CDATA[countedInterval]]></code>
+      <code><![CDATA[cronReadback]]></code>
+      <code><![CDATA[date]]></code>
+      <code><![CDATA[dateParts]]></code>
+      <code><![CDATA[dayNumbers]]></code>
+      <code><![CDATA[daysField]]></code>
+      <code><![CDATA[daysReadback]]></code>
+      <code><![CDATA[firstMatch]]></code>
+      <code><![CDATA[fixedInterval]]></code>
+      <code><![CDATA[interval]]></code>
+      <code><![CDATA[intervalReadback]]></code>
+      <code><![CDATA[isDailyClock]]></code>
+      <code><![CDATA[lang]]></code>
+      <code><![CDATA[monthly]]></code>
+      <code><![CDATA[namedDate]]></code>
+      <code><![CDATA[normalise]]></code>
+      <code><![CDATA[number]]></code>
+      <code><![CDATA[onTheClock]]></code>
+      <code><![CDATA[once]]></code>
+      <code><![CDATA[relativeTime]]></code>
+      <code><![CDATA[time]]></code>
+      <code><![CDATA[weekly]]></code>
+      <code><![CDATA[withMeridiem]]></code>
+      <code><![CDATA[word]]></code>
+      <code><![CDATA[yearOf]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/SessionForkService.php">
+    <UnusedMethod>
+      <code><![CDATA[copyTurn]]></code>
+      <code><![CDATA[forkTitle]]></code>
+      <code><![CDATA[ownedSession]]></code>
+      <code><![CDATA[turnsUpTo]]></code>
+      <code><![CDATA[withRoom]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/SessionParticipantService.php">
+    <UnusedMethod>
+      <code><![CDATA[describe]]></code>
+      <code><![CDATA[editableSession]]></code>
+      <code><![CDATA[notifyAdded]]></code>
+      <code><![CDATA[ownedSession]]></code>
+      <code><![CDATA[saveRoster]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/SessionShareService.php">
+    <UnusedMethod>
+      <code><![CDATA[assertMayShare]]></code>
+      <code><![CDATA[assertMayShareWithUser]]></code>
+      <code><![CDATA[describe]]></code>
+      <code><![CDATA[findSession]]></code>
+      <code><![CDATA[groupShare]]></code>
+      <code><![CDATA[groupsOf]]></code>
+      <code><![CDATA[indexOf]]></code>
+      <code><![CDATA[isShare]]></code>
+      <code><![CDATA[notifyRecipients]]></code>
+      <code><![CDATA[ownedSession]]></code>
+      <code><![CDATA[restrictingGroupsOf]]></code>
+      <code><![CDATA[saveShares]]></code>
+      <code><![CDATA[sharedUnder]]></code>
+      <code><![CDATA[withSharer]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/SkillBundleInstaller.php">
+    <UnusedMethod>
+      <code><![CDATA[agentExists]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/SkillBundleSerializer.php">
+    <UnusedMethod>
+      <code><![CDATA[agentFiles]]></code>
+      <code><![CDATA[encode]]></code>
+      <code><![CDATA[entriesFor]]></code>
+      <code><![CDATA[majorOf]]></code>
+      <code><![CDATA[normaliseName]]></code>
+      <code><![CDATA[parseDeclared]]></code>
+      <code><![CDATA[readAgentManifest]]></code>
+      <code><![CDATA[readManifest]]></code>
+      <code><![CDATA[readManifestNames]]></code>
+      <code><![CDATA[reject]]></code>
+      <code><![CDATA[selectEntries]]></code>
+      <code><![CDATA[skillFiles]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/SkillConsolidationService.php">
+    <UnusedMethod>
+      <code><![CDATA[auditEdit]]></code>
+      <code><![CDATA[withReplacedContent]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/SkillLearningsPromotionService.php">
+    <InvalidOperand>
+      <code><![CDATA[$sorted['dropped']++]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/SkillMarketplaceService.php">
+    <UnusedReturnValue>
+      <code><![CDATA[ObjectEntity]]></code>
+    </UnusedReturnValue>
+  </file>
+  <file src="lib/Service/SkillMaturityService.php">
+    <UnusedMethod>
+      <code><![CDATA[bodySizeReasons]]></code>
+      <code><![CDATA[checkL1]]></code>
+      <code><![CDATA[checkL2]]></code>
+      <code><![CDATA[checkL3]]></code>
+      <code><![CDATA[checkL4]]></code>
+      <code><![CDATA[checkL5]]></code>
+      <code><![CDATA[checkL6]]></code>
+      <code><![CDATA[checkL7]]></code>
+      <code><![CDATA[checkOutcome]]></code>
+      <code><![CDATA[containsWhenToUsePhrase]]></code>
+      <code><![CDATA[descriptionOf]]></code>
+      <code><![CDATA[descriptionReasons]]></code>
+      <code><![CDATA[fileNameOf]]></code>
+      <code><![CDATA[fileNames]]></code>
+      <code><![CDATA[frontmatterField]]></code>
+      <code><![CDATA[frontmatterReasons]]></code>
+      <code><![CDATA[hasEntryUnder]]></code>
+      <code><![CDATA[isCompleteEvalEvidence]]></code>
+      <code><![CDATA[isNumericEntry]]></code>
+      <code><![CDATA[levelEntry]]></code>
+      <code><![CDATA[lineCount]]></code>
+      <code><![CDATA[now]]></code>
+      <code><![CDATA[persistQualification]]></code>
+      <code><![CDATA[startsWithTriggerVerb]]></code>
+      <code><![CDATA[stringOf]]></code>
+      <code><![CDATA[withoutQuotes]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/SkillMergeService.php">
+    <UnusedMethod>
+      <code><![CDATA[save]]></code>
+      <code><![CDATA[summary]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/SkillSerializer.php">
+    <UnusedMethod>
+      <code><![CDATA[auxName]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/SkillService.php">
+    <UnusedMethod>
+      <code><![CDATA[applyPublishFileSelection]]></code>
+      <code><![CDATA[desyncAgentSkillInstalls]]></code>
+      <code><![CDATA[syncAgentSkillInstalls]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/SkillVersionService.php">
+    <UnusedMethod>
+      <code><![CDATA[findEntryIndex]]></code>
+      <code><![CDATA[liveSkillData]]></code>
+      <code><![CDATA[reconstructAsOf]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Speech/TranslatedAudioFiles.php">
+    <UnusedMethod>
+      <code><![CDATA[fileName]]></code>
+      <code><![CDATA[slug]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ToolAccessRequestService.php">
+    <UnusedMethod>
+      <code><![CDATA[approvalEntry]]></code>
+      <code><![CDATA[collectPendingApprovals]]></code>
+      <code><![CDATA[findPendingRequests]]></code>
+      <code><![CDATA[logPendingApprovalsFailure]]></code>
+      <code><![CDATA[openRegisterAvailable]]></code>
+      <code><![CDATA[pendingApproval]]></code>
+      <code><![CDATA[requestIdOf]]></code>
+      <code><![CDATA[requestToolOf]]></code>
+      <code><![CDATA[resolvePath]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ToolInvocationRows.php">
+    <UnusedMethod>
+      <code><![CDATA[bound]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/ToolOversight/ToolCallMarks.php">
+    <UnusedMethod>
+      <code><![CDATA[marksOf]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/TraceExport/TraceExporter.php">
+    <InvalidOperand>
+      <code><![CDATA[((float)($value ?? microtime(true))) * 1000000000]]></code>
+      <code><![CDATA[(float)$usage['llmSeconds'] * 1000000000]]></code>
+      <code><![CDATA[(float)$value * 1000000000]]></code>
+      <code><![CDATA[microtime(true) * 1000000000]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/WebhookSecretService.php">
+    <UnusedMethod>
+      <code><![CDATA[dummyHash]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Workspace/GitProcess.php">
+    <InaccessibleProperty>
+      <code><![CDATA[$this->pipes]]></code>
+      <code><![CDATA[$this->pipes]]></code>
+      <code><![CDATA[$this->pipes]]></code>
+    </InaccessibleProperty>
+    <InvalidPropertyAssignmentValue>
+      <code><![CDATA[$this->pipes]]></code>
+      <code><![CDATA[$this->pipes]]></code>
+      <code><![CDATA[$this->pipes]]></code>
+    </InvalidPropertyAssignmentValue>
+  </file>
+  <file src="lib/Service/Workspace/GitRunner.php">
+    <InvalidOperand>
+      <code><![CDATA[microtime(true) + $command->timeoutSeconds]]></code>
+    </InvalidOperand>
+  </file>
+  <file src="lib/Service/Workspace/ServerSideWorkspaceProvider.php">
+    <UnusedMethod>
+      <code><![CDATA[assertArchivePaths]]></code>
+      <code><![CDATA[extractArchive]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Service/Workspace/WorkspaceFiles.php">
+    <UnusedMethod>
+      <code><![CDATA[folderFor]]></code>
+      <code><![CDATA[rootOrNull]]></code>
+    </UnusedMethod>
+  </file>
+  <file src="lib/Tenant/OpenRegisterManageableOrganisations.php">
+    <UnusedMethod>
+      <code><![CDATA[candidates]]></code>
+      <code><![CDATA[options]]></code>
+      <code><![CDATA[ownedBy]]></code>
+    </UnusedMethod>
+  </file>
+</files>

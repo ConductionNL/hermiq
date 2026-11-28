@@ -4,7 +4,7 @@
  * Hermiq Chat Conversation Management Handler.
  *
  * Handler for conversation lifecycle management: title generation, summarisation.
- * Ported from `OCA\OpenRegister\Service\Chat\ConversationManagementHandler`,
+ * Ported from `OCA\OpenRegister\Mcp\Service\Chat\ConversationManagementHandler`,
  * re-pointed at the `Conversation`/`Message` OR objects (agent-engine-schemas) via
  * `ObjectService`, and at `ProviderFactory` instead of OR's inline per-provider
  * LLPhant config building.
@@ -34,8 +34,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
  */
 
 declare(strict_types=1);
@@ -47,6 +47,9 @@ use Exception;
 use LLPhant\Chat\Message as LLPhantMessage;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindOptions;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectFindTarget;
+use OCA\OpenRegister\Kernel\Contracts\Value\ObjectSaveOptions;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -54,7 +57,10 @@ use Throwable;
 /**
  * Handles conversation title generation, summarisation, and uniqueness.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) carried in with chat-how-an-answer-came-about; splitting it
+ * is follow-up work, not part of this merge.
  */
 class ConversationManagementHandler {
 	use SanitizesForSaveTrait;
@@ -71,7 +77,7 @@ class ConversationManagementHandler {
 	 *
 	 * @var string
 	 */
-	private const CONVERSATION_SCHEMA = 'conversation';
+	private const CONVERSATION_SCHEMA = 'agentsession';
 
 	/**
 	 * Maximum tokens before triggering summarisation.
@@ -105,7 +111,7 @@ class ConversationManagementHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function __construct(
 		private readonly ObjectService $objectService,
@@ -128,8 +134,8 @@ class ConversationManagementHandler {
 	 *
 	 * @return string Generated title.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
 	public function generateConversationTitle(string $firstMessage, ?string $organisation = null): string {
 		$this->logger->info(
@@ -183,10 +189,7 @@ class ConversationManagementHandler {
 	 *
 	 * @return string Unique title, with a numeric suffix if needed.
 	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Ported suffix-probing loop kept
-	 * structurally intact from the OR original for parity reviewability.
-	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	public function ensureUniqueTitle(string $baseTitle, string $userId, string $agentId): string {
 		$this->logger->info(
@@ -213,39 +216,12 @@ class ConversationManagementHandler {
 				]
 			);
 
-		$existingTitles = [];
-		foreach ($conversations as $conversation) {
-			if (($conversation instanceof ObjectEntity) === false) {
-				continue;
-			}
-
-			$title = $conversation->getObject()['title'] ?? null;
-			if (is_string($title) === true && str_starts_with($title, $baseTitle) === true) {
-				$existingTitles[] = $title;
-			}
-		}
-
-		if (empty($existingTitles) === true) {
-			return $baseTitle;
-		}
-
+		$existingTitles = $this->titlesStartingWith(baseTitle: $baseTitle, conversations: $conversations);
 		if (in_array($baseTitle, $existingTitles, true) === false) {
 			return $baseTitle;
 		}
 
-		$maxNumber = 1;
-		$baseTitleEscaped = preg_quote($baseTitle, '/');
-
-		foreach ($existingTitles as $title) {
-			if (preg_match('/^' . $baseTitleEscaped . ' \((\d+)\)$/', $title, $matches) === 1) {
-				$number = (int)$matches[1];
-				if ($number > $maxNumber) {
-					$maxNumber = $number;
-				}
-			}
-		}
-
-		$uniqueTitle = $baseTitle . ' (' . ($maxNumber + 1) . ')';
+		$uniqueTitle = $baseTitle . ' (' . ($this->highestTitleSuffix(baseTitle: $baseTitle, titles: $existingTitles) + 1) . ')';
 
 		$this->logger->info(
 			message: '[ConversationManagementHandler] Generated unique title',
@@ -262,6 +238,105 @@ class ConversationManagementHandler {
 	}//end ensureUniqueTitle()
 
 	/**
+	 * The titles of the found conversations that start with the base title.
+	 *
+	 * @param string            $baseTitle     The base title.
+	 * @param array<int, mixed> $conversations The conversations found for the user and agent.
+	 *
+	 * @return array<int, string>
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 */
+	private function titlesStartingWith(string $baseTitle, array $conversations): array {
+		$titles = [];
+		foreach ($conversations as $conversation) {
+			if (($conversation instanceof ObjectEntity) === false) {
+				continue;
+			}
+
+			$title = $conversation->getObject()['title'] ?? null;
+			if (is_string($title) === true && str_starts_with($title, $baseTitle) === true) {
+				$titles[] = $title;
+			}
+		}
+
+		return $titles;
+	}//end titlesStartingWith()
+
+	/**
+	 * The highest numeric suffix among `<base> (<n>)` titles, at least 1.
+	 *
+	 * @param string             $baseTitle The base title.
+	 * @param array<int, string> $titles    The titles that start with the base title.
+	 *
+	 * @return int
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 */
+	private function highestTitleSuffix(string $baseTitle, array $titles): int {
+		$maxNumber = 1;
+		$pattern = '/^' . preg_quote($baseTitle, '/') . ' \((\d+)\)$/';
+		foreach ($titles as $title) {
+			if (preg_match($pattern, $title, $matches) === 1 && (int)$matches[1] > $maxNumber) {
+				$maxNumber = (int)$matches[1];
+			}
+		}
+
+		return $maxNumber;
+	}//end highestTitleSuffix()
+
+	/**
+	 * Keep the turn's context usage on the session as `metadata.contextUsage`
+	 * (chat-how-an-answer-came-about D4). It never writes `metadata.token_count`:
+	 * that key would switch on checkAndSummarize(), which has never run in
+	 * production (design D6). Never throws; a failure is logged.
+	 *
+	 * @param string                                                          $conversationId The session uuid.
+	 * @param array{usedTokens: int, windowTokens: int|null, estimated: bool} $contextUsage   The usage.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/answer-transparency/spec.md#requirement-a-person-sees-how-full-the-models-context-is-req-atrn-004
+	 */
+	public function recordContextUsage(string $conversationId, array $contextUsage): void {
+		try {
+			$conversation = $this->objectService->find(
+				id: $conversationId,
+				options: new ObjectFindOptions(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA)
+			);
+			if ($conversation === null) {
+				return;
+			}
+
+			$data = $conversation->getObject();
+			$metadata = $data['metadata'] ?? [];
+			if (is_array($metadata) === false) {
+				$metadata = [];
+			}
+
+			$metadata['contextUsage'] = $contextUsage;
+			$data['metadata'] = $metadata;
+			$this->objectService->saveObject(
+				object: $this->sanitizeForSave(data: $data),
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: $conversationId
+				)
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[ConversationManagementHandler] Could not record the context usage',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'conversationId' => $conversationId,
+					'error' => $e->getMessage(),
+				]
+			);
+		}//end try
+	}//end recordContextUsage()
+
+	/**
 	 * Check whether a conversation needs summarisation and, if so, create one.
 	 *
 	 * Triggers when `metadata.token_count` exceeds `MAX_TOKENS_BEFORE_SUMMARY`
@@ -272,8 +347,9 @@ class ConversationManagementHandler {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
+	 * @spec openspec/specs/agent-engine-port/spec.md#REQ-SPCOV-009
 	 */
 	public function checkAndSummarize(ObjectEntity $conversation): void {
 		$data = $conversation->getObject();
@@ -282,25 +358,11 @@ class ConversationManagementHandler {
 			$metadata = [];
 		}
 
-		$tokenCount = $metadata['token_count'] ?? 0;
-		if ($tokenCount < self::MAX_TOKENS_BEFORE_SUMMARY) {
+		if ($this->summaryIsDue(metadata: $metadata) === false) {
 			return;
 		}
 
-		$lastSummary = $metadata['last_summary_at'] ?? null;
-		if ($lastSummary !== null) {
-			try {
-				$lastSummaryTime = new DateTime($lastSummary);
-				$hoursSinceSummary = (time() - $lastSummaryTime->getTimestamp()) / 3600;
-				if ($hoursSinceSummary < 1) {
-					return;
-				}
-			} catch (Exception) {
-				// Malformed timestamp — fall through and re-summarise.
-				unset($lastSummary);
-			}
-		}
-
+		$tokenCount = $metadata['token_count'] ?? 0;
 		$conversationUuid = (string)$conversation->getUuid();
 
 		$this->logger->info(
@@ -333,9 +395,10 @@ class ConversationManagementHandler {
 
 			$this->objectService->saveObject(
 				object: $this->sanitizeForSave(data: $data),
-				register: self::REGISTER_SLUG,
-				schema: self::CONVERSATION_SCHEMA,
-				uuid: $conversationUuid
+				options: new ObjectSaveOptions(
+					target: new ObjectFindTarget(register: self::REGISTER_SLUG, schema: self::CONVERSATION_SCHEMA),
+					uuid: $conversationUuid
+				)
 			);
 
 			$this->logger->info(
@@ -361,6 +424,36 @@ class ConversationManagementHandler {
 	}//end checkAndSummarize()
 
 	/**
+	 * Whether the token count reached the summary bound and no summary ran in
+	 * the last hour. A malformed last-summary time counts as no summary.
+	 *
+	 * @param array<string, mixed> $metadata The conversation's metadata.
+	 *
+	 * @return bool
+	 *
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-2
+	 */
+	private function summaryIsDue(array $metadata): bool {
+		$tokenCount = $metadata['token_count'] ?? 0;
+		if ($tokenCount < self::MAX_TOKENS_BEFORE_SUMMARY) {
+			return false;
+		}
+
+		$lastSummary = $metadata['last_summary_at'] ?? null;
+		if ($lastSummary === null) {
+			return true;
+		}
+
+		try {
+			$lastSummaryTime = new DateTime($lastSummary);
+		} catch (Exception) {
+			return true;
+		}
+
+		return ((time() - $lastSummaryTime->getTimestamp()) / 3600) >= 1;
+	}//end summaryIsDue()
+
+	/**
 	 * Fetch every Message for a conversation, oldest-first, up to
 	 * `MAX_MESSAGES_FOR_SUMMARY`.
 	 *
@@ -369,15 +462,19 @@ class ConversationManagementHandler {
 	 * @return array<int, ObjectEntity> The conversation's Message objects, ascending.
 	 */
 	private function fetchAllMessages(string $conversationId): array {
+		// _rbac false: a SessionTurn is readable by its owner only (hermiq#976), and a
+		// summary of a shared session must cover every participant's turns. This runs
+		// inside the engine turn, after its owner-or-participant check on the session.
 		$messages = $this->objectService
 			->setRegister(self::REGISTER_SLUG)
-			->setSchema('message')
+			->setSchema('agentsessionturn')
 			->findAll(
 				config: [
-					'filters' => ['conversationId' => $conversationId],
-					'sort' => ['created' => 'ASC'],
+					'filters' => ['sessionId' => $conversationId],
+					'sort' => ['_created' => 'ASC'],
 					'limit' => self::MAX_MESSAGES_FOR_SUMMARY,
-				]
+				],
+				_rbac: false
 			);
 
 		return array_values(array_filter($messages, static fn ($object): bool => $object instanceof ObjectEntity));
@@ -420,6 +517,23 @@ class ConversationManagementHandler {
 	}//end generateSummary()
 
 	/**
+	 * One completion from the configured model, under the organisation's model policy.
+	 *
+	 * The same path the conversation title uses, for other one-shot callers (the
+	 * knowledge-graph extractor). Throws when no provider is available.
+	 *
+	 * @param string $prompt The prompt.
+	 * @param string|null $organisation The organisation whose model policy applies.
+	 *
+	 * @return string The model's answer.
+	 *
+	 * @spec openspec/specs/knowledge-graph/spec.md#requirement-extraction-runs-as-the-acting-user-in-audited-background-jobs
+	 */
+	public function generateText(string $prompt, ?string $organisation = null): string {
+		return $this->generateTextViaConfiguredLlm(prompt: $prompt, organisation: $organisation);
+	}//end generateText()
+
+	/**
 	 * Generate free text against whichever chat provider `hermiq.llm` currently
 	 * selects. Shared by title generation and summarisation.
 	 *
@@ -438,7 +552,7 @@ class ConversationManagementHandler {
 	 * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message::user() factory is the
 	 * library's public API — there is no injectable seam.
 	 *
-	 * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+	 * @spec openspec/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
 	 */
 	private function generateTextViaConfiguredLlm(string $prompt, ?string $organisation = null): string {
 		$llmConfig = $this->providerFactory->getLlmConfig();
@@ -468,6 +582,11 @@ class ConversationManagementHandler {
 			return $this->providerFactory->generateViaNextcloud(prompt: $prompt);
 		}
 
+		// OpenAI and OpenAI-compatible in Responses API mode (models-provider-connections D4).
+		if ($driver->apiMode === ProviderFactory::API_MODE_RESPONSES) {
+			return $this->providerFactory->callOpenAiResponses(driver: $driver, messageHistory: [LLPhantMessage::user($prompt)]);
+		}
+
 		// OpenAI / Ollama: driver->chat is a ready LLPhant chat instance.
 		return $driver->chat->generateText($prompt);
 	}//end generateTextViaConfiguredLlm()
@@ -480,7 +599,7 @@ class ConversationManagementHandler {
 	 *
 	 * @return string Fallback title.
 	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 * @spec openspec/changes/archive/2026-09-06-agent-engine-port/tasks.md#task-1-1
 	 */
 	private function generateFallbackTitle(string $message): string {
 		$title = substr($message, 0, 60);

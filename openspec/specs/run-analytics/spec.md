@@ -100,6 +100,55 @@ run (see `multi-tenant-ops`'s budget hard-cap requirement).
 - **THEN** the gate MUST evaluate only actual current-period recorded usage
 - **AND** the estimate value MUST NOT be read by the gate at all
 
+### Requirement: An agent owner sees how answers were rated (REQ-FBSTAT-001)
+
+`GET /api/analytics` MUST return a `feedback` block with `positive`, `negative` and `helpfulRate`, on the same tenant boundary and agent scope as the run metrics, and each `perAgent` row MUST carry `positive` and `negative`. The agent page MUST show a "Rated helpful" tile with the share and the counts, and "No ratings yet" when there are none.
+
+#### Scenario: An owner checks how an agent is received
+- GIVEN the owner of "Permit helper", whose answers got three thumbs up and one thumbs down
+- WHEN they open the agent page
+- THEN the "Rated helpful" tile shows 75% with 3 up and 1 down
+
+#### Scenario: The dashboard compares agents
+- GIVEN two agents with ratings
+- WHEN a user opens the dashboard
+- THEN the per-agent breakdown shows the thumbs up and thumbs down for each agent beside its runs
+
+### Requirement: An agent owner reads the latest low ratings (REQ-FBSTAT-002)
+
+The agent page MUST list the last ten thumbs-down ratings that carry a comment, newest first, with the date and without the rater's name. `GET /api/analytics/agents/{agentId}/low-ratings` MUST answer HTTP 404 to a user who may not read the agent.
+
+#### Scenario: An owner reads why answers were rated down
+- GIVEN a thumbs down on "Permit helper" with the comment "Gave the old opening hours"
+- WHEN the owner opens the agent page
+- THEN "Latest low ratings" lists "Gave the old opening hours" with its date
+
+#### Scenario: A user without access
+- GIVEN a private agent the user may not read
+- WHEN they call `GET /api/analytics/agents/{agentId}/low-ratings`
+- THEN the answer is HTTP 404
+- @e2e exclude authorization contract on the endpoint, covered by PHPUnit
+
+### Requirement: Analytics computation MUST NOT read audit-trail rows outside the caller's tenant scope
+The system's `AnalyticsService::computeAnalytics()` MUST issue an `AuditTrailMapper`
+query bounded to the caller's own schedule set (via a scoped filter or an explicit limit
+paired with a documented follow-up), and MUST NOT rely solely on post-query, in-PHP
+filtering to enforce the tenant boundary.
+
+#### Scenario: A tenant with few schedules requests analytics on a large multi-tenant instance
+- **GIVEN** an OpenRegister instance with `action='run'` audit-trail rows belonging to
+  many organisations
+- **WHEN** a user from one organisation calls `GET` on the analytics endpoint
+- **THEN** the underlying `AuditTrailMapper::findAll()` call MUST be bounded (a scoped
+  filter and/or an explicit limit) rather than reading every organisation's rows
+- **AND** the returned metrics MUST still only reflect that caller's own schedules
+
+#### Scenario: The unit test guards the query shape, not just the aggregated result
+- **GIVEN** `tests/Unit/Service/AnalyticsServiceTest.php`
+- **WHEN** `computeAnalytics()` is invoked against a mocked `AuditTrailMapper`
+- **THEN** the test MUST assert the arguments passed to `findAll()` include a bounding
+  filter or limit, not merely assert on the mock's canned return value
+
 ## User Stories
 
 - As a tenant admin, I want to see success rate and cost trends across my agents so that I can judge whether autonomous runs are worth the spend.
