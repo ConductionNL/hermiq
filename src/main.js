@@ -33,8 +33,9 @@ import { registerEnglishFallback } from './utils/englishFallback.js'
 // (the CnIconPicker MDI catalogue, the toast-ui markdown editor) triggers
 // lazy-chunk loading from the wrong path.
 import './publicPath.js'
-// Library CSS — must be explicit import (webpack tree-shakes side-effect imports from aliased packages)
-import '@conduction/nextcloud-vue/css/index.css'
+// Library CSS: templates/index.php links css/nextcloud-vue.css (LibraryStylesheetCopy in
+// webpack.config.js), so the sheet stays parsed between page loads instead of being
+// inserted from this bundle as text.
 // NOTE: gridstack's stylesheet is deliberately NOT imported here. The library owns it:
 // @conduction/nextcloud-vue's src/css/index.css @imports 'gridstack/dist/gridstack.min.css'
 // so postcss-import inlines it into the sheet the line above already pulls in. An app-level

@@ -139,3 +139,4 @@ composer.phar
 .stale/
 /.e2e-state/
 /coverage-vitest/
+/css/nextcloud-vue.css
